@@ -112,6 +112,17 @@
       <img class="center" aria-hidden="true" src="splash/img/light-1x.png" alt="">
   </picture>
   
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (var reg of registrations) { reg.unregister(); }
+      }).then(function() {
+        return caches.keys();
+      }).then(function(cacheNames) {
+        return Promise.all(cacheNames.map(function(c) { return caches.delete(c); }));
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async=""></script>
 
 
