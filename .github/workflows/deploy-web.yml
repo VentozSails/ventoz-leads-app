@@ -26,7 +26,7 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build web --release
+      - run: flutter build web --release --base-href /ventoz-leads-app/
 
       - name: Push to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
