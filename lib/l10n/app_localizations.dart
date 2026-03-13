@@ -1,0 +1,1455 @@
+class AppLocalizations {
+  static const _strings = <String, Map<String, String>>{
+    'productcatalogus': {
+      'nl': 'Productcatalogus', 'de': 'Produktkatalog', 'en': 'Product Catalogue',
+      'fr': 'Catalogue de produits', 'es': 'Catálogo de productos', 'it': 'Catalogo prodotti',
+      'pl': 'Katalog produktów', 'pt': 'Catálogo de produtos', 'da': 'Produktkatalog',
+      'sv': 'Produktkatalog', 'fi': 'Tuoteluettelo', 'el': 'Κατάλογος προϊόντων',
+      'cs': 'Katalog produktů', 'hu': 'Termékkatalógus', 'ro': 'Catalog de produse',
+      'bg': 'Каталог на продукти', 'hr': 'Katalog proizvoda', 'sk': 'Katalóg produktov',
+      'sl': 'Katalog izdelkov', 'et': 'Tootekataloog', 'lt': 'Produktų katalogas',
+      'lv': 'Produktu katalogs', 'mt': 'Katalgu tal-Prodotti', 'ga': 'Catalóg Táirgí',
+    },
+    'zoek_hint': {
+      'nl': 'Zoek product, categorie, artikelnummer...', 'de': 'Produkt, Kategorie, Artikelnummer suchen...',
+      'en': 'Search product, category, article number...', 'fr': 'Rechercher produit, catégorie, numéro d\'article...',
+      'es': 'Buscar producto, categoría, número de artículo...', 'it': 'Cerca prodotto, categoria, numero articolo...',
+      'pl': 'Szukaj produktu, kategorii, numeru artykułu...', 'pt': 'Pesquisar produto, categoria, número de artigo...',
+      'da': 'Søg produkt, kategori, artikelnummer...', 'sv': 'Sök produkt, kategori, artikelnummer...',
+      'fi': 'Hae tuotetta, luokkaa, tuotenumeroa...', 'cs': 'Hledat produkt, kategorii, číslo artiklu...',
+      'hu': 'Keresés termék, kategória, cikkszám...', 'ro': 'Caută produs, categorie, număr articol...',
+    },
+    'alle_categorieen': {
+      'nl': 'Alle categorieën', 'de': 'Alle Kategorien', 'en': 'All categories',
+      'fr': 'Toutes les catégories', 'es': 'Todas las categorías', 'it': 'Tutte le categorie',
+      'pl': 'Wszystkie kategorie', 'pt': 'Todas as categorias', 'da': 'Alle kategorier',
+      'sv': 'Alla kategorier', 'fi': 'Kaikki luokat', 'cs': 'Všechny kategorie',
+      'hu': 'Összes kategória', 'ro': 'Toate categoriile',
+    },
+    'op_voorraad': {
+      'nl': 'Op voorraad', 'de': 'Auf Lager', 'en': 'In stock', 'fr': 'En stock',
+      'es': 'En stock', 'it': 'Disponibile', 'pl': 'Na stanie', 'pt': 'Em estoque',
+      'da': 'På lager', 'sv': 'I lager', 'fi': 'Varastossa', 'cs': 'Skladem',
+      'hu': 'Raktáron', 'ro': 'În stoc',
+    },
+    'niet_op_voorraad': {
+      'nl': 'Niet op voorraad', 'de': 'Nicht auf Lager', 'en': 'Out of stock',
+      'fr': 'Rupture de stock', 'es': 'Agotado', 'it': 'Non disponibile',
+      'pl': 'Brak na stanie', 'pt': 'Sem estoque', 'da': 'Ikke på lager',
+      'sv': 'Slut i lager', 'fi': 'Loppu', 'cs': 'Není skladem',
+    },
+    'staffelprijzen': {
+      'nl': 'Staffelprijzen', 'de': 'Staffelpreise', 'en': 'Volume prices',
+      'fr': 'Prix dégressifs', 'es': 'Precios por volumen', 'it': 'Prezzi scaglionati',
+      'pl': 'Ceny hurtowe', 'pt': 'Preços por volume', 'da': 'Mængdepriser',
+      'sv': 'Volympriser', 'fi': 'Paljousalennukset',
+    },
+    'specificaties': {
+      'nl': 'Specificaties', 'de': 'Spezifikationen', 'en': 'Specifications',
+      'fr': 'Spécifications', 'es': 'Especificaciones', 'it': 'Specifiche',
+      'pl': 'Specyfikacje', 'pt': 'Especificações', 'da': 'Specifikationer',
+      'sv': 'Specifikationer', 'fi': 'Tekniset tiedot',
+    },
+    'sluiten': {
+      'nl': 'Sluiten', 'de': 'Schließen', 'en': 'Close', 'fr': 'Fermer',
+      'es': 'Cerrar', 'it': 'Chiudi', 'pl': 'Zamknij', 'pt': 'Fechar',
+      'da': 'Luk', 'sv': 'Stäng', 'fi': 'Sulje',
+    },
+    'terug': {
+      'nl': 'Terug', 'en': 'Back', 'de': 'Zurück', 'fr': 'Retour',
+      'es': 'Volver', 'it': 'Indietro', 'pl': 'Wróć', 'pt': 'Voltar',
+    },
+    'bekijk_op_site': {
+      'nl': 'Bekijk op ventoz.nl', 'de': 'Auf ventoz.nl ansehen', 'en': 'View on ventoz.nl',
+      'fr': 'Voir sur ventoz.nl', 'es': 'Ver en ventoz.nl', 'it': 'Vedi su ventoz.nl',
+      'pl': 'Zobacz na ventoz.nl', 'pt': 'Ver em ventoz.nl', 'da': 'Se på ventoz.nl',
+      'sv': 'Se på ventoz.nl', 'fi': 'Katso ventoz.nl',
+    },
+    'geen_producten': {
+      'nl': 'Geen producten in catalogus', 'de': 'Keine Produkte im Katalog', 'en': 'No products in catalogue',
+      'fr': 'Aucun produit dans le catalogue', 'es': 'No hay productos en el catálogo', 'it': 'Nessun prodotto nel catalogo',
+    },
+    'sync_eerst': {
+      'nl': 'Synchroniseer eerst met ventoz.nl', 'de': 'Zuerst mit ventoz.nl synchronisieren',
+      'en': 'Synchronise with ventoz.nl first', 'fr': 'Synchronisez d\'abord avec ventoz.nl',
+    },
+    'nu_synchroniseren': {
+      'nl': 'Nu synchroniseren', 'de': 'Jetzt synchronisieren', 'en': 'Synchronise now',
+      'fr': 'Synchroniser maintenant', 'es': 'Sincronizar ahora', 'it': 'Sincronizza ora',
+    },
+    'geen_gevonden': {
+      'nl': 'Geen producten gevonden', 'de': 'Keine Produkte gefunden', 'en': 'No products found',
+      'fr': 'Aucun produit trouvé', 'es': 'No se encontraron productos', 'it': 'Nessun prodotto trovato',
+    },
+    'lijstweergave': {
+      'nl': 'Lijstweergave', 'de': 'Listenansicht', 'en': 'List view', 'fr': 'Vue en liste',
+      'es': 'Vista de lista', 'it': 'Vista elenco',
+    },
+    'rasterweergave': {
+      'nl': 'Rasterweergave', 'de': 'Rasteransicht', 'en': 'Grid view', 'fr': 'Vue en grille',
+      'es': 'Vista de cuadrícula', 'it': 'Vista griglia',
+    },
+    'sync_tooltip': {
+      'nl': 'Synchroniseer met ventoz.nl', 'de': 'Mit ventoz.nl synchronisieren',
+      'en': 'Synchronise with ventoz.nl', 'fr': 'Synchroniser avec ventoz.nl',
+      'es': 'Sincronizar con ventoz.nl', 'it': 'Sincronizza con ventoz.nl',
+    },
+    'vernieuwen': {
+      'nl': 'Vernieuwen', 'de': 'Aktualisieren', 'en': 'Refresh', 'fr': 'Rafraîchir',
+      'es': 'Actualizar', 'it': 'Aggiorna', 'pl': 'Odśwież',
+    },
+    'sync_titel': {
+      'nl': 'Website Synchroniseren', 'de': 'Website synchronisieren',
+      'en': 'Synchronise Website', 'fr': 'Synchroniser le site web',
+      'es': 'Sincronizar sitio web', 'it': 'Sincronizza sito web',
+    },
+    'sync_beschrijving': {
+      'nl': 'Dit haalt alle productgegevens op van ventoz.nl en werkt de catalogus bij.\n\nDit kan 1-2 minuten duren (ca. 90 pagina\'s).',
+      'de': 'Dies ruft alle Produktdaten von ventoz.nl ab und aktualisiert den Katalog.\n\nDies kann 1-2 Minuten dauern (ca. 90 Seiten).',
+      'en': 'This fetches all product data from ventoz.nl and updates the catalogue.\n\nThis may take 1-2 minutes (approx. 90 pages).',
+      'fr': 'Ceci récupère toutes les données produits de ventoz.nl et met à jour le catalogue.\n\nCela peut prendre 1-2 minutes (env. 90 pages).',
+      'es': 'Esto obtiene todos los datos de productos de ventoz.nl y actualiza el catálogo.\n\nPuede tardar 1-2 minutos (aprox. 90 páginas).',
+      'it': 'Questo recupera tutti i dati dei prodotti da ventoz.nl e aggiorna il catalogo.\n\nPotrebbe richiedere 1-2 minuti (circa 90 pagine).',
+    },
+    'annuleren': {
+      'nl': 'Annuleren', 'de': 'Abbrechen', 'en': 'Cancel', 'fr': 'Annuler',
+      'es': 'Cancelar', 'it': 'Annulla', 'pl': 'Anuluj',
+    },
+    'synchroniseren': {
+      'nl': 'Synchroniseren', 'de': 'Synchronisieren', 'en': 'Synchronise', 'fr': 'Synchroniser',
+      'es': 'Sincronizar', 'it': 'Sincronizza',
+    },
+    'producten_gesynct': {
+      'nl': 'producten gesynchroniseerd vanuit ventoz.nl', 'de': 'Produkte von ventoz.nl synchronisiert',
+      'en': 'products synchronised from ventoz.nl', 'fr': 'produits synchronisés depuis ventoz.nl',
+      'es': 'productos sincronizados de ventoz.nl', 'it': 'prodotti sincronizzati da ventoz.nl',
+    },
+    'sync_mislukt': {
+      'nl': 'Synchronisatie mislukt', 'de': 'Synchronisierung fehlgeschlagen',
+      'en': 'Synchronisation failed', 'fr': 'Synchronisation échouée',
+      'es': 'Sincronización fallida', 'it': 'Sincronizzazione fallita',
+    },
+    'opnieuw_proberen': {
+      'nl': 'Opnieuw proberen', 'de': 'Erneut versuchen', 'en': 'Try again', 'fr': 'Réessayer',
+      'es': 'Intentar de nuevo', 'it': 'Riprova',
+    },
+    'vanaf': {
+      'nl': 'Vanaf', 'de': 'Ab', 'en': 'From', 'fr': 'À partir de',
+      'es': 'Desde', 'it': 'Da', 'pl': 'Od', 'pt': 'Desde',
+    },
+    'achtergrond_sync': {
+      'nl': 'Catalogus wordt op de achtergrond bijgewerkt...', 'de': 'Katalog wird im Hintergrund aktualisiert...',
+      'en': 'Catalogue is being updated in the background...', 'fr': 'Le catalogue est mis à jour en arrière-plan...',
+      'es': 'El catálogo se está actualizando en segundo plano...', 'it': 'Il catalogo si sta aggiornando in background...',
+    },
+    'verouderd': {
+      'nl': 'Catalogus mogelijk verouderd', 'de': 'Katalog möglicherweise veraltet',
+      'en': 'Catalogue may be outdated', 'fr': 'Le catalogue est peut-être obsolète',
+      'es': 'El catálogo puede estar desactualizado', 'it': 'Il catalogo potrebbe non essere aggiornato',
+    },
+    'nu_bijwerken': {
+      'nl': 'Nu bijwerken', 'de': 'Jetzt aktualisieren', 'en': 'Update now', 'fr': 'Mettre à jour',
+      'es': 'Actualizar ahora', 'it': 'Aggiorna ora',
+    },
+    'opslaan_db': {
+      'nl': 'Opslaan in database...', 'de': 'In Datenbank speichern...',
+      'en': 'Saving to database...', 'fr': 'Enregistrement en base...',
+      'es': 'Guardando en la base de datos...', 'it': 'Salvataggio nel database...',
+    },
+    'taal': {
+      'nl': 'Taal', 'de': 'Sprache', 'en': 'Language', 'fr': 'Langue',
+      'es': 'Idioma', 'it': 'Lingua', 'pl': 'Język', 'pt': 'Idioma',
+      'da': 'Sprog', 'sv': 'Språk', 'fi': 'Kieli',
+    },
+    'categorieen': {
+      'nl': 'Categorieën', 'de': 'Kategorien', 'en': 'Categories', 'fr': 'Catégories',
+      'es': 'Categorías', 'it': 'Categorie', 'pl': 'Kategorie', 'pt': 'Categorias',
+    },
+    'vertalen_bezig': {
+      'nl': 'Vertalingen bijwerken...', 'de': 'Übersetzungen werden aktualisiert...',
+      'en': 'Updating translations...', 'fr': 'Mise à jour des traductions...',
+      'es': 'Actualizando traducciones...', 'it': 'Aggiornamento traduzioni...',
+    },
+    'producten_vertaald': {
+      'nl': 'producten vertaald', 'de': 'Produkte übersetzt', 'en': 'products translated',
+      'fr': 'produits traduits', 'es': 'productos traducidos', 'it': 'prodotti tradotti',
+    },
+    'sync_waarschuwing': {
+      'nl': 'Synchronisatiewaarschuwing', 'de': 'Synchronisierungswarnung',
+      'en': 'Synchronisation warning', 'fr': 'Avertissement de synchronisation',
+      'es': 'Advertencia de sincronización', 'it': 'Avviso di sincronizzazione',
+    },
+    'sync_afgebroken': {
+      'nl': 'Synchronisatie afgebroken', 'de': 'Synchronisierung abgebrochen',
+      'en': 'Synchronisation aborted', 'fr': 'Synchronisation interrompue',
+      'es': 'Sincronización cancelada', 'it': 'Sincronizzazione interrotta',
+    },
+    'hertaald': {
+      'nl': 'producten opnieuw vertaald', 'de': 'Produkte neu übersetzt',
+      'en': 'products retranslated', 'fr': 'produits retraduits',
+      'es': 'productos retraducidos', 'it': 'prodotti ritradotti',
+    },
+    'favorieten': {
+      'nl': 'Favorieten', 'de': 'Favoriten', 'en': 'Favourites', 'fr': 'Favoris',
+      'es': 'Favoritos', 'it': 'Preferiti',
+    },
+    'winkelmand': {
+      'nl': 'Winkelmand', 'de': 'Warenkorb', 'en': 'Shopping Cart', 'fr': 'Panier',
+      'es': 'Carrito', 'it': 'Carrello',
+    },
+    'toevoegen_aan_winkelmand': {
+      'nl': 'Toevoegen aan winkelmand', 'de': 'In den Warenkorb', 'en': 'Add to cart',
+      'fr': 'Ajouter au panier', 'es': 'Añadir al carrito', 'it': 'Aggiungi al carrello',
+    },
+    'toegevoegd_aan_winkelmand': {
+      'nl': 'toegevoegd aan winkelmand', 'de': 'zum Warenkorb hinzugefügt',
+      'en': 'added to cart', 'fr': 'ajouté au panier',
+      'es': 'añadido al carrito', 'it': 'aggiunto al carrello',
+    },
+    'bekijk_winkelmand': {
+      'nl': 'Bekijk', 'de': 'Anzeigen', 'en': 'View', 'fr': 'Voir',
+      'es': 'Ver', 'it': 'Vedi',
+    },
+    'toevoegen_aan_favorieten': {
+      'nl': 'Toevoegen aan favorieten', 'de': 'Zu Favoriten hinzufügen',
+      'en': 'Add to favourites', 'fr': 'Ajouter aux favoris',
+      'es': 'Añadir a favoritos', 'it': 'Aggiungi ai preferiti',
+    },
+    'favoriet': {
+      'nl': 'Favoriet', 'de': 'Favorit', 'en': 'Favourite', 'fr': 'Favori',
+      'es': 'Favorito', 'it': 'Preferito',
+    },
+    'favoriet_verwijderen': {
+      'nl': 'Favoriet verwijderen', 'de': 'Favorit entfernen', 'en': 'Remove favourite', 'fr': 'Supprimer le favori',
+      'es': 'Eliminar favorito', 'it': 'Rimuovi preferito',
+    },
+    'geen_favorieten': {
+      'nl': 'Nog geen favorieten', 'de': 'Noch keine Favoriten', 'en': 'No favourites yet', 'fr': 'Pas encore de favoris',
+      'es': 'Sin favoritos aún', 'it': 'Nessun preferito',
+    },
+    'items': {
+      'nl': 'items', 'de': 'Artikel', 'en': 'items', 'fr': 'articles',
+      'es': 'artículos', 'it': 'articoli',
+    },
+    'subtotaal': {
+      'nl': 'Subtotaal', 'de': 'Zwischensumme', 'en': 'Subtotal', 'fr': 'Sous-total',
+      'es': 'Subtotal', 'it': 'Subtotale',
+    },
+    'btw': {
+      'nl': 'BTW', 'de': 'MwSt.', 'en': 'VAT', 'fr': 'TVA',
+      'es': 'IVA', 'it': 'IVA',
+    },
+    'totaal': {
+      'nl': 'Totaal', 'de': 'Gesamt', 'en': 'Total', 'fr': 'Total',
+      'es': 'Total', 'it': 'Totale',
+    },
+    'afrekenen': {
+      'nl': 'Afrekenen', 'de': 'Zur Kasse', 'en': 'Checkout', 'fr': 'Commander',
+      'es': 'Pagar', 'it': 'Checkout',
+    },
+    'winkelmand_leeg': {
+      'nl': 'Je winkelmand is leeg', 'de': 'Dein Warenkorb ist leer',
+      'en': 'Your cart is empty', 'fr': 'Votre panier est vide',
+      'es': 'Tu carrito está vacío', 'it': 'Il tuo carrello è vuoto',
+    },
+    'naar_catalogus': {
+      'nl': 'Naar catalogus', 'de': 'Zum Katalog', 'en': 'Go to catalogue', 'fr': 'Aller au catalogue',
+      'es': 'Ir al catálogo', 'it': 'Vai al catalogo',
+    },
+    'bestelling_plaatsen': {
+      'nl': 'Bestelling plaatsen', 'de': 'Bestellung aufgeben', 'en': 'Place order', 'fr': 'Passer la commande',
+      'es': 'Realizar pedido', 'it': 'Effettua ordine',
+    },
+    'mijn_bestellingen': {
+      'nl': 'Mijn bestellingen', 'de': 'Meine Bestellungen', 'en': 'My orders', 'fr': 'Mes commandes',
+      'es': 'Mis pedidos', 'it': 'I miei ordini',
+    },
+    'orderbeheer': {
+      'nl': 'Orderbeheer', 'de': 'Auftragsverwaltung', 'en': 'Order management', 'fr': 'Gestion des commandes',
+      'es': 'Gestión de pedidos', 'it': 'Gestione ordini',
+    },
+    'betaalinstellingen': {
+      'nl': 'Betaalinstellingen', 'de': 'Zahlungseinstellungen', 'en': 'Payment settings', 'fr': 'Paramètres de paiement',
+      'es': 'Configuración de pago', 'it': 'Impostazioni pagamento',
+    },
+    'stuk': {
+      'nl': 'stuk', 'de': 'Stück', 'en': 'pc', 'fr': 'pièce',
+      'es': 'ud.', 'it': 'pz.',
+    },
+    'verwijderen': {
+      'nl': 'Verwijderen', 'de': 'Entfernen', 'en': 'Remove', 'fr': 'Supprimer',
+      'es': 'Eliminar', 'it': 'Rimuovi',
+    },
+    'adresgegevens': {
+      'nl': 'Adresgegevens', 'de': 'Adressdaten', 'en': 'Address details', 'fr': 'Coordonnées',
+      'es': 'Datos de dirección', 'it': 'Dati indirizzo',
+      'pl': 'Dane adresowe', 'pt': 'Dados de morada',
+      'da': 'Adresseoplysninger', 'sv': 'Adressuppgifter',
+      'fi': 'Osoitetiedot', 'el': 'Στοιχεία διεύθυνσης',
+      'cs': 'Údaje o adrese', 'hu': 'Cím adatok',
+      'ro': 'Date adresă', 'bg': 'Данни за адрес',
+      'hr': 'Podaci o adresi', 'sk': 'Údaje o adrese',
+      'sl': 'Podatki o naslovu', 'et': 'Aadressi andmed',
+      'lt': 'Adreso duomenys', 'lv': 'Adreses dati',
+      'mt': 'Dettalji tal-indirizz', 'ga': 'Sonraí seolta',
+    },
+    'orderoverzicht': {
+      'nl': 'Orderoverzicht', 'de': 'Bestellübersicht', 'en': 'Order summary', 'fr': 'Résumé de la commande',
+      'es': 'Resumen del pedido', 'it': 'Riepilogo ordine',
+    },
+    'geen_bestellingen': {
+      'nl': 'Nog geen bestellingen', 'de': 'Noch keine Bestellungen',
+      'en': 'No orders yet', 'fr': 'Pas encore de commandes',
+      'es': 'Sin pedidos aún', 'it': 'Nessun ordine',
+    },
+    'markeer_verzonden': {
+      'nl': 'Markeer als verzonden', 'de': 'Als versandt markieren',
+      'en': 'Mark as shipped', 'fr': 'Marquer comme expédié',
+      'es': 'Marcar como enviado', 'it': 'Segna come spedito',
+    },
+    'vervoerder': {
+      'nl': 'Vervoerder', 'de': 'Spediteur', 'en': 'Carrier', 'fr': 'Transporteur',
+      'es': 'Transportista', 'it': 'Corriere',
+    },
+    'track_trace_code': {
+      'nl': 'Track & trace code', 'de': 'Sendungsnummer', 'en': 'Tracking code', 'fr': 'Numéro de suivi',
+      'es': 'Código de seguimiento', 'it': 'Codice di tracciamento',
+    },
+    'verzend_email_sturen': {
+      'nl': 'Verzend-email sturen naar klant', 'de': 'Versandbenachrichtigung senden',
+      'en': 'Send shipping notification', 'fr': 'Envoyer notification d\'expédition',
+      'es': 'Enviar notificación de envío', 'it': 'Invia notifica di spedizione',
+    },
+    'bevestigen_verzending': {
+      'nl': 'Bevestigen en versturen', 'de': 'Bestätigen und senden',
+      'en': 'Confirm and send', 'fr': 'Confirmer et envoyer',
+      'es': 'Confirmar y enviar', 'it': 'Conferma e invia',
+    },
+    'verzending_geregistreerd': {
+      'nl': 'Verzending geregistreerd', 'de': 'Versand registriert',
+      'en': 'Shipment registered', 'fr': 'Expédition enregistrée',
+      'es': 'Envío registrado', 'it': 'Spedizione registrata',
+    },
+    'email_verzonden': {
+      'nl': 'E-mail verzonden', 'de': 'E-Mail gesendet',
+      'en': 'Email sent', 'fr': 'E-mail envoyé',
+      'es': 'Email enviado', 'it': 'Email inviata',
+    },
+    'email_verzenden_mislukt': {
+      'nl': 'E-mail verzenden mislukt', 'de': 'E-Mail-Versand fehlgeschlagen',
+      'en': 'Failed to send email', 'fr': 'Échec de l\'envoi de l\'e-mail',
+      'es': 'Error al enviar email', 'it': 'Invio email fallito',
+    },
+    'orderbevestiging_verzonden': {
+      'nl': 'Orderbevestiging verzonden', 'de': 'Bestellbestätigung gesendet',
+      'en': 'Order confirmation sent', 'fr': 'Confirmation de commande envoyée',
+      'es': 'Confirmación de pedido enviada', 'it': 'Conferma ordine inviata',
+    },
+    'tracking_info': {
+      'nl': 'Tracking informatie', 'de': 'Tracking-Informationen',
+      'en': 'Tracking information', 'fr': 'Informations de suivi',
+      'es': 'Información de seguimiento', 'it': 'Informazioni di tracciamento',
+    },
+    'volg_pakket': {
+      'nl': 'Volg pakket', 'de': 'Paket verfolgen', 'en': 'Track parcel', 'fr': 'Suivre le colis',
+      'es': 'Rastrear paquete', 'it': 'Traccia pacco',
+    },
+    'bevestiging_email_opnieuw': {
+      'nl': 'Bevestiging opnieuw versturen', 'de': 'Bestätigung erneut senden',
+      'en': 'Resend confirmation', 'fr': 'Renvoyer la confirmation',
+      'es': 'Reenviar confirmación', 'it': 'Reinvia conferma',
+    },
+    'factuur_downloaden': {
+      'nl': 'Factuur downloaden', 'de': 'Rechnung herunterladen',
+      'en': 'Download invoice', 'fr': 'Télécharger la facture',
+      'es': 'Descargar factura', 'it': 'Scarica fattura',
+    },
+    'verzendkosten': {
+      'nl': 'Verzendkosten', 'de': 'Versandkosten', 'en': 'Shipping costs',
+      'fr': 'Frais de livraison', 'es': 'Gastos de envío', 'it': 'Spese di spedizione',
+      'pl': 'Koszty wysyłki', 'pt': 'Custos de envio',
+      'da': 'Forsendelsesomkostninger', 'sv': 'Fraktkostnader',
+      'fi': 'Toimituskulut', 'el': 'Έξοδα αποστολής',
+      'cs': 'Náklady na dopravu', 'hu': 'Szállítási költségek',
+      'ro': 'Costuri de livrare', 'bg': 'Разходи за доставка',
+      'hr': 'Troškovi dostave', 'sk': 'Náklady na dopravu',
+      'sl': 'Stroški pošiljanja', 'et': 'Saatmiskulud',
+      'lt': 'Siuntimo išlaidos', 'lv': 'Piegādes izmaksas',
+      'mt': 'Spejjeż tal-kunsinna', 'ga': 'Costais seachadta',
+    },
+    'verzend_titel': {
+      'nl': 'Verzendkosten & levertijden', 'de': 'Versandkosten & Lieferzeiten', 'en': 'Shipping costs & delivery times',
+      'fr': 'Frais de livraison & délais', 'es': 'Gastos de envío y plazos de entrega', 'it': 'Spese di spedizione e tempi di consegna',
+      'pl': 'Koszty wysyłki i czas dostawy', 'pt': 'Custos de envio e prazos de entrega',
+      'da': 'Forsendelsesomkostninger og leveringstider', 'sv': 'Fraktkostnader och leveranstider',
+      'fi': 'Toimituskulut ja toimitusajat', 'el': 'Έξοδα αποστολής και χρόνοι παράδοσης',
+      'cs': 'Náklady na dopravu a dodací lhůty', 'hu': 'Szállítási költségek és szállítási idők',
+      'ro': 'Costuri de livrare și termene', 'bg': 'Разходи и срокове за доставка',
+      'hr': 'Troškovi i rokovi dostave', 'sk': 'Náklady na dopravu a dodacie lehoty',
+      'sl': 'Stroški in roki dostave', 'et': 'Saatmiskulud ja tarneajad',
+      'lt': 'Siuntimo išlaidos ir pristatymo laikas', 'lv': 'Piegādes izmaksas un termiņi',
+      'mt': 'Spejjeż u żminijiet tal-kunsinna', 'ga': 'Costais seachadta agus amanna seachadta',
+    },
+    'verzend_subtitel': {
+      'nl': 'Overzicht van verzendkosten en geschatte levertijden per land',
+      'de': 'Übersicht der Versandkosten und geschätzten Lieferzeiten pro Land',
+      'en': 'Overview of shipping costs and estimated delivery times per country',
+      'fr': 'Aperçu des frais de livraison et délais estimés par pays',
+      'es': 'Resumen de gastos de envío y tiempos de entrega estimados por país',
+      'it': 'Panoramica delle spese di spedizione e dei tempi di consegna stimati per paese',
+      'pl': 'Przegląd kosztów wysyłki i szacowanych czasów dostawy wg kraju',
+      'pt': 'Visão geral dos custos de envio e prazos estimados por país',
+      'da': 'Oversigt over forsendelsesomkostninger og estimerede leveringstider pr. land',
+      'sv': 'Översikt av fraktkostnader och beräknade leveranstider per land',
+      'fi': 'Katsaus toimituskuluihin ja arvioituihin toimitusaikoihin maittain',
+      'el': 'Επισκόπηση εξόδων αποστολής και εκτιμώμενων χρόνων παράδοσης ανά χώρα',
+      'cs': 'Přehled nákladů na dopravu a odhadovaných dodacích lhůt podle zemí',
+      'hu': 'Szállítási költségek és becsült szállítási idők áttekintése országonként',
+      'ro': 'Prezentare generală a costurilor de livrare și a termenelor estimate pe țară',
+      'bg': 'Преглед на разходите за доставка и приблизителните срокове по държави',
+      'hr': 'Pregled troškova i rokova dostave po zemljama',
+      'sk': 'Prehľad nákladov na dopravu a odhadovaných dodacích lehôt podľa krajiny',
+      'sl': 'Pregled stroškov in rokov dostave po državah',
+      'et': 'Saatmiskulude ja tarneaegade ülevaade riikide kaupa',
+      'lt': 'Siuntimo išlaidų ir pristatymo laikų apžvalga pagal šalį',
+      'lv': 'Piegādes izmaksu un termiņu pārskats pa valstīm',
+      'mt': "Ħarsa ġenerali tal-ispejjeż u ż-żminijiet tal-kunsinna skont il-pajjiż",
+      'ga': 'Forbhreathnú ar chostais seachadta agus amanna seachadta measta de réir tíre',
+    },
+    'verzend_levertijd': {
+      'nl': 'Levertijd', 'de': 'Lieferzeit', 'en': 'Delivery time',
+      'fr': 'Délai de livraison', 'es': 'Plazo de entrega', 'it': 'Tempo di consegna',
+      'pl': 'Czas dostawy', 'pt': 'Prazo de entrega',
+      'da': 'Leveringstid', 'sv': 'Leveranstid',
+      'fi': 'Toimitusaika', 'el': 'Χρόνος παράδοσης',
+      'cs': 'Dodací lhůta', 'hu': 'Szállítási idő',
+      'ro': 'Termen de livrare', 'bg': 'Срок за доставка',
+      'hr': 'Rok isporuke', 'sk': 'Dodacia lehota',
+      'sl': 'Rok dostave', 'et': 'Tarneaeg',
+      'lt': 'Pristatymo laikas', 'lv': 'Piegādes laiks',
+      'mt': 'Żmien tal-kunsinna', 'ga': 'Am seachadta',
+    },
+    'verzend_gratis_nl': {
+      'nl': 'Gratis verzending binnen Nederland!',
+      'de': 'Kostenloser Versand in die Niederlande!',
+      'en': 'Free shipping within the Netherlands!',
+      'fr': 'Livraison gratuite aux Pays-Bas !',
+      'es': '¡Envío gratuito a los Países Bajos!',
+      'it': 'Spedizione gratuita nei Paesi Bassi!',
+      'pl': 'Bezpłatna wysyłka do Holandii!',
+      'pt': 'Envio gratuito para os Países Baixos!',
+      'da': 'Gratis levering i Holland!',
+      'sv': 'Fri frakt inom Nederländerna!',
+      'fi': 'Ilmainen toimitus Alankomaihin!',
+      'el': 'Δωρεάν αποστολή στην Ολλανδία!',
+      'cs': 'Doprava do Nizozemska zdarma!',
+      'hu': 'Ingyenes szállítás Hollandiába!',
+      'ro': 'Livrare gratuită în Olanda!',
+      'bg': 'Безплатна доставка в Нидерландия!',
+      'hr': 'Besplatna dostava u Nizozemsku!',
+      'sk': 'Doprava do Holandska zadarmo!',
+      'sl': 'Brezplačna dostava na Nizozemsko!',
+      'et': 'Tasuta saatmine Hollandisse!',
+      'lt': 'Nemokamas pristatymas Olandijoje!',
+      'lv': 'Bezmaksas piegāde Nīderlandē!',
+      'mt': 'Kunsinna b\'xejn fl-Olanda!',
+      'ga': 'Seachadadh saor in aisce san Ísiltír!',
+    },
+    'verzend_info_note': {
+      'nl': 'Levertijden zijn schattingen en kunnen afwijken door feestdagen, weersomstandigheden of douaneprocedures. Na verzending ontvang je een track & trace code.',
+      'de': 'Lieferzeiten sind Schätzungen und können aufgrund von Feiertagen, Wetterbedingungen oder Zollverfahren abweichen. Nach dem Versand erhalten Sie eine Sendungsverfolgungsnummer.',
+      'en': 'Delivery times are estimates and may vary due to holidays, weather conditions or customs procedures. After shipment you will receive a track & trace code.',
+      'fr': 'Les délais de livraison sont des estimations et peuvent varier en raison de jours fériés, conditions météorologiques ou procédures douanières. Après expédition, vous recevrez un code de suivi.',
+      'es': 'Los plazos de entrega son estimaciones y pueden variar por festivos, condiciones meteorológicas o trámites aduaneros. Tras el envío recibirá un código de seguimiento.',
+      'it': 'I tempi di consegna sono stime e possono variare per festività, condizioni meteorologiche o procedure doganali. Dopo la spedizione riceverai un codice di tracciamento.',
+      'pl': 'Czasy dostawy są szacunkowe i mogą się różnić z powodu świąt, warunków pogodowych lub procedur celnych.',
+      'pt': 'Os prazos de entrega são estimativas e podem variar devido a feriados, condições meteorológicas ou procedimentos alfandegários.',
+      'da': 'Leveringstider er estimater og kan variere på grund af helligdage, vejrforhold eller toldprocedurer.',
+      'sv': 'Leveranstider är uppskattningar och kan variera på grund av helgdagar, väderförhållanden eller tullförfaranden.',
+      'fi': 'Toimitusajat ovat arvioita ja voivat vaihdella juhlapyhien, sääolosuhteiden tai tullimenettelyjen vuoksi.',
+      'el': 'Οι χρόνοι παράδοσης είναι εκτιμήσεις και μπορεί να διαφέρουν λόγω αργιών, καιρικών συνθηκών ή τελωνειακών διαδικασιών.',
+      'cs': 'Dodací lhůty jsou odhady a mohou se lišit v důsledku svátků, povětrnostních podmínek nebo celních řízení.',
+      'hu': 'A szállítási idők becsült értékek, és ünnepnapok, időjárási viszonyok vagy vámeljárások miatt eltérhetnek.',
+      'ro': 'Termenele de livrare sunt estimative și pot varia din cauza sărbătorilor, condițiilor meteo sau procedurilor vamale.',
+      'bg': 'Сроковете за доставка са приблизителни и може да варират поради празници, метеорологични условия или митнически процедури.',
+      'hr': 'Rokovi isporuke su procjene i mogu varirati zbog praznika, vremenskih uvjeta ili carinskih postupaka.',
+      'sk': 'Dodacie lehoty sú odhady a môžu sa líšiť v dôsledku sviatkov, poveternostných podmienok alebo colných konaní.',
+      'sl': 'Roki dostave so ocene in se lahko razlikujejo zaradi praznikov, vremenskih razmer ali carinskih postopkov.',
+      'et': 'Tarneajad on hinnangulised ja võivad erineda pühade, ilmastikuolude või tolliprotseduuride tõttu.',
+      'lt': 'Pristatymo laikas yra orientacinis ir gali skirtis dėl švenčių, oro sąlygų ar muitinės procedūrų.',
+      'lv': 'Piegādes laiki ir aptuveni un var atšķirties svētku, laika apstākļu vai muitas procedūru dēļ.',
+      'mt': "Iż-żminijiet tal-kunsinna huma stimi u jistgħu jvarjaw minħabba btajjel, kondizzjonijiet tat-temp jew proċeduri doganali.",
+      'ga': 'Is meastacháin iad na hamanna seachadta agus d\'fhéadfaidís athrú mar gheall ar laethanta saoire, dálaí aimsire nó nósanna imeachta custam.',
+    },
+    'incl_btw': {
+      'nl': 'incl. BTW', 'de': 'inkl. MwSt.', 'en': 'incl. VAT',
+      'fr': 'TTC', 'es': 'IVA incl.', 'it': 'IVA incl.',
+    },
+    'excl_btw': {
+      'nl': 'excl. BTW', 'de': 'exkl. MwSt.', 'en': 'excl. VAT',
+      'fr': 'HT', 'es': 'IVA excl.', 'it': 'IVA escl.',
+    },
+    'gratis': {
+      'nl': 'Gratis', 'de': 'Kostenlos', 'en': 'Free',
+      'fr': 'Gratuit', 'es': 'Gratis', 'it': 'Gratuito',
+    },
+    'btw_verlegd': {
+      'nl': 'BTW verlegd', 'de': 'Steuerschuldnerschaft', 'en': 'Reverse charge', 'fr': 'Autoliquidation',
+      'es': 'Inversión del sujeto pasivo', 'it': 'Inversione contabile',
+    },
+    'geen_btw': {
+      'nl': 'Geen BTW', 'de': 'Keine MwSt.', 'en': 'No VAT', 'fr': 'Pas de TVA',
+      'es': 'Sin IVA', 'it': 'Senza IVA',
+    },
+    'geen_btw_buiten_eu': {
+      'nl': 'Geen BTW (buiten EU)', 'de': 'Keine MwSt. (außerhalb EU)', 'en': 'No VAT (outside EU)', 'fr': 'Pas de TVA (hors UE)',
+      'es': 'Sin IVA (fuera de la UE)', 'it': 'Senza IVA (fuori UE)',
+    },
+    'verlegd_icp': {
+      'nl': 'Verlegd (ICP)', 'de': 'Verlagert (IGL)', 'en': 'Reverse charge (ICS)', 'fr': 'Autoliquidation (LIC)',
+      'es': 'Inversión (ICS)', 'it': 'Inversione (ICS)',
+    },
+    'leegmaken': {
+      'nl': 'Leegmaken', 'de': 'Leeren', 'en': 'Clear', 'fr': 'Vider', 'es': 'Vaciar', 'it': 'Svuota',
+    },
+    'subtotaal_excl_btw': {
+      'nl': 'Subtotaal (excl. BTW)', 'de': 'Zwischensumme (exkl. MwSt.)', 'en': 'Subtotal (excl. VAT)', 'fr': 'Sous-total (HT)',
+      'es': 'Subtotal (sin IVA)', 'it': 'Subtotale (esclusa IVA)',
+    },
+    'levertijd': {
+      'nl': 'Levertijd', 'de': 'Lieferzeit', 'en': 'Delivery time', 'fr': 'Délai de livraison', 'es': 'Plazo de entrega', 'it': 'Tempi di consegna',
+    },
+    'bestelling_succesvol': {
+      'nl': 'Bestelling succesvol geplaatst!', 'de': 'Bestellung erfolgreich aufgegeben!', 'en': 'Order placed successfully!', 'fr': 'Commande passée avec succès !',
+      'es': '¡Pedido realizado con éxito!', 'it': 'Ordine effettuato con successo!',
+    },
+    'bezorgadres': {
+      'nl': 'Bezorgadres', 'de': 'Lieferadresse', 'en': 'Delivery address', 'fr': 'Adresse de livraison',
+      'es': 'Dirección de entrega', 'it': 'Indirizzo di consegna',
+      'pl': 'Adres dostawy', 'pt': 'Morada de entrega',
+      'da': 'Leveringsadresse', 'sv': 'Leveransadress',
+      'fi': 'Toimitusosoite', 'el': 'Διεύθυνση παράδοσης',
+      'cs': 'Doručovací adresa', 'hu': 'Szállítási cím',
+      'ro': 'Adresă de livrare', 'bg': 'Адрес за доставка',
+      'hr': 'Adresa za dostavu', 'sk': 'Doručovacia adresa',
+      'sl': 'Naslov za dostavo', 'et': 'Tarneaadress',
+      'lt': 'Pristatymo adresas', 'lv': 'Piegādes adrese',
+      'mt': 'Indirizz tal-kunsinna', 'ga': 'Seoladh seachadta',
+    },
+    'factuuradres': {
+      'nl': 'Factuuradres', 'de': 'Rechnungsadresse', 'en': 'Billing address', 'fr': 'Adresse de facturation',
+      'es': 'Dirección de facturación', 'it': 'Indirizzo di fatturazione',
+      'pl': 'Adres rozliczeniowy', 'pt': 'Morada de faturação',
+      'da': 'Faktureringsadresse', 'sv': 'Faktureringsadress',
+      'fi': 'Laskutusosoite', 'el': 'Διεύθυνση τιμολόγησης',
+      'cs': 'Fakturační adresa', 'hu': 'Számlázási cím',
+      'ro': 'Adresă de facturare', 'bg': 'Адрес за фактуриране',
+      'hr': 'Adresa za račun', 'sk': 'Fakturačná adresa',
+      'sl': 'Naslov za račun', 'et': 'Arveldusaadress',
+      'lt': 'Sąskaitų adresas', 'lv': 'Rēķina adrese',
+      'mt': 'Indirizz tal-fattura', 'ga': 'Seoladh billeála',
+    },
+    'factuuradres_gelijk': {
+      'nl': 'Factuuradres is gelijk aan bezorgadres', 'de': 'Rechnungsadresse entspricht der Lieferadresse',
+      'en': 'Billing address is the same as delivery address', 'fr': "L'adresse de facturation est identique à l'adresse de livraison",
+      'es': 'La dirección de facturación es la misma que la de entrega', 'it': "L'indirizzo di fatturazione coincide con quello di consegna",
+      'pl': 'Adres rozliczeniowy jest taki sam jak adres dostawy', 'pt': 'A morada de faturação é igual à morada de entrega',
+      'da': 'Faktureringsadressen er den samme som leveringsadressen', 'sv': 'Faktureringsadressen är densamma som leveransadressen',
+      'fi': 'Laskutusosoite on sama kuin toimitusosoite', 'el': 'Η διεύθυνση τιμολόγησης είναι ίδια με τη διεύθυνση παράδοσης',
+      'cs': 'Fakturační adresa je stejná jako doručovací', 'hu': 'A számlázási cím megegyezik a szállítási címmel',
+      'ro': 'Adresa de facturare este aceeași cu adresa de livrare', 'bg': 'Адресът за фактуриране е същият като адреса за доставка',
+      'hr': 'Adresa za račun je ista kao adresa za dostavu', 'sk': 'Fakturačná adresa je rovnaká ako doručovacia',
+      'sl': 'Naslov za račun je enak naslovu za dostavo', 'et': 'Arveldusaadress on sama mis tarneaadress',
+      'lt': 'Sąskaitų adresas sutampa su pristatymo adresu', 'lv': 'Rēķina adrese sakrīt ar piegādes adresi',
+      'mt': "L-indirizz tal-fattura huwa l-istess bħall-indirizz tal-kunsinna", 'ga': 'Tá an seoladh billeála mar an gcéanna leis an seoladh seachadta',
+    },
+    'betaalgegevens': {
+      'nl': 'Betaalgegevens', 'de': 'Zahlungsinformationen', 'en': 'Payment details', 'fr': 'Informations de paiement',
+      'es': 'Datos de pago', 'it': 'Dati di pagamento',
+    },
+    'bestelling_verwerken': {
+      'nl': 'Bestelling verwerken...', 'de': 'Bestellung wird verarbeitet...', 'en': 'Processing order...', 'fr': 'Traitement de la commande...',
+      'es': 'Procesando pedido...', 'it': 'Elaborazione ordine...',
+    },
+    'naam': {
+      'nl': 'Naam', 'de': 'Name', 'en': 'Name', 'fr': 'Nom', 'es': 'Nombre', 'it': 'Nome',
+    },
+    'adres': {
+      'nl': 'Adres', 'de': 'Adresse', 'en': 'Address', 'fr': 'Adresse', 'es': 'Dirección', 'it': 'Indirizzo',
+      'pl': 'Adres', 'pt': 'Morada', 'da': 'Adresse', 'sv': 'Adress',
+      'fi': 'Osoite', 'el': 'Διεύθυνση', 'cs': 'Adresa', 'hu': 'Cím',
+      'ro': 'Adresă', 'bg': 'Адрес', 'hr': 'Adresa', 'sk': 'Adresa',
+      'sl': 'Naslov', 'et': 'Aadress', 'lt': 'Adresas', 'lv': 'Adrese',
+      'mt': 'Indirizz', 'ga': 'Seoladh',
+    },
+    'straat': {
+      'nl': 'Straat', 'de': 'Straße', 'en': 'Street', 'fr': 'Rue', 'es': 'Calle', 'it': 'Via',
+      'pl': 'Ulica', 'pt': 'Rua', 'da': 'Gade', 'sv': 'Gata',
+      'fi': 'Katu', 'el': 'Οδός', 'cs': 'Ulice', 'hu': 'Utca',
+      'ro': 'Strada', 'bg': 'Улица', 'hr': 'Ulica', 'sk': 'Ulica',
+      'sl': 'Ulica', 'et': 'Tänav', 'lt': 'Gatvė', 'lv': 'Iela',
+      'mt': 'Triq', 'ga': 'Sráid',
+    },
+    'huisnummer': {
+      'nl': 'Huisnr.', 'de': 'Hausnr.', 'en': 'House no.', 'fr': 'N°', 'es': 'N°', 'it': 'N°',
+      'pl': 'Nr domu', 'pt': 'N.º', 'da': 'Husnr.', 'sv': 'Husnr.',
+      'fi': 'Talonro', 'el': 'Αριθμός', 'cs': 'Č.p.', 'hu': 'Házszám',
+      'ro': 'Nr.', 'bg': 'Номер', 'hr': 'Kbr.', 'sk': 'Č.d.',
+      'sl': 'Hišna št.', 'et': 'Majanr', 'lt': 'Namo nr.', 'lv': 'Mājas nr.',
+      'mt': 'Nru.', 'ga': 'Uimh.',
+    },
+    'adres_niet_gevonden': {
+      'nl': 'Adres niet gevonden', 'de': 'Adresse nicht gefunden', 'en': 'Address not found', 'fr': 'Adresse introuvable',
+      'es': 'Dirección no encontrada', 'it': 'Indirizzo non trovato',
+      'pl': 'Nie znaleziono adresu', 'pt': 'Morada não encontrada',
+      'da': 'Adresse ikke fundet', 'sv': 'Adressen hittades inte',
+      'fi': 'Osoitetta ei löydy', 'el': 'Η διεύθυνση δεν βρέθηκε',
+      'cs': 'Adresa nenalezena', 'hu': 'A cím nem található',
+      'ro': 'Adresa nu a fost găsită', 'bg': 'Адресът не е намерен',
+      'hr': 'Adresa nije pronađena', 'sk': 'Adresa nenájdená',
+      'sl': 'Naslov ni najden', 'et': 'Aadressi ei leitud',
+      'lt': 'Adresas nerastas', 'lv': 'Adrese nav atrasta',
+      'mt': 'L-indirizz ma nstabx', 'ga': 'Seoladh gan aimsiú',
+    },
+    'postcode': {
+      'nl': 'Postcode', 'de': 'Postleitzahl', 'en': 'Postal code', 'fr': 'Code postal', 'es': 'Código postal', 'it': 'CAP',
+      'pl': 'Kod pocztowy', 'pt': 'Código postal', 'da': 'Postnummer', 'sv': 'Postnummer',
+      'fi': 'Postinumero', 'el': 'Ταχ. κώδικας', 'cs': 'PSČ', 'hu': 'Irányítószám',
+      'ro': 'Cod poștal', 'bg': 'Пощ. код', 'hr': 'Poštanski broj', 'sk': 'PSČ',
+      'sl': 'Poštna št.', 'et': 'Postiindeks', 'lt': 'Pašto kodas', 'lv': 'Pasta indekss',
+      'mt': 'Kodiċi postali', 'ga': 'Cód poist',
+    },
+    'woonplaats': {
+      'nl': 'Woonplaats', 'de': 'Ort', 'en': 'City', 'fr': 'Ville', 'es': 'Ciudad', 'it': 'Città',
+      'pl': 'Miasto', 'pt': 'Cidade', 'da': 'By', 'sv': 'Ort',
+      'fi': 'Kaupunki', 'el': 'Πόλη', 'cs': 'Město', 'hu': 'Város',
+      'ro': 'Oraș', 'bg': 'Град', 'hr': 'Grad', 'sk': 'Mesto',
+      'sl': 'Mesto', 'et': 'Linn', 'lt': 'Miestas', 'lv': 'Pilsēta',
+      'mt': 'Belt', 'ga': 'Cathair',
+    },
+    'verplicht': {
+      'nl': 'Verplicht', 'de': 'Pflichtfeld', 'en': 'Required', 'fr': 'Obligatoire',
+      'es': 'Obligatorio', 'it': 'Obbligatorio',
+      'pl': 'Wymagane', 'pt': 'Obrigatório', 'da': 'Påkrævet', 'sv': 'Obligatoriskt',
+      'fi': 'Pakollinen', 'el': 'Υποχρεωτικό', 'cs': 'Povinné', 'hu': 'Kötelező',
+      'ro': 'Obligatoriu', 'bg': 'Задължително', 'hr': 'Obavezno', 'sk': 'Povinné',
+      'sl': 'Obvezno', 'et': 'Kohustuslik', 'lt': 'Privaloma', 'lv': 'Obligāts',
+      'mt': 'Meħtieġ', 'ga': 'Riachtanach',
+    },
+    'land': {
+      'nl': 'Land', 'de': 'Land', 'en': 'Country', 'fr': 'Pays', 'es': 'País', 'it': 'Paese',
+      'pl': 'Kraj', 'pt': 'País', 'da': 'Land', 'sv': 'Land',
+      'fi': 'Maa', 'el': 'Χώρα', 'cs': 'Země', 'hu': 'Ország',
+      'ro': 'Țară', 'bg': 'Държава', 'hr': 'Država', 'sk': 'Krajina',
+      'sl': 'Država', 'et': 'Riik', 'lt': 'Šalis', 'lv': 'Valsts',
+      'mt': 'Pajjiż', 'ga': 'Tír',
+    },
+    'opmerkingen_optioneel': {
+      'nl': 'Opmerkingen (optioneel)', 'de': 'Anmerkungen (optional)', 'en': 'Notes (optional)', 'fr': 'Remarques (facultatif)',
+      'es': 'Notas (opcional)', 'it': 'Note (facoltativo)',
+    },
+    'betaling_mislukt': {
+      'nl': 'Betaling starten mislukt', 'de': 'Zahlung starten fehlgeschlagen', 'en': 'Failed to start payment', 'fr': 'Échec du démarrage du paiement',
+      'es': 'Error al iniciar el pago', 'it': 'Avvio pagamento fallito',
+    },
+    'betaling_gelukt': {
+      'nl': 'Betaling geslaagd!', 'en': 'Payment successful!', 'de': 'Zahlung erfolgreich!', 'fr': 'Paiement réussi !',
+      'es': '¡Pago realizado!', 'it': 'Pagamento riuscito!',
+    },
+    'bestelling_bevestigd': {
+      'nl': 'Je bestelling is bevestigd. Je ontvangt een bevestigingsmail.', 'en': 'Your order is confirmed. You will receive a confirmation email.',
+      'de': 'Ihre Bestellung ist bestätigt. Sie erhalten eine Bestätigungsmail.', 'fr': 'Votre commande est confirmée. Vous recevrez un e-mail de confirmation.',
+      'es': 'Tu pedido está confirmado. Recibirás un correo de confirmación.', 'it': 'Il tuo ordine è confermato. Riceverai un\'email di conferma.',
+    },
+    'bestelling_bevestigd_email': {
+      'nl': 'Betaling geslaagd! Je ontvangt een bevestigingsmail met je bestelorder.',
+      'en': 'Payment successful! You will receive a confirmation email with your order.',
+      'de': 'Zahlung erfolgreich! Sie erhalten eine Bestätigungsmail mit Ihrer Bestellung.',
+      'fr': 'Paiement réussi ! Vous recevrez un e-mail de confirmation avec votre commande.',
+      'es': 'Pago exitoso! Recibirás un correo de confirmación con tu pedido.',
+      'it': 'Pagamento riuscito! Riceverai un\'email di conferma con il tuo ordine.',
+    },
+    'bestelling_bevestigd_email_fout': {
+      'nl': 'Betaling geslaagd! Je bestelling is geregistreerd, maar de bevestigingsmail kon niet worden verstuurd. Neem contact op met Ventoz.',
+      'en': 'Payment successful! Your order is registered, but the confirmation email could not be sent. Please contact Ventoz.',
+      'de': 'Zahlung erfolgreich! Ihre Bestellung ist registriert, aber die Bestätigungsmail konnte nicht gesendet werden. Kontaktieren Sie Ventoz.',
+      'fr': 'Paiement réussi ! Votre commande est enregistrée, mais l\'e-mail de confirmation n\'a pas pu être envoyé. Veuillez contacter Ventoz.',
+      'es': 'Pago exitoso! Tu pedido está registrado, pero no se pudo enviar el correo de confirmación. Contacta con Ventoz.',
+      'it': 'Pagamento riuscito! Il tuo ordine è registrato, ma l\'email di conferma non è stata inviata. Contatta Ventoz.',
+    },
+    'bestelling_bevestigd_verwerken': {
+      'nl': 'Bestelling wordt verwerkt en bevestigingsmail wordt verstuurd...',
+      'en': 'Order is being processed and confirmation email is being sent...',
+      'de': 'Bestellung wird verarbeitet und Bestätigungsmail wird gesendet...',
+      'fr': 'La commande est en cours de traitement et l\'e-mail de confirmation est envoyé...',
+      'es': 'El pedido se está procesando y se está enviando el correo de confirmación...',
+      'it': 'L\'ordine è in fase di elaborazione e l\'email di conferma viene inviata...',
+    },
+    'betaling_mislukt_tekst': {
+      'nl': 'De betaling is niet gelukt. Probeer het opnieuw of kies een andere betaalmethode.',
+      'en': 'The payment was not successful. Please try again or choose a different payment method.',
+      'de': 'Die Zahlung war nicht erfolgreich. Bitte versuchen Sie es erneut oder wählen Sie eine andere Zahlungsmethode.',
+      'fr': 'Le paiement n\'a pas abouti. Veuillez réessayer ou choisir un autre mode de paiement.',
+      'es': 'El pago no se ha completado. Inténtalo de nuevo o elige otro método de pago.',
+      'it': 'Il pagamento non è andato a buon fine. Riprova o scegli un altro metodo di pagamento.',
+    },
+    'betaling_geannuleerd': {
+      'nl': 'Betaling geannuleerd', 'en': 'Payment cancelled', 'de': 'Zahlung abgebrochen', 'fr': 'Paiement annulé',
+      'es': 'Pago cancelado', 'it': 'Pagamento annullato',
+    },
+    'betaling_geannuleerd_tekst': {
+      'nl': 'Je hebt de betaling geannuleerd. Je kunt opnieuw proberen.', 'en': 'You cancelled the payment. You can try again.',
+      'de': 'Sie haben die Zahlung abgebrochen. Sie können es erneut versuchen.', 'fr': 'Vous avez annulé le paiement. Vous pouvez réessayer.',
+      'es': 'Has cancelado el pago. Puedes intentarlo de nuevo.', 'it': 'Hai annullato il pagamento. Puoi riprovare.',
+    },
+    'betaling_wachten': {
+      'nl': 'Wachten op betaling...', 'en': 'Waiting for payment...', 'de': 'Warte auf Zahlung...', 'fr': 'En attente de paiement...',
+      'es': 'Esperando el pago...', 'it': 'In attesa del pagamento...',
+    },
+    'betaling_wachten_tekst': {
+      'nl': 'Voltooi de betaling in je browser. Dit scherm wordt automatisch bijgewerkt.',
+      'en': 'Complete the payment in your browser. This screen will update automatically.',
+      'de': 'Schließen Sie die Zahlung in Ihrem Browser ab. Dieser Bildschirm wird automatisch aktualisiert.',
+      'fr': 'Terminez le paiement dans votre navigateur. Cet écran se mettra à jour automatiquement.',
+      'es': 'Completa el pago en tu navegador. Esta pantalla se actualizará automáticamente.',
+      'it': 'Completa il pagamento nel tuo browser. Questa schermata si aggiornerà automaticamente.',
+    },
+    'betaling_verwerken': {
+      'nl': 'Betaling wordt verwerkt...', 'en': 'Processing payment...', 'de': 'Zahlung wird verarbeitet...',
+      'fr': 'Traitement du paiement...', 'es': 'Procesando pago...', 'it': 'Elaborazione pagamento...',
+    },
+    'betaling_verwerken_tekst': {
+      'nl': 'Je betaling wordt verwerkt door de betaalprovider. Dit scherm wordt automatisch bijgewerkt.',
+      'en': 'Your payment is being processed by the payment provider. This screen will update automatically.',
+      'de': 'Ihre Zahlung wird vom Zahlungsanbieter verarbeitet. Dieser Bildschirm wird automatisch aktualisiert.',
+      'fr': 'Votre paiement est en cours de traitement. Cet écran se mettra à jour automatiquement.',
+      'es': 'Tu pago está siendo procesado por el proveedor de pagos. Esta pantalla se actualizará automáticamente.',
+      'it': 'Il tuo pagamento è in fase di elaborazione. Questa schermata si aggiornerà automaticamente.',
+    },
+    'betaling_goedgekeurd': {
+      'nl': 'Betaling goedgekeurd', 'en': 'Payment approved', 'de': 'Zahlung genehmigt',
+      'fr': 'Paiement approuvé', 'es': 'Pago aprobado', 'it': 'Pagamento approvato',
+    },
+    'betaling_goedgekeurd_tekst': {
+      'nl': 'Je bestelling is goedgekeurd en wordt verwerkt. Je ontvangt een bevestiging per e-mail.',
+      'en': 'Your order has been approved and is being processed. You will receive a confirmation by email.',
+      'de': 'Ihre Bestellung wurde genehmigt und wird bearbeitet. Sie erhalten eine Bestätigung per E-Mail.',
+      'fr': 'Votre commande a été approuvée et est en cours de traitement. Vous recevrez une confirmation par e-mail.',
+      'es': 'Tu pedido ha sido aprobado y está siendo procesado. Recibirás una confirmación por correo electrónico.',
+      'it': 'Il tuo ordine è stato approvato ed è in fase di elaborazione. Riceverai una conferma via email.',
+    },
+    'bestelling_mislukt': {
+      'nl': 'Bestelling mislukt', 'de': 'Bestellung fehlgeschlagen', 'en': 'Order failed', 'fr': 'Commande échouée',
+      'es': 'Pedido fallido', 'it': 'Ordine fallito',
+    },
+    'bestelling_concept': {
+      'nl': 'Je bestelling is opgeslagen als concept.', 'de': 'Ihre Bestellung wurde als Entwurf gespeichert.', 'en': 'Your order has been saved as a draft.', 'fr': 'Votre commande a été enregistrée comme brouillon.',
+      'es': 'Tu pedido se ha guardado como borrador.', 'it': 'Il tuo ordine è stato salvato come bozza.',
+    },
+    'klantgegevens': {
+      'nl': 'Klantgegevens', 'de': 'Kundendaten', 'en': 'Customer details', 'fr': 'Données client',
+      'es': 'Datos del cliente', 'it': 'Dati cliente',
+    },
+    'producten': {
+      'nl': 'Producten', 'de': 'Produkte', 'en': 'Products', 'fr': 'Produits',
+      'es': 'Productos', 'it': 'Prodotti',
+    },
+    'factuur': {
+      'nl': 'Factuur', 'de': 'Rechnung', 'en': 'Invoice', 'fr': 'Facture',
+      'es': 'Factura', 'it': 'Fattura',
+    },
+    'opmerkingen': {
+      'nl': 'Opmerkingen', 'de': 'Anmerkungen', 'en': 'Notes', 'fr': 'Remarques',
+      'es': 'Notas', 'it': 'Note',
+    },
+    'status_bijgewerkt': {
+      'nl': 'Status bijgewerkt', 'de': 'Status aktualisiert', 'en': 'Status updated', 'fr': 'Statut mis à jour',
+      'es': 'Estado actualizado', 'it': 'Stato aggiornato',
+    },
+    'btw_verificatie_vereist': {
+      'nl': 'BTW-verificatie vereist', 'de': 'USt.-Verifizierung erforderlich', 'en': 'VAT verification required', 'fr': 'Vérification TVA requise',
+      'es': 'Verificación de IVA requerida', 'it': 'Verifica IVA richiesta',
+    },
+    'btw_verificatie_tekst': {
+      'nl': 'Als wederverkoper moet u eerst uw BTW-nummer invoeren en laten verifiëren via de Europese VIES-service voordat u de app kunt gebruiken.',
+      'de': 'Als Wiederverkäufer müssen Sie zunächst Ihre USt-IdNr. eingeben und über den europäischen VIES-Dienst verifizieren lassen, bevor Sie die App nutzen können.',
+      'en': 'As a reseller, you must first enter and verify your VAT number via the European VIES service before you can use the app.',
+      'fr': 'En tant que revendeur, vous devez d\'abord saisir et faire vérifier votre numéro de TVA via le service européen VIES avant de pouvoir utiliser l\'application.',
+      'es': 'Como revendedor, primero debe ingresar y verificar su número de IVA a través del servicio europeo VIES antes de poder usar la aplicación.',
+      'it': 'Come rivenditore, devi prima inserire e verificare il tuo numero IVA tramite il servizio europeo VIES prima di poter utilizzare l\'app.',
+    },
+    'wederverkoperskorting': {
+      'nl': 'Uw wederverkoperskorting', 'de': 'Ihr Wiederverkäuferrabatt', 'en': 'Your reseller discount', 'fr': 'Votre remise revendeur',
+      'es': 'Su descuento de revendedor', 'it': 'Il tuo sconto rivenditore',
+    },
+    'btw_nummer': {
+      'nl': 'BTW-nummer', 'de': 'USt-IdNr.', 'en': 'VAT number', 'fr': 'Numéro de TVA',
+      'es': 'Número de IVA', 'it': 'Numero IVA',
+    },
+    'btw_nummer_hint': {
+      'nl': 'Bijv. NL123456789B01 of DE123456789', 'de': 'Z.B. DE123456789 oder NL123456789B01', 'en': 'E.g. NL123456789B01 or DE123456789', 'fr': 'Ex. FR12345678901 ou NL123456789B01',
+      'es': 'Ej. ES12345678A o NL123456789B01', 'it': 'Es. IT12345678901 o NL123456789B01',
+    },
+    'btw_nummer_verplicht': {
+      'nl': 'Voer uw BTW-nummer in', 'de': 'Geben Sie Ihre USt-IdNr. ein', 'en': 'Enter your VAT number', 'fr': 'Saisissez votre numéro de TVA',
+      'es': 'Introduzca su número de IVA', 'it': 'Inserisci il tuo numero IVA',
+    },
+    'geverifieerd': {
+      'nl': 'Geverifieerd', 'de': 'Verifiziert', 'en': 'Verified', 'fr': 'Vérifié',
+      'es': 'Verificado', 'it': 'Verificato',
+    },
+    'verifieren': {
+      'nl': 'Verifiëren', 'de': 'Verifizieren', 'en': 'Verify', 'fr': 'Vérifier',
+      'es': 'Verificar', 'it': 'Verifica',
+    },
+    'verifieren_bezig': {
+      'nl': 'Verifiëren...', 'de': 'Verifizieren...', 'en': 'Verifying...', 'fr': 'Vérification...',
+      'es': 'Verificando...', 'it': 'Verifica in corso...',
+    },
+    'uitloggen': {
+      'nl': 'Uitloggen', 'de': 'Abmelden', 'en': 'Log out', 'fr': 'Se déconnecter',
+      'es': 'Cerrar sesión', 'it': 'Disconnetti',
+    },
+    'opslaan_mislukt': {
+      'nl': 'Opslaan mislukt', 'de': 'Speichern fehlgeschlagen', 'en': 'Save failed', 'fr': 'Échec de l\'enregistrement',
+      'es': 'Error al guardar', 'it': 'Salvataggio fallito',
+    },
+    'btw_verificatie_mislukt': {
+      'nl': 'BTW-nummer kon niet worden geverifieerd.', 'de': 'USt-IdNr. konnte nicht verifiziert werden.', 'en': 'VAT number could not be verified.', 'fr': 'Le numéro de TVA n\'a pas pu être vérifié.',
+      'es': 'No se pudo verificar el número de IVA.', 'it': 'Numero IVA non verificabile.',
+    },
+    // Country names
+    'country_NL': { 'nl': 'Nederland', 'de': 'Niederlande', 'en': 'Netherlands', 'fr': 'Pays-Bas', 'es': 'Países Bajos', 'it': 'Paesi Bassi' },
+    'country_BE': { 'nl': 'België', 'de': 'Belgien', 'en': 'Belgium', 'fr': 'Belgique', 'es': 'Bélgica', 'it': 'Belgio' },
+    'country_BG': { 'nl': 'Bulgarije', 'de': 'Bulgarien', 'en': 'Bulgaria', 'fr': 'Bulgarie', 'es': 'Bulgaria', 'it': 'Bulgaria' },
+    'country_CZ': { 'nl': 'Tsjechië', 'de': 'Tschechien', 'en': 'Czech Republic', 'fr': 'Tchéquie', 'es': 'Chequia', 'it': 'Cechia' },
+    'country_DK': { 'nl': 'Denemarken', 'de': 'Dänemark', 'en': 'Denmark', 'fr': 'Danemark', 'es': 'Dinamarca', 'it': 'Danimarca' },
+    'country_DE': { 'nl': 'Duitsland', 'de': 'Deutschland', 'en': 'Germany', 'fr': 'Allemagne', 'es': 'Alemania', 'it': 'Germania' },
+    'country_EE': { 'nl': 'Estland', 'de': 'Estland', 'en': 'Estonia', 'fr': 'Estonie', 'es': 'Estonia', 'it': 'Estonia' },
+    'country_ES': { 'nl': 'Spanje', 'de': 'Spanien', 'en': 'Spain', 'fr': 'Espagne', 'es': 'España', 'it': 'Spagna' },
+    'country_GR': { 'nl': 'Griekenland', 'de': 'Griechenland', 'en': 'Greece', 'fr': 'Grèce', 'es': 'Grecia', 'it': 'Grecia' },
+    'country_CY': { 'nl': 'Cyprus', 'de': 'Zypern', 'en': 'Cyprus', 'fr': 'Chypre', 'es': 'Chipre', 'it': 'Cipro' },
+    'country_FR': { 'nl': 'Frankrijk', 'de': 'Frankreich', 'en': 'France', 'fr': 'France', 'es': 'Francia', 'it': 'Francia' },
+    'country_AT': { 'nl': 'Oostenrijk', 'de': 'Österreich', 'en': 'Austria', 'fr': 'Autriche', 'es': 'Austria', 'it': 'Austria' },
+    'country_IE': { 'nl': 'Ierland', 'de': 'Irland', 'en': 'Ireland', 'fr': 'Irlande', 'es': 'Irlanda', 'it': 'Irlanda' },
+    'country_IT': { 'nl': 'Italië', 'de': 'Italien', 'en': 'Italy', 'fr': 'Italie', 'es': 'Italia', 'it': 'Italia' },
+    'country_LV': { 'nl': 'Letland', 'de': 'Lettland', 'en': 'Latvia', 'fr': 'Lettonie', 'es': 'Letonia', 'it': 'Lettonia' },
+    'country_LT': { 'nl': 'Litouwen', 'de': 'Litauen', 'en': 'Lithuania', 'fr': 'Lituanie', 'es': 'Lituania', 'it': 'Lituania' },
+    'country_LU': { 'nl': 'Luxemburg', 'de': 'Luxemburg', 'en': 'Luxembourg', 'fr': 'Luxembourg', 'es': 'Luxemburgo', 'it': 'Lussemburgo' },
+    'country_HU': { 'nl': 'Hongarije', 'de': 'Ungarn', 'en': 'Hungary', 'fr': 'Hongrie', 'es': 'Hungría', 'it': 'Ungheria' },
+    'country_PL': { 'nl': 'Polen', 'de': 'Polen', 'en': 'Poland', 'fr': 'Pologne', 'es': 'Polonia', 'it': 'Polonia' },
+    'country_PT': { 'nl': 'Portugal', 'de': 'Portugal', 'en': 'Portugal', 'fr': 'Portugal', 'es': 'Portugal', 'it': 'Portogallo' },
+    'country_RO': { 'nl': 'Roemenië', 'de': 'Rumänien', 'en': 'Romania', 'fr': 'Roumanie', 'es': 'Rumanía', 'it': 'Romania' },
+    'country_SI': { 'nl': 'Slovenië', 'de': 'Slowenien', 'en': 'Slovenia', 'fr': 'Slovénie', 'es': 'Eslovenia', 'it': 'Slovenia' },
+    'country_SK': { 'nl': 'Slowakije', 'de': 'Slowakei', 'en': 'Slovakia', 'fr': 'Slovaquie', 'es': 'Eslovaquia', 'it': 'Slovacchia' },
+    'country_FI': { 'nl': 'Finland', 'de': 'Finnland', 'en': 'Finland', 'fr': 'Finlande', 'es': 'Finlandia', 'it': 'Finlandia' },
+    'country_SE': { 'nl': 'Zweden', 'de': 'Schweden', 'en': 'Sweden', 'fr': 'Suède', 'es': 'Suecia', 'it': 'Svezia' },
+    'country_MT': { 'nl': 'Malta', 'de': 'Malta', 'en': 'Malta', 'fr': 'Malte', 'es': 'Malta', 'it': 'Malta' },
+    'country_NO': { 'nl': 'Noorwegen', 'de': 'Norwegen', 'en': 'Norway', 'fr': 'Norvège', 'es': 'Noruega', 'it': 'Norvegia' },
+    'country_CH': { 'nl': 'Zwitserland', 'de': 'Schweiz', 'en': 'Switzerland', 'fr': 'Suisse', 'es': 'Suiza', 'it': 'Svizzera' },
+    'country_GB': { 'nl': 'Verenigd Koninkrijk', 'de': 'Vereinigtes Königreich', 'en': 'United Kingdom', 'fr': 'Royaume-Uni', 'es': 'Reino Unido', 'it': 'Regno Unito' },
+    'country_HR': { 'nl': 'Kroatië', 'de': 'Kroatien', 'en': 'Croatia', 'fr': 'Croatie', 'es': 'Croacia', 'it': 'Croazia' },
+    'country_other': { 'nl': 'Overig', 'de': 'Sonstige', 'en': 'Other', 'fr': 'Autre', 'es': 'Otro', 'it': 'Altro' },
+    // Order status labels
+    'status_concept': { 'nl': 'Concept', 'de': 'Entwurf', 'en': 'Draft', 'fr': 'Brouillon', 'es': 'Borrador', 'it': 'Bozza' },
+    'status_betaling': { 'nl': 'Betaling', 'de': 'Zahlung', 'en': 'Payment', 'fr': 'Paiement', 'es': 'Pago', 'it': 'Pagamento' },
+    'status_betaald': { 'nl': 'Betaald', 'de': 'Bezahlt', 'en': 'Paid', 'fr': 'Payé', 'es': 'Pagado', 'it': 'Pagato' },
+    'status_verzonden': { 'nl': 'Verzonden', 'de': 'Versendet', 'en': 'Shipped', 'fr': 'Expédié', 'es': 'Enviado', 'it': 'Spedito' },
+    'status_afgeleverd': { 'nl': 'Afgeleverd', 'de': 'Geliefert', 'en': 'Delivered', 'fr': 'Livré', 'es': 'Entregado', 'it': 'Consegnato' },
+    'status_geannuleerd': { 'nl': 'Geannuleerd', 'de': 'Storniert', 'en': 'Cancelled', 'fr': 'Annulé', 'es': 'Cancelado', 'it': 'Annullato' },
+    'alle': { 'nl': 'Alle', 'de': 'Alle', 'en': 'All', 'fr': 'Tous', 'es': 'Todos', 'it': 'Tutti' },
+    'incl': { 'nl': 'incl.', 'de': 'inkl.', 'en': 'incl.', 'fr': 'TTC', 'es': 'incl.', 'it': 'incl.' },
+    'art': { 'nl': 'Art.', 'de': 'Art.', 'en': 'Art.', 'fr': 'Art.', 'es': 'Art.', 'it': 'Art.' },
+    'paynl_beschrijving': {
+      'nl': 'Na het plaatsen van je bestelling word je doorgestuurd naar de beveiligde betaalomgeving van Pay.nl. Daar kun je kiezen uit iDEAL, creditcard, Bancontact en meer.',
+      'de': 'Nach der Bestellung werden Sie zur sicheren Zahlungsumgebung von Pay.nl weitergeleitet. Dort können Sie aus iDEAL, Kreditkarte, Bancontact und mehr wählen.',
+      'en': 'After placing your order, you will be redirected to the secure Pay.nl payment environment. There you can choose from iDEAL, credit card, Bancontact and more.',
+      'fr': 'Après avoir passé votre commande, vous serez redirigé vers l\'environnement de paiement sécurisé de Pay.nl. Vous pourrez y choisir parmi iDEAL, carte de crédit, Bancontact et plus.',
+      'es': 'Después de realizar su pedido, será redirigido al entorno de pago seguro de Pay.nl. Allí puede elegir entre iDEAL, tarjeta de crédito, Bancontact y más.',
+      'it': 'Dopo aver effettuato l\'ordine, verrai reindirizzato all\'ambiente di pagamento sicuro di Pay.nl. Lì puoi scegliere tra iDEAL, carta di credito, Bancontact e altro.',
+    },
+    'betaalmethoden': {
+      'nl': 'Betaalmethoden', 'de': 'Zahlungsmethoden', 'en': 'Payment Methods',
+      'fr': 'Méthodes de paiement', 'es': 'Métodos de pago', 'it': 'Metodi di pagamento',
+      'pl': 'Metody płatności', 'pt': 'Métodos de pagamento', 'da': 'Betalingsmetoder',
+      'sv': 'Betalningsmetoder', 'fi': 'Maksutavat',
+    },
+    'betaalmethoden_subtitel': {
+      'nl': 'Veilig online betalen', 'de': 'Sicher online bezahlen', 'en': 'Secure online payments',
+      'fr': 'Paiement en ligne sécurisé', 'es': 'Pagos seguros en línea', 'it': 'Pagamenti online sicuri',
+      'pl': 'Bezpieczne płatności online', 'pt': 'Pagamentos online seguros',
+    },
+    'betaalmethoden_beschrijving': {
+      'nl': 'Wij bieden diverse betaalmethoden aan. Beschikbaarheid kan per land verschillen.',
+      'de': 'Wir bieten verschiedene Zahlungsmethoden an. Die Verfügbarkeit kann je nach Land variieren.',
+      'en': 'We offer various payment methods. Availability may vary by country.',
+      'fr': 'Nous proposons différents modes de paiement. La disponibilité peut varier selon le pays.',
+      'es': 'Ofrecemos diversos métodos de pago. La disponibilidad puede variar según el país.',
+      'it': 'Offriamo diversi metodi di pagamento. La disponibilità può variare per paese.',
+    },
+    'alle_landen': {
+      'nl': 'Alle landen', 'de': 'Alle Länder', 'en': 'All countries',
+      'fr': 'Tous les pays', 'es': 'Todos los países', 'it': 'Tutti i paesi',
+    },
+    'landen_beschikbaar': {
+      'nl': 'landen beschikbaar', 'de': 'Länder verfügbar', 'en': 'countries available',
+      'fr': 'pays disponibles', 'es': 'países disponibles', 'it': 'paesi disponibili',
+    },
+    'methoden': {
+      'nl': 'methoden', 'de': 'Methoden', 'en': 'methods',
+      'fr': 'méthodes', 'es': 'métodos', 'it': 'metodi',
+    },
+    'bedrag_bereik': {
+      'nl': 'Bedragbereik', 'de': 'Betragsbereich', 'en': 'Amount range',
+      'fr': 'Plage de montant', 'es': 'Rango de importe', 'it': 'Intervallo importo',
+    },
+    'alle_betaalmethoden_bekijken': {
+      'nl': 'Alle betaalmethoden bekijken →', 'de': 'Alle Zahlungsmethoden anzeigen →',
+      'en': 'View all payment methods →', 'fr': 'Voir tous les modes de paiement →',
+      'es': 'Ver todos los métodos de pago →', 'it': 'Vedi tutti i metodi di pagamento →',
+    },
+    'geen_betaalmethoden': {
+      'nl': 'Geen betaalmethoden beschikbaar', 'de': 'Keine Zahlungsmethoden verfügbar',
+      'en': 'No payment methods available', 'fr': 'Aucune méthode de paiement disponible',
+      'es': 'No hay métodos de pago disponibles', 'it': 'Nessun metodo di pagamento disponibile',
+    },
+    'kies_betaalmethode': {
+      'nl': 'Kies je betaalmethode', 'de': 'Zahlungsmethode wählen',
+      'en': 'Choose payment method', 'fr': 'Choisir le mode de paiement',
+      'es': 'Elige tu método de pago', 'it': 'Scegli il metodo di pagamento',
+    },
+    'kies_betaalmethode_beschrijving': {
+      'nl': 'Selecteer hoe je wilt betalen. Beschikbare methoden zijn afgestemd op jouw land.',
+      'de': 'Wähle aus, wie du bezahlen möchtest. Verfügbare Methoden sind auf dein Land abgestimmt.',
+      'en': 'Select how you would like to pay. Available methods are tailored to your country.',
+      'fr': 'Sélectionnez comment vous souhaitez payer. Les méthodes disponibles sont adaptées à votre pays.',
+      'es': 'Selecciona cómo quieres pagar. Los métodos disponibles se adaptan a tu país.',
+      'it': 'Seleziona come vuoi pagare. I metodi disponibili sono adattati al tuo paese.',
+    },
+    'selecteer_betaalmethode': {
+      'nl': 'Selecteer een betaalmethode', 'de': 'Bitte wähle eine Zahlungsmethode',
+      'en': 'Please select a payment method', 'fr': 'Veuillez sélectionner un mode de paiement',
+      'es': 'Selecciona un método de pago', 'it': 'Seleziona un metodo di pagamento',
+    },
+    'pay_niet_geconfigureerd': {
+      'nl': 'Betaalgateway is niet geconfigureerd.\nNeem contact op met de beheerder.',
+      'de': 'Zahlungsgateway ist nicht konfiguriert.\nBitte kontaktieren Sie den Administrator.',
+      'en': 'Payment gateway is not configured.\nPlease contact the administrator.',
+      'fr': 'La passerelle de paiement n\'est pas configurée.\nVeuillez contacter l\'administrateur.',
+      'es': 'La pasarela de pago no está configurada.\nContacte al administrador.',
+      'it': 'Il gateway di pagamento non è configurato.\nContattare l\'amministratore.',
+    },
+    'fout': { 'nl': 'Fout', 'de': 'Fehler', 'en': 'Error', 'fr': 'Erreur', 'es': 'Error', 'it': 'Errore' },
+    'product_niet_gevonden': {
+      'nl': 'Product niet gevonden', 'en': 'Product not found', 'de': 'Produkt nicht gefunden', 'fr': 'Produit non trouvé',
+      'es': 'Producto no encontrado', 'it': 'Prodotto non trovato',
+    },
+    'terug_assortiment': {
+      'nl': 'Terug naar assortiment', 'en': 'Back to products', 'de': 'Zurück zum Sortiment', 'fr': 'Retour aux produits',
+      'es': 'Volver a productos', 'it': 'Torna ai prodotti',
+    },
+    'producten_beschikbaar': {
+      'nl': 'producten beschikbaar', 'en': 'products available', 'de': 'Produkte verfügbar', 'fr': 'produits disponibles',
+      'es': 'productos disponibles', 'it': 'prodotti disponibili',
+    },
+    'alle_producten': {
+      'nl': 'Alle producten', 'en': 'All products', 'de': 'Alle Produkte', 'fr': 'Tous les produits',
+      'es': 'Todos los productos', 'it': 'Tutti i prodotti',
+    },
+    'zoek_product': {
+      'nl': 'Zoek product...', 'en': 'Search product...', 'de': 'Produkt suchen...', 'fr': 'Rechercher un produit...',
+      'es': 'Buscar producto...', 'it': 'Cerca prodotto...',
+    },
+    'omschrijving': {
+      'nl': 'Omschrijving', 'en': 'Description', 'de': 'Beschreibung', 'fr': 'Description',
+      'es': 'Descripción', 'it': 'Descrizione',
+    },
+    'toegevoegd': {
+      'nl': 'toegevoegd aan winkelwagen', 'en': 'added to cart', 'de': 'in den Warenkorb gelegt', 'fr': 'ajouté au panier',
+      'es': 'añadido al carrito', 'it': 'aggiunto al carrello',
+    },
+    'zeiloppervlak': {
+      'nl': 'Zeiloppervlak', 'en': 'Sail area', 'de': 'Segelfläche', 'fr': 'Surface de voile',
+      'es': 'Superficie de vela', 'it': 'Superficie velica',
+    },
+    'verzend_info': {
+      'nl': 'Wij verzenden uw bestelling aankomende vrijdagmiddag, tenzij anders aangegeven.',
+      'de': 'Wir versenden Ihre Bestellung am kommenden Freitagnachmittag, sofern nicht anders angegeben.',
+      'en': 'We ship your order the coming Friday afternoon, unless otherwise indicated.',
+      'fr': 'Nous expédions votre commande le vendredi après-midi suivant, sauf indication contraire.',
+      'es': 'Enviaremos su pedido el próximo viernes por la tarde, salvo indicación contraria.',
+      'it': 'Spediremo il tuo ordine venerdì pomeriggio prossimo, salvo diversa indicazione.',
+    },
+
+    // ─── Landing page ───
+    'nav_assortiment': {
+      'nl': 'Assortiment', 'en': 'Products', 'de': 'Sortiment', 'fr': 'Assortiment',
+      'es': 'Productos', 'it': 'Prodotti',
+      'pl': 'Produkty', 'pt': 'Produtos',
+      'da': 'Produkter', 'sv': 'Produkter',
+      'fi': 'Tuotteet', 'el': 'Προϊόντα',
+      'cs': 'Produkty', 'hu': 'Termékek',
+      'ro': 'Produse', 'bg': 'Продукти',
+      'hr': 'Proizvodi', 'sk': 'Produkty',
+      'sl': 'Izdelki', 'et': 'Tooted',
+      'lt': 'Produktai', 'lv': 'Produkti',
+      'mt': 'Prodotti', 'ga': 'Táirgí',
+    },
+    'nav_over_ons': {
+      'nl': 'Over ons', 'en': 'About us', 'de': 'Über uns', 'fr': 'À propos',
+      'es': 'Sobre nosotros', 'it': 'Chi siamo',
+      'pl': 'O nas', 'pt': 'Sobre nós',
+      'da': 'Om os', 'sv': 'Om oss',
+      'fi': 'Meistä', 'el': 'Σχετικά',
+      'cs': 'O nás', 'hu': 'Rólunk',
+      'ro': 'Despre noi', 'bg': 'За нас',
+      'hr': 'O nama', 'sk': 'O nás',
+      'sl': 'O nas', 'et': 'Meist',
+      'lt': 'Apie mus', 'lv': 'Par mums',
+      'mt': 'Dwarna', 'ga': 'Fúinn',
+    },
+    'nav_contact': {
+      'nl': 'Contact', 'en': 'Contact', 'de': 'Kontakt', 'fr': 'Contact',
+      'es': 'Contacto', 'it': 'Contatto',
+      'pl': 'Kontakt', 'pt': 'Contacto',
+      'da': 'Kontakt', 'sv': 'Kontakt',
+      'fi': 'Yhteystiedot', 'el': 'Επικοινωνία',
+      'cs': 'Kontakt', 'hu': 'Kapcsolat',
+      'ro': 'Contact', 'bg': 'Контакт',
+      'hr': 'Kontakt', 'sk': 'Kontakt',
+      'sl': 'Kontakt', 'et': 'Kontakt',
+      'lt': 'Kontaktai', 'lv': 'Kontakti',
+      'mt': 'Kuntatt', 'ga': 'Teagmháil',
+    },
+    'nav_impressies': {
+      'nl': 'Impressies', 'en': 'Gallery', 'de': 'Galerie', 'fr': 'Galerie',
+      'es': 'Galería', 'it': 'Galleria',
+      'pl': 'Galeria', 'pt': 'Galeria',
+      'da': 'Galleri', 'sv': 'Galleri',
+      'fi': 'Galleria', 'el': 'Γκαλερί',
+      'cs': 'Galerie', 'hu': 'Galéria',
+      'ro': 'Galerie', 'bg': 'Галерия',
+      'hr': 'Galerija', 'sk': 'Galéria',
+      'sl': 'Galerija', 'et': 'Galerii',
+      'lt': 'Galerija', 'lv': 'Galerija',
+      'mt': 'Gallerija', 'ga': 'Gailearaí',
+    },
+    'impressies_titel': {
+      'nl': 'Impressies', 'en': 'Gallery', 'de': 'Galerie', 'fr': 'Galerie',
+      'es': 'Galería', 'it': 'Galleria',
+      'pl': 'Galeria', 'pt': 'Galeria',
+      'da': 'Galleri', 'sv': 'Galleri',
+      'fi': 'Galleria', 'el': 'Γκαλερί',
+      'cs': 'Galerie', 'hu': 'Galéria',
+      'ro': 'Galerie', 'bg': 'Галерия',
+      'hr': 'Galerija', 'sk': 'Galéria',
+      'sl': 'Galerija', 'et': 'Galerii',
+      'lt': 'Galerija', 'lv': 'Galerija',
+      'mt': 'Gallerija', 'ga': 'Gailearaí',
+    },
+    'impressies_subtitel': {
+      'nl': 'Onze zeilen in actie op het water', 'en': 'Our sails in action on the water',
+      'de': 'Unsere Segel in Aktion auf dem Wasser', 'fr': 'Nos voiles en action sur l\'eau',
+      'es': 'Nuestras velas en acción en el agua', 'it': 'Le nostre vele in azione sull\'acqua',
+      'pl': 'Nasze żagle w akcji na wodzie', 'pt': 'As nossas velas em ação na água',
+      'da': 'Vores sejl i aktion på vandet', 'sv': 'Våra segel i aktion på vattnet',
+      'fi': 'Purjeemme toiminnassa vedellä', 'el': 'Τα πανιά μας σε δράση στο νερό',
+      'cs': 'Naše plachty v akci na vodě', 'hu': 'Vitorláink akcióban a vízen',
+      'ro': 'Velele noastre în acțiune pe apă', 'bg': 'Нашите платна в действие на водата',
+      'hr': 'Naša jedra u akciji na vodi', 'sk': 'Naše plachty v akcii na vode',
+      'sl': 'Naša jadra v akciji na vodi', 'et': 'Meie purjed tegevuses vees',
+      'lt': 'Mūsų burės veikime ant vandens', 'lv': 'Mūsu buras darbībā uz ūdens',
+      'mt': 'Il-qlugħ tagħna fl-azzjoni fuq l-ilma', 'ga': 'Ár seolta i mbun oibre ar an uisce',
+    },
+    'impressies_leeg': {
+      'nl': 'Nog geen impressies beschikbaar', 'en': 'No images available yet',
+      'de': 'Noch keine Bilder verfügbar', 'fr': 'Aucune image disponible pour le moment',
+      'es': 'Aún no hay imágenes disponibles', 'it': 'Nessuna immagine disponibile',
+      'pl': 'Brak dostępnych zdjęć', 'pt': 'Nenhuma imagem disponível',
+      'da': 'Ingen billeder tilgængelige endnu', 'sv': 'Inga bilder tillgängliga ännu',
+      'fi': 'Ei kuvia saatavilla vielä', 'el': 'Δεν υπάρχουν διαθέσιμες εικόνες',
+      'cs': 'Zatím žádné obrázky', 'hu': 'Még nincsenek képek',
+      'ro': 'Nu sunt imagini disponibile', 'bg': 'Няма налични изображения',
+      'hr': 'Nema dostupnih slika', 'sk': 'Zatiaľ žiadne obrázky',
+      'sl': 'Ni razpoložljivih slik', 'et': 'Pilte pole veel saadaval',
+      'lt': 'Kol kas nėra nuotraukų', 'lv': 'Pagaidām nav pieejamu attēlu',
+      'mt': 'L-ebda stampi disponibbli', 'ga': 'Níl aon íomhánna ar fáil fós',
+    },
+    'bekijk_video': {
+      'nl': 'Bekijk video', 'en': 'Watch video', 'de': 'Video ansehen', 'fr': 'Regarder la vidéo',
+      'es': 'Ver vídeo', 'it': 'Guarda il video',
+      'pl': 'Obejrzyj film', 'pt': 'Ver vídeo',
+      'da': 'Se video', 'sv': 'Se video',
+      'fi': 'Katso video', 'el': 'Δείτε το βίντεο',
+      'cs': 'Přehrát video', 'hu': 'Videó megtekintése',
+      'ro': 'Vizionează videoclipul', 'bg': 'Гледайте видеото',
+      'hr': 'Pogledajte video', 'sk': 'Pozrieť video',
+      'sl': 'Oglej si video', 'et': 'Vaata videot',
+      'lt': 'Žiūrėti vaizdo įrašą', 'lv': 'Skatīt video',
+      'mt': 'Ara l-vidjow', 'ga': 'Féach ar an bhfíseán',
+    },
+    'video_beschrijving': {
+      'nl': 'Bekijk onze zeilen in actie op YouTube', 'en': 'Watch our sails in action on YouTube',
+      'de': 'Sehen Sie unsere Segel in Aktion auf YouTube', 'fr': 'Regardez nos voiles en action sur YouTube',
+      'es': 'Mira nuestras velas en acción en YouTube', 'it': 'Guarda le nostre vele in azione su YouTube',
+      'pl': 'Obejrzyj nasze żagle w akcji na YouTube', 'pt': 'Veja as nossas velas em ação no YouTube',
+      'da': 'Se vores sejl i aktion på YouTube', 'sv': 'Se våra segel i aktion på YouTube',
+      'fi': 'Katso purjeemme toiminnassa YouTubessa', 'el': 'Δείτε τα πανιά μας σε δράση στο YouTube',
+      'cs': 'Podívejte se na naše plachty v akci na YouTube', 'hu': 'Nézze meg vitorláinkat akcióban a YouTube-on',
+      'ro': 'Vizionați velele noastre în acțiune pe YouTube', 'bg': 'Гледайте нашите платна в действие в YouTube',
+      'hr': 'Pogledajte naša jedra u akciji na YouTubeu', 'sk': 'Pozrite si naše plachty v akcii na YouTube',
+      'sl': 'Oglejte si naša jadra v akciji na YouTubu', 'et': 'Vaadake meie purjeid tegevuses YouTube\'is',
+      'lt': 'Žiūrėkite mūsų bures veikime YouTube', 'lv': 'Skatiet mūsu buras darbībā YouTube',
+      'mt': 'Ara l-qlugħ tagħna fl-azzjoni fuq YouTube', 'ga': 'Féach ar ár seolta i mbun oibre ar YouTube',
+    },
+    'nav_inloggen': {
+      'nl': 'Inloggen', 'en': 'Sign in', 'de': 'Anmelden', 'fr': 'Se connecter',
+      'es': 'Iniciar sesión', 'it': 'Accedi',
+      'pl': 'Zaloguj się', 'pt': 'Iniciar sessão',
+      'da': 'Log ind', 'sv': 'Logga in',
+      'fi': 'Kirjaudu', 'el': 'Σύνδεση',
+      'cs': 'Přihlásit', 'hu': 'Bejelentkezés',
+      'ro': 'Autentificare', 'bg': 'Вход',
+      'hr': 'Prijava', 'sk': 'Prihlásiť',
+      'sl': 'Prijava', 'et': 'Logi sisse',
+      'lt': 'Prisijungti', 'lv': 'Ieiet',
+      'mt': 'Idħol', 'ga': 'Sínigh isteach',
+    },
+    'nav_dashboard': {
+      'nl': 'Dashboard', 'en': 'Dashboard', 'de': 'Dashboard', 'fr': 'Tableau de bord',
+      'es': 'Panel', 'it': 'Pannello',
+      'pl': 'Panel', 'pt': 'Painel',
+      'da': 'Dashboard', 'sv': 'Instrumentpanel',
+      'fi': 'Hallintapaneeli', 'el': 'Πίνακας',
+      'cs': 'Panel', 'hu': 'Irányítópult',
+      'ro': 'Panou', 'bg': 'Табло',
+      'hr': 'Ploča', 'sk': 'Panel',
+      'sl': 'Nadzorna plošča', 'et': 'Töölaud',
+      'lt': 'Skydelis', 'lv': 'Panelis',
+      'mt': 'Pannell', 'ga': 'Deais',
+    },
+    'nav_winkelwagen': {
+      'nl': 'Winkelwagen', 'en': 'Cart', 'de': 'Warenkorb', 'fr': 'Panier',
+      'es': 'Carrito', 'it': 'Carrello',
+      'pl': 'Koszyk', 'pt': 'Carrinho',
+      'da': 'Kurv', 'sv': 'Varukorg',
+      'fi': 'Ostoskori', 'el': 'Καλάθι',
+      'cs': 'Košík', 'hu': 'Kosár',
+      'ro': 'Coș', 'bg': 'Кошница',
+      'hr': 'Košarica', 'sk': 'Košík',
+      'sl': 'Košarica', 'et': 'Ostukorv',
+      'lt': 'Krepšelis', 'lv': 'Grozs',
+      'mt': 'Basket', 'ga': 'Tralaí',
+    },
+    'hero_badge': {
+      'nl': 'Sailmaker & Sailshop', 'en': 'Sailmaker & Sailshop', 'de': 'Segelmacher & Segelshop', 'fr': 'Voilerie & Boutique',
+      'es': 'Velería y Tienda', 'it': 'Veleria e Negozio',
+    },
+    'hero_title': {
+      'nl': 'Premium One Design\nZeilen', 'en': 'Premium One Design\nSails', 'de': 'Premium One Design\nSegel', 'fr': 'Voiles One Design\nPremium',
+      'es': 'Velas Premium\nOne Design', 'it': 'Vele Premium\nOne Design',
+    },
+    'hero_subtitle': {
+      'nl': 'Kwalitatief hoogwaardige one design zeilen\nvoor een eerlijke prijs — leverbaar in de gehele EU.',
+      'en': 'High-quality one design sails\nat a fair price — available across the EU.',
+      'de': 'Hochwertige One Design Segel\nzu einem fairen Preis — in der gesamten EU lieferbar.',
+      'fr': 'Voiles one design de haute qualité\nà un prix juste — disponibles dans toute l\'UE.',
+      'es': 'Velas one design de alta calidad\na un precio justo — disponibles en toda la UE.',
+      'it': 'Vele one design di alta qualità\nad un prezzo equo — disponibili in tutta l\'UE.',
+    },
+    'hero_cta': {
+      'nl': 'Bekijk assortiment', 'en': 'Browse products', 'de': 'Sortiment ansehen', 'fr': 'Voir l\'assortiment',
+      'es': 'Ver productos', 'it': 'Vedi i prodotti',
+    },
+    'usp_gratis': {
+      'nl': 'Gratis verzending', 'en': 'Free shipping', 'de': 'Kostenloser Versand', 'fr': 'Livraison gratuite',
+      'es': 'Envío gratuito', 'it': 'Spedizione gratuita',
+    },
+    'usp_gratis_sub': {
+      'nl': 'In heel Nederland', 'en': 'Within the Netherlands', 'de': 'In den gesamten Niederlanden', 'fr': 'Aux Pays-Bas',
+      'es': 'En todos los Países Bajos', 'it': 'In tutti i Paesi Bassi',
+    },
+    'usp_eu': {
+      'nl': 'EU-breed leverbaar', 'en': 'EU-wide delivery', 'de': 'EU-weite Lieferung', 'fr': 'Livraison dans l\'UE',
+      'es': 'Envío en toda la UE', 'it': 'Consegna in tutta l\'UE',
+    },
+    'usp_eu_sub': {
+      'nl': 'Scherpe verzendtarieven', 'en': 'Competitive shipping rates', 'de': 'Günstige Versandkosten', 'fr': 'Tarifs compétitifs',
+      'es': 'Tarifas de envío competitivas', 'it': 'Tariffe di spedizione competitive',
+    },
+    'usp_voorraad': {
+      'nl': 'Op voorraad', 'en': 'In stock', 'de': 'Auf Lager', 'fr': 'En stock',
+      'es': 'En stock', 'it': 'Disponibile',
+    },
+    'usp_voorraad_sub': {
+      'nl': 'Wekelijks verzonden', 'en': 'Shipped weekly', 'de': 'Wöchentlich versendet', 'fr': 'Envoi hebdomadaire',
+      'es': 'Envío semanal', 'it': 'Spedizione settimanale',
+    },
+    'usp_kwaliteit': {
+      'nl': 'Topkwaliteit', 'en': 'Top quality', 'de': 'Spitzenqualität', 'fr': 'Qualité supérieure',
+      'es': 'Máxima calidad', 'it': 'Alta qualità',
+    },
+    'usp_shipping': {
+      'nl': 'Snelle verzending', 'en': 'Fast shipping', 'de': 'Schneller Versand', 'fr': 'Expédition rapide',
+      'es': 'Envío rápido', 'it': 'Spedizione rapida',
+    },
+    'usp_shipping_sub': {
+      'nl': 'Wekelijks op vrijdag', 'en': 'Weekly on Fridays', 'de': 'Wöchentlich am Freitag', 'fr': 'Chaque vendredi',
+      'es': 'Cada viernes', 'it': 'Ogni venerdì',
+    },
+    'usp_kwaliteit_sub': {
+      'nl': 'Contender & Challenge zeildoek', 'en': 'Contender & Challenge sailcloth', 'de': 'Contender & Challenge Segeltuch', 'fr': 'Toile Contender & Challenge',
+      'es': 'Tela Contender y Challenge', 'it': 'Tessuto Contender e Challenge',
+    },
+    'cat_title': {
+      'nl': 'Ons assortiment', 'en': 'Our products', 'de': 'Unser Sortiment', 'fr': 'Notre assortiment',
+      'es': 'Nuestros productos', 'it': 'I nostri prodotti',
+    },
+    'cat_subtitle': {
+      'nl': 'Zeilen voor diverse klassen — altijd op voorraad en snel leverbaar',
+      'en': 'Sails for various classes — always in stock and quickly delivered',
+      'de': 'Segel für verschiedene Klassen — immer auf Lager und schnell lieferbar',
+      'fr': 'Voiles pour diverses classes — toujours en stock et livrées rapidement',
+      'es': 'Velas para diversas clases — siempre en stock y entrega rápida',
+      'it': 'Vele per diverse classi — sempre disponibili e consegna rapida',
+    },
+    'cat_cta': {
+      'nl': 'Bekijk het volledige assortiment', 'en': 'View full product range', 'de': 'Vollständiges Sortiment ansehen', 'fr': 'Voir l\'assortiment complet',
+      'es': 'Ver la gama completa', 'it': 'Vedi la gamma completa',
+    },
+    'about_title': {
+      'nl': 'Ventoz Sails', 'en': 'Ventoz Sails', 'de': 'Ventoz Sails', 'fr': 'Ventoz Sails',
+    },
+    'about_text': {
+      'nl': 'Ventoz Sails is een modern Europees zeilmerk gevestigd in Nederland. Wij brengen kwalitatief '
+            'hoogwaardige "one design" zeilen tegen een eerlijke prijs op de Europese markt.\n\n'
+            'Wij gebruiken alleen de beste materialen, zoals Contender of Challenge zeildoek, '
+            'en werken samen met erkende en gecertificeerde zeilmakers.\n\n'
+            'Alle zeilen worden uit voorraad geleverd en wekelijks op vrijdagmiddag verzonden.',
+      'en': 'Ventoz Sails is a modern European sail brand based in the Netherlands. We bring high-quality '
+            '"one design" sails to the European market at a fair price.\n\n'
+            'We only use the finest materials, such as Contender or Challenge sailcloth, '
+            'and work with certified sailmakers.\n\n'
+            'All sails are shipped from stock every Friday afternoon.',
+      'de': 'Ventoz Sails ist eine moderne europäische Segelmarke mit Sitz in den Niederlanden. Wir bringen hochwertige '
+            '"One Design"-Segel zu einem fairen Preis auf den europäischen Markt.\n\n'
+            'Wir verwenden ausschließlich die besten Materialien wie Contender oder Challenge Segeltuch '
+            'und arbeiten mit zertifizierten Segelmachern zusammen.\n\n'
+            'Alle Segel werden ab Lager geliefert und jeden Freitagnachmittag versendet.',
+      'fr': 'Ventoz Sails est une marque de voiles européenne moderne basée aux Pays-Bas. Nous proposons des voiles '
+            '"one design" de haute qualité à un prix juste sur le marché européen.\n\n'
+            'Nous n\'utilisons que les meilleurs matériaux, tels que la toile Contender ou Challenge, '
+            'et travaillons avec des voileries certifiées.\n\n'
+            'Toutes les voiles sont expédiées depuis le stock chaque vendredi après-midi.',
+      'es': 'Ventoz Sails es una marca europea moderna de velas con sede en los Países Bajos. Ofrecemos velas "one design" de alta calidad a un precio justo en el mercado europeo.\n\n'
+            'Utilizamos solo los mejores materiales, como tela Contender o Challenge, y trabajamos con fabricantes de velas certificados.\n\n'
+            'Todas las velas se envían desde stock cada viernes por la tarde.',
+      'it': 'Ventoz Sails è un moderno marchio europeo di vele con sede nei Paesi Bassi. Portiamo vele "one design" di alta qualità sul mercato europeo a un prezzo equo.\n\n'
+            'Utilizziamo solo i migliori materiali, come tessuto Contender o Challenge, e collaboriamo con velai certificati.\n\n'
+            'Tutte le vele vengono spedite dal magazzino ogni venerdì pomeriggio.',
+      'pl': 'Ventoz Sails to nowoczesna europejska marka żagli z siedzibą w Holandii. Oferujemy wysokiej jakości żagle "one design" na rynku europejskim w uczciwej cenie.\n\n'
+            'Używamy wyłącznie najlepszych materiałów, takich jak tkanina Contender lub Challenge, i współpracujemy z certyfikowanymi żaglownikami.\n\n'
+            'Wszystkie żagle wysyłamy z magazynu w każdy piątek po południu.',
+      'pt': 'Ventoz Sails é uma marca europeia moderna de velas com sede nos Países Baixos. Oferecemos velas "one design" de alta qualidade no mercado europeu a um preço justo.\n\n'
+            'Utilizamos apenas os melhores materiais, como tecido Contender ou Challenge, e trabalhamos com fabricantes de velas certificados.\n\n'
+            'Todas as velas são enviadas do stock todas as sextas-feiras à tarde.',
+      'da': 'Ventoz Sails er et moderne europæisk sejlmærke med base i Holland. Vi bringer højkvalitets "one design"-sejl til det europæiske marked til en fair pris.\n\n'
+            'Vi bruger kun de fineste materialer, såsom Contender- eller Challenge-sejldug, og samarbejder med certificerede sejlmagere.\n\n'
+            'Alle sejl sendes fra lager hver fredag eftermiddag.',
+      'sv': 'Ventoz Sails är ett modernt europeiskt segelmärke baserat i Nederländerna. Vi erbjuder högkvalitativa "one design"-segel på den europeiska marknaden till ett rättvist pris.\n\n'
+            'Vi använder bara de finaste materialen, som Contender- eller Challenge-segelduk, och samarbetar med certifierade segelmakare.\n\n'
+            'Alla segel skickas från lager varje fredag eftermiddag.',
+      'fi': 'Ventoz Sails on moderni eurooppalainen purjemerkki, jonka kotipaikka on Alankomaissa. Tarjoamme korkealaatuisia "one design" -purjeita Euroopan markkinoille reilulla hinnalla.\n\n'
+            'Käytämme vain parhaita materiaaleja, kuten Contender- tai Challenge-purjekangasta, ja teemme yhteistyötä sertifioitujen purjeentekijöiden kanssa.\n\n'
+            'Kaikki purjeet lähetetään varastosta joka perjantai-iltapäivä.',
+      'cs': 'Ventoz Sails je moderní evropská značka plachet se sídlem v Nizozemsku. Nabízíme vysoce kvalitní plachet "one design" na evropském trhu za férovou cenu.\n\n'
+            'Používáme pouze nejlepší materiály, jako je plátno Contender nebo Challenge, a spolupracujeme s certifikovanými výrobci plachet.\n\n'
+            'Všechny plachty jsou odesílány ze skladu každý pátek odpoledne.',
+      'hu': 'A Ventoz Sails egy modern európai vitorlamárka, amelynek székhelye Hollandiában van. Kiváló minőségű "one design" vitorlákat kínálunk az európai piacon méltányos áron.\n\n'
+            'Kizárólag a legjobb anyagokat használjuk, mint a Contender vagy Challenge vitorlavászon, és minősített vitorlakészítőkkel dolgozunk együtt.\n\n'
+            'Minden vitorlát raktárról szállítunk, minden péntek délután.',
+      'ro': 'Ventoz Sails este un brand european modern de vele cu sediul în Olanda. Oferim vele "one design" de înaltă calitate pe piața europeană la un preț corect.\n\n'
+            'Folosim doar cele mai bune materiale, precum pânza Contender sau Challenge, și colaborăm cu fabricanți de vele certificați.\n\n'
+            'Toate velele sunt expediate din stoc în fiecare vineri după-amiază.',
+      'bg': 'Ventoz Sails е модерна европейска марка за платна, базирана в Нидерландия. Предлагаме висококачествени платна "one design" на европейския пазар на справедлива цена.\n\n'
+            'Използваме само най-добрите материали, като платнище Contender или Challenge, и работим със сертифицирани производители на платна.\n\n'
+            'Всички платна се изпращат от склад всеки петък следобед.',
+      'el': 'Η Ventoz Sails είναι μια σύγχρονη ευρωπαϊκή μάρκα πανιών με έδρα την Ολλανδία. Προσφέρουμε υψηλής ποιότητας πανιά "one design" στην ευρωπαϊκή αγορά σε δίκαιη τιμή.\n\n'
+            'Χρησιμοποιούμε μόνο τα καλύτερα υλικά, όπως ύφασμα Contender ή Challenge, και συνεργαζόμαστε με πιστοποιημένους κατασκευαστές πανιών.\n\n'
+            'Όλα τα πανιά αποστέλλονται από απόθεμα κάθε Παρασκευή απόγευμα.',
+      'et': 'Ventoz Sails on kaasaegne Euroopa purjebränd, mille peakontor asub Hollandis. Pakume kvaliteetseid "one design" purjesid Euroopa turule õiglase hinnaga.\n\n'
+            'Kasutame ainult parimaid materjale, nagu Contender või Challenge purjeriiet, ning teeme koostööd sertifitseeritud purjemeistritega.\n\n'
+            'Kõik purjed saadetakse laost igal reedel pärastlõunal.',
+      'ga': 'Is branda Eorpach nua-aimseartha seoltóireachta é Ventoz Sails atá lonnaithe san Ísiltír. Cuirimid seolta "one design" ardcháilíochta ar fáil ar mhargadh na hEorpa ar phraghas cóir.\n\n'
+            'Ní úsáidimid ach na hábhair is fearr, mar éadach Contender nó Challenge, agus oibrímid le déantóirí seolta deimhnithe.\n\n'
+            'Seoltar gach seol ó stoc gach Aoine tráthnóna.',
+      'hr': 'Ventoz Sails je moderna europska marka jedara sa sjedištem u Nizozemskoj. Nudimo visokokvalitetna "one design" jedra na europskom tržištu po poštenoj cijeni.\n\n'
+            'Koristimo samo najbolje materijale, poput Contender ili Challenge tkanine za jedra, i surađujemo s certificiranim proizvođačima jedara.\n\n'
+            'Sva jedra šaljemo sa skladišta svakog petka poslijepodne.',
+      'lt': 'Ventoz Sails yra modernus Europos burių prekės ženklas, įsikūręs Nyderlanduose. Siūlome aukštos kokybės "one design" bures Europos rinkoje už teisingą kainą.\n\n'
+            'Naudojame tik geriausias medžiagas, tokias kaip Contender arba Challenge burių audinį, ir dirbame su sertifikuotais burių gamintojais.\n\n'
+            'Visos burės siunčiamos iš sandėlio kiekvieną penktadienio popietę.',
+      'lv': 'Ventoz Sails ir moderns Eiropas buru zīmols, kas atrodas Nīderlandē. Mēs piedāvājam augstas kvalitātes "one design" buras Eiropas tirgū par taisnīgu cenu.\n\n'
+            'Mēs izmantojam tikai labākos materiālus, piemēram, Contender vai Challenge buru audumu, un sadarbojamies ar sertificētiem buru ražotājiem.\n\n'
+            'Visas buras tiek nosūtītas no noliktavas katru piektdienas pēcpusdienu.',
+      'mt': 'Ventoz Sails hija marka Ewropea moderna ta\' qlugħ ibbażata fl-Olanda. Noffru qlugħ "one design" ta\' kwalità għolja fis-suq Ewropew bi prezz ġust.\n\n'
+            'Nużaw biss l-aħjar materjali, bħal-drapp Contender jew Challenge, u naħdmu ma\' manifatturi tal-qlugħ iċċertifikati.\n\n'
+            'Il-qlugħ kollha jintbagħtu mill-istokk kull nhar ta\' Ġimgħa wara nofsinhar.',
+      'sk': 'Ventoz Sails je moderná európska značka plachiet so sídlom v Holandsku. Ponúkame vysoko kvalitné plachty "one design" na európskom trhu za férovú cenu.\n\n'
+            'Používame iba najlepšie materiály, ako je plátno Contender alebo Challenge, a spolupracujeme s certifikovanými výrobcami plachiet.\n\n'
+            'Všetky plachty sú odosielané zo skladu každý piatok popoludní.',
+      'sl': 'Ventoz Sails je sodobna evropska blagovna znamka jader s sedežem na Nizozemskem. Ponujamo visokokakovostna jadra "one design" na evropskem trgu po pošteni ceni.\n\n'
+            'Uporabljamo le najboljše materiale, kot sta tkanina Contender ali Challenge, in sodelujemo s certificiranimi izdelovalci jader.\n\n'
+            'Vsa jadra pošiljamo iz zaloge vsak petek popoldne.',
+    },
+    'trust_materials': {
+      'nl': 'Premium Materialen', 'en': 'Premium Materials', 'de': 'Premium-Materialien', 'fr': 'Matériaux premium',
+      'es': 'Materiales Premium', 'it': 'Materiali Premium',
+    },
+    'trust_materials_sub': {
+      'nl': 'Contender & Challenge zeildoek', 'en': 'Contender & Challenge sailcloth', 'de': 'Contender & Challenge Segeltuch', 'fr': 'Toile Contender & Challenge',
+      'es': 'Tela Contender y Challenge', 'it': 'Tessuto Contender e Challenge',
+    },
+    'trust_makers': {
+      'nl': 'Gecertificeerde Zeilmakers', 'en': 'Certified Sailmakers', 'de': 'Zertifizierte Segelmacher', 'fr': 'Voileries certifiées',
+      'es': 'Fabricantes Certificados', 'it': 'Velai Certificati',
+    },
+    'trust_makers_sub': {
+      'nl': 'Erkende en gecertificeerde partners', 'en': 'Recognized and certified partners', 'de': 'Anerkannte und zertifizierte Partner', 'fr': 'Partenaires reconnus et certifiés',
+      'es': 'Socios reconocidos y certificados', 'it': 'Partner riconosciuti e certificati',
+    },
+    'trust_prices': {
+      'nl': 'Eerlijke Prijzen', 'en': 'Fair Prices', 'de': 'Faire Preise', 'fr': 'Prix justes',
+      'es': 'Precios Justos', 'it': 'Prezzi Giusti',
+    },
+    'trust_prices_sub': {
+      'nl': 'Staffelkorting voor grotere bestellingen', 'en': 'Volume discounts for larger orders', 'de': 'Mengenrabatt für größere Bestellungen', 'fr': 'Remises pour commandes importantes',
+      'es': 'Descuentos por volumen', 'it': 'Sconti per ordini maggiori',
+    },
+    'trust_shipping': {
+      'nl': 'Snelle Levering', 'en': 'Fast Delivery', 'de': 'Schnelle Lieferung', 'fr': 'Livraison rapide',
+      'es': 'Entrega Rápida', 'it': 'Consegna Rapida',
+    },
+    'trust_shipping_sub': {
+      'nl': 'Wekelijkse verzending, gratis in NL', 'en': 'Weekly shipping, free in NL', 'de': 'Wöchentlicher Versand, kostenlos in NL', 'fr': 'Expédition hebdomadaire, gratuite aux Pays-Bas',
+      'es': 'Envío semanal, gratis en NL', 'it': 'Spedizione settimanale, gratis in NL',
+    },
+    'reseller_title': {
+      'nl': 'Wederverkoper worden?', 'en': 'Become a reseller?', 'de': 'Wiederverkäufer werden?', 'fr': 'Devenir revendeur ?',
+      'es': '¿Quiere ser revendedor?', 'it': 'Vuoi diventare rivenditore?',
+    },
+    'reseller_text': {
+      'nl': 'Bent u een zeilschool, verhuurder of watersportwinkel? Profiteer van onze aantrekkelijke staffelkortingen en word officieel Ventoz-verkooppunt.',
+      'en': 'Are you a sailing school, rental company or watersport shop? Enjoy our attractive volume discounts and become an official Ventoz dealer.',
+      'de': 'Sind Sie eine Segelschule, ein Verleih oder ein Wassersportgeschäft? Profitieren Sie von unseren attraktiven Staffelrabatten und werden Sie offizieller Ventoz-Händler.',
+      'fr': 'Êtes-vous une école de voile, un loueur ou un magasin de sports nautiques ? Profitez de nos remises attractives et devenez revendeur officiel Ventoz.',
+      'es': '¿Es usted una escuela de vela, empresa de alquiler o tienda de deportes acuáticos? Disfrute de nuestros atractivos descuentos por volumen y conviértase en distribuidor oficial de Ventoz.',
+      'it': 'Sei una scuola di vela, un noleggio o un negozio di sport acquatici? Approfitta dei nostri sconti interessanti e diventa rivenditore ufficiale Ventoz.',
+    },
+    'reseller_cta': {
+      'nl': 'Neem contact op', 'en': 'Contact us', 'de': 'Kontaktieren Sie uns', 'fr': 'Contactez-nous',
+      'es': 'Contáctenos', 'it': 'Contattaci',
+    },
+    'footer_nav': {
+      'nl': 'Navigatie', 'en': 'Navigation', 'de': 'Navigation', 'fr': 'Navigation',
+      'es': 'Navegación', 'it': 'Navigazione',
+    },
+    'footer_contact': {
+      'nl': 'Contact', 'en': 'Contact', 'de': 'Kontakt', 'fr': 'Contact',
+      'es': 'Contacto', 'it': 'Contatto',
+    },
+    'footer_legal': {
+      'nl': 'Gegevens', 'en': 'Legal', 'de': 'Rechtliches', 'fr': 'Informations',
+      'es': 'Legal', 'it': 'Legale',
+    },
+    'footer_payment': {
+      'nl': 'Betaalmogelijkheden', 'en': 'Payment methods', 'de': 'Zahlungsmöglichkeiten', 'fr': 'Moyens de paiement',
+      'es': 'Métodos de pago', 'it': 'Metodi di pagamento',
+    },
+    'footer_copyright': {
+      'nl': 'Alle rechten voorbehouden.', 'en': 'All rights reserved.', 'de': 'Alle Rechte vorbehalten.', 'fr': 'Tous droits réservés.',
+      'es': 'Todos los derechos reservados.', 'it': 'Tutti i diritti riservati.',
+    },
+    'in_wagen': {
+      'nl': 'In winkelwagen', 'en': 'Add to cart', 'de': 'In den Warenkorb', 'fr': 'Ajouter au panier',
+      'es': 'Al carrito', 'it': 'Nel carrello',
+    },
+    'bekijk_product': {
+      'nl': 'Bekijk product', 'en': 'View product', 'de': 'Produkt ansehen', 'fr': 'Voir le produit',
+      'es': 'Ver producto', 'it': 'Vedi prodotto',
+      'pl': 'Zobacz produkt', 'pt': 'Ver produto', 'da': 'Se produkt', 'sv': 'Se produkt',
+      'fi': 'Näytä tuote', 'cs': 'Zobrazit produkt', 'hu': 'Termék megtekintése', 'ro': 'Vezi produsul',
+    },
+    'usp_reviews': {
+      'nl': 'Beoordelingen', 'en': 'Reviews', 'de': 'Bewertungen', 'fr': 'Avis clients',
+      'es': 'Valoraciones', 'it': 'Recensioni', 'pl': 'Opinie', 'pt': 'Avaliações',
+      'da': 'Anmeldelser', 'sv': 'Omdömen', 'fi': 'Arvostelut',
+    },
+    'usp_reviews_sub': {
+      'nl': 'eBay & ValuedShops', 'en': 'eBay & ValuedShops', 'de': 'eBay & ValuedShops', 'fr': 'eBay & ValuedShops',
+      'es': 'eBay & ValuedShops', 'it': 'eBay & ValuedShops',
+    },
+    'reviews_title': {
+      'nl': 'Klantbeoordelingen', 'en': 'Customer Reviews', 'de': 'Kundenbewertungen', 'fr': 'Avis clients',
+      'es': 'Valoraciones de clientes', 'it': 'Recensioni clienti',
+    },
+    'reviews_subtitle': {
+      'nl': 'Lees wat onze klanten over ons zeggen', 'en': 'Read what our customers say about us',
+      'de': 'Lesen Sie, was unsere Kunden über uns sagen', 'fr': 'Découvrez ce que nos clients disent de nous',
+      'es': 'Lee lo que dicen nuestros clientes', 'it': 'Leggi cosa dicono i nostri clienti',
+    },
+    'reviews_bekijk': {
+      'nl': 'Bekijk beoordelingen', 'en': 'View reviews', 'de': 'Bewertungen ansehen', 'fr': 'Voir les avis',
+      'es': 'Ver valoraciones', 'it': 'Vedi recensioni',
+    },
+    'reviews_geen': {
+      'nl': 'Er zijn nog geen beoordelingsplatforms geconfigureerd.', 'en': 'No review platforms have been configured yet.',
+      'de': 'Es wurden noch keine Bewertungsplattformen konfiguriert.', 'fr': 'Aucune plateforme d\'avis n\'a encore été configurée.',
+      'es': 'No se han configurado plataformas de valoración.', 'it': 'Nessuna piattaforma di recensioni configurata.',
+    },
+    'reviews_beheer': {
+      'nl': 'Beoordelingsplatforms', 'en': 'Review Platforms', 'de': 'Bewertungsplattformen', 'fr': 'Plateformes d\'avis',
+      'es': 'Plataformas de valoración', 'it': 'Piattaforme di recensioni',
+    },
+    'reviews_beheer_sub': {
+      'nl': 'Configureer links naar eBay, ValuedShops en andere beoordelingsplatforms',
+      'en': 'Configure links to eBay, ValuedShops and other review platforms',
+      'de': 'Links zu eBay, ValuedShops und anderen Bewertungsplattformen konfigurieren',
+      'fr': 'Configurer les liens vers eBay, ValuedShops et d\'autres plateformes',
+      'es': 'Configurar enlaces a eBay, ValuedShops y otras plataformas',
+      'it': 'Configura i link a eBay, ValuedShops e altre piattaforme',
+    },
+    'platform_naam': {
+      'nl': 'Platformnaam', 'en': 'Platform name', 'de': 'Plattformname', 'fr': 'Nom de la plateforme',
+      'es': 'Nombre de la plataforma', 'it': 'Nome della piattaforma',
+    },
+    'platform_url': {
+      'nl': 'URL naar beoordelingen', 'en': 'URL to reviews', 'de': 'URL zu Bewertungen', 'fr': 'URL des avis',
+      'es': 'URL de valoraciones', 'it': 'URL delle recensioni',
+    },
+    'platform_score': {
+      'nl': 'Score (bijv. 9.2/10)', 'en': 'Score (e.g. 9.2/10)', 'de': 'Bewertung (z.B. 9.2/10)', 'fr': 'Note (ex. 9.2/10)',
+      'es': 'Puntuación (ej. 9.2/10)', 'it': 'Punteggio (es. 9.2/10)',
+    },
+    'platform_beschrijving': {
+      'nl': 'Beschrijving', 'en': 'Description', 'de': 'Beschreibung', 'fr': 'Description',
+      'es': 'Descripción', 'it': 'Descrizione',
+    },
+    'platform_toevoegen': {
+      'nl': 'Platform toevoegen', 'en': 'Add platform', 'de': 'Plattform hinzufügen', 'fr': 'Ajouter une plateforme',
+      'es': 'Añadir plataforma', 'it': 'Aggiungi piattaforma',
+    },
+    'opgeslagen': {
+      'nl': 'Opgeslagen', 'en': 'Saved', 'de': 'Gespeichert', 'fr': 'Enregistré',
+      'es': 'Guardado', 'it': 'Salvato',
+    },
+  };
+
+  final String _lang;
+
+  const AppLocalizations(this._lang);
+
+  String get lang => _lang;
+
+  String t(String key) => _strings[key]?[_lang] ?? _strings[key]?['en'] ?? _strings[key]?['nl'] ?? key;
+}

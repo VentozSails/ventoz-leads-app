@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Ventoz Sails (Debug)",
+      "request": "launch",
+      "type": "dart",
+      "args": [
+        "--dart-define=SUPABASE_URL=https://your-project-id.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=your-supabase-anon-key",
+        "--dart-define=ENCRYPTION_KEY=your-base64-encoded-32-byte-key"
+      ]
+    }
+  ]
+}

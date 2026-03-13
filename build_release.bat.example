@@ -1,0 +1,20 @@
+@echo off
+REM ============================================================
+REM Ventoz Sails – Windows Release Build
+REM
+REM Kopieer dit bestand naar build_release.bat en vul je eigen
+REM credentials in. build_release.bat staat in .gitignore.
+REM ============================================================
+
+set SUPABASE_URL=https://your-project-id.supabase.co
+set SUPABASE_ANON_KEY=your-supabase-anon-key
+set ENCRYPTION_KEY=your-base64-encoded-32-byte-key
+
+flutter build windows --release ^
+  --dart-define=SUPABASE_URL=%SUPABASE_URL% ^
+  --dart-define=SUPABASE_ANON_KEY=%SUPABASE_ANON_KEY% ^
+  --dart-define=ENCRYPTION_KEY=%ENCRYPTION_KEY%
+
+echo.
+echo Build voltooid: build\windows\x64\runner\Release\ventoz_leads_app.exe
+pause
