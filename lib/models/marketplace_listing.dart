@@ -1,4 +1,5 @@
 import 'catalog_product.dart';
+import '../utils/image_url_helper.dart';
 
 enum MarketplacePlatform {
   bolCom('bol_com', 'Bol.com'),
@@ -119,7 +120,9 @@ class MarketplaceListing {
           ? DateTime.tryParse(json['updated_at'] as String)
           : null,
       productNaam: product != null ? (product['naam'] as String?) : null,
-      productAfbeelding: product != null ? (product['afbeelding_url'] as String?) : null,
+      productAfbeelding: product != null && product['afbeelding_url'] != null
+          ? resolveImageUrl(product['afbeelding_url'] as String)
+          : null,
     );
   }
 

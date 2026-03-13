@@ -1,3 +1,5 @@
+import '../utils/image_url_helper.dart';
+
 class CatalogProduct {
   final int? id;
   final String naam;
@@ -210,7 +212,10 @@ class CatalogProduct {
   String get displayNaam => naamOverride ?? naam;
   String? get displayBeschrijving => beschrijvingOverride ?? beschrijving;
   double? get displayPrijs => prijsOverride ?? prijs;
-  String? get displayAfbeeldingUrl => afbeeldingUrlOverride ?? afbeeldingUrl;
+  String? get displayAfbeeldingUrl {
+    final url = afbeeldingUrlOverride ?? afbeeldingUrl;
+    return url != null ? resolveImageUrl(url) : null;
+  }
 
   bool get hasOverrides =>
       naamOverride != null || beschrijvingOverride != null ||
@@ -229,7 +234,8 @@ class CatalogProduct {
     final all = <String>[];
     if (displayAfbeeldingUrl != null) all.add(displayAfbeeldingUrl!);
     for (final url in extraAfbeeldingen) {
-      if (url != displayAfbeeldingUrl) all.add(url);
+      final resolved = resolveImageUrl(url);
+      if (resolved != displayAfbeeldingUrl) all.add(resolved);
     }
     return all;
   }
