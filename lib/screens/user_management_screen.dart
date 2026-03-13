@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../services/smtp_service.dart';
 import '../services/user_service.dart';
 import '../services/vat_service.dart';
 
@@ -48,6 +49,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
+  // ─── App URL detection ───
+
+  String _getAppUrl() {
+    if (kIsWeb) {
+      final base = Uri.base;
+      return '${base.scheme}://${base.host}${base.hasPort && base.port != 443 && base.port != 80 ? ':${base.port}' : ''}/';
+    }
+    return 'https://app.ventoz.com/';
+  }
+
   // ─── Invite dialog ───
 
   Future<void> _inviteUser() async {
@@ -66,9 +77,30 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         landCode: result.landCode,
         isParticulier: result.isParticulier,
       );
+
+      // Send invitation email via SMTP
+      bool mailSent = false;
+      try {
+        await SmtpService().sendInviteEmail(
+          toEmail: result.email,
+          userTypeLabel: result.userType.label,
+          mfaRequired: result.userType.mfaRequired,
+          appUrl: _getAppUrl(),
+        );
+        mailSent = true;
+      } catch (e) {
+        if (kDebugMode) debugPrint('Error sending invite email: $e');
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${result.email} is uitgenodigd'), backgroundColor: const Color(0xFF43A047)),
+          SnackBar(
+            content: Text(mailSent
+                ? '${result.email} is uitgenodigd — e-mail verstuurd'
+                : '${result.email} is uitgenodigd, maar de e-mail kon niet worden verstuurd. Deel de registratielink handmatig.'),
+            backgroundColor: mailSent ? const Color(0xFF43A047) : const Color(0xFFF59E0B),
+            duration: Duration(seconds: mailSent ? 4 : 6),
+          ),
         );
       }
       await _loadUsers();
