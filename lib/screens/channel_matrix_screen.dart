@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/marketplace_listing.dart';
 import '../services/marketplace_service.dart';
 
@@ -346,43 +347,45 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   Widget _buildTable() {
     const headerBg = Color(0xFFF1F5F9);
-    const groupBg = Color(0xFFE8EDF2);
     const borderColor = Color(0xFFE2E8F0);
     const cellPad = EdgeInsets.symmetric(horizontal: 4, vertical: 6);
+    const ebayColor = Color(0xFFE53238);
+    const bolColor = Color(0xFF0000CC);
+    const amazonColor = Color(0xFFFF9900);
+    const admarkColor = Color(0xFF00897B);
 
     return Table(
       border: TableBorder.all(color: borderColor, width: 0.5),
-      defaultColumnWidth: const FixedColumnWidth(62),
+      defaultColumnWidth: const FixedColumnWidth(54),
       columnWidths: const {
         0: FixedColumnWidth(28),   // checkbox
-        1: FixedColumnWidth(190),  // product
-        2: FixedColumnWidth(52),   // voorraad
-        3: FixedColumnWidth(62),   // eigen site
+        1: FixedColumnWidth(180),  // product
+        2: FixedColumnWidth(72),   // artikelnr
+        3: FixedColumnWidth(44),   // voorraad
+        4: FixedColumnWidth(56),   // eigen site prijs
       },
       children: [
-        // Group header row
+        // Group header row — platform names with colored backgrounds
         TableRow(
-          decoration: const BoxDecoration(color: groupBg),
           children: [
-            _groupHeader('', 1),
-            _groupHeader('', 1),
-            _groupHeader('', 1),
-            _groupHeader('Site', 1),
-            ...SalesChannel.ebayChannels.map((ch) => _groupHeader(ch == SalesChannel.ebayUk ? 'eBay' : '', 1)),
-            ...SalesChannel.bolChannels.map((ch) => _groupHeader(ch == SalesChannel.bolNl ? 'Bol' : '', 1)),
-            ...SalesChannel.amazonChannels.map((ch) => _groupHeader(ch == SalesChannel.amazonDe ? 'Amazon' : '', 1)),
-            _groupHeader('Adm', 1),
+            _groupCell('', null),
+            _groupCell('', null),
+            _groupCell('', null),
+            _groupCell('', null),
+            _groupCell('Site', _navy),
+            ...SalesChannel.ebayChannels.map((ch) => _groupCell(ch == SalesChannel.ebayUk ? 'eBay' : '', ebayColor)),
+            ...SalesChannel.bolChannels.map((ch) => _groupCell(ch == SalesChannel.bolNl ? 'Bol' : '', bolColor)),
+            ...SalesChannel.amazonChannels.map((ch) => _groupCell(ch == SalesChannel.amazonDe ? 'Amazon' : '', amazonColor)),
+            _groupCell('Adm', admarkColor),
           ],
         ),
         // Sub-header row (country codes)
         TableRow(
           decoration: const BoxDecoration(color: headerBg),
           children: [
-            const SizedBox(height: 28), // checkbox placeholder
-            Padding(
-              padding: cellPad,
-              child: Text('Product', style: _headerStyle),
-            ),
+            const SizedBox(height: 28),
+            Padding(padding: cellPad, child: Text('Product', style: _headerStyle)),
+            Padding(padding: cellPad, child: Text('Art.nr', style: _headerStyle)),
             Padding(padding: cellPad, child: Text('Vrrd', style: _headerStyle, textAlign: TextAlign.center)),
             Padding(padding: cellPad, child: Text('Prijs', style: _headerStyle, textAlign: TextAlign.center)),
             ...SalesChannel.ebayChannels.map((ch) => Padding(padding: cellPad, child: Text(ch.shortLabel, style: _headerStyle, textAlign: TextAlign.center))),
@@ -399,12 +402,13 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   TextStyle get _headerStyle => GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF475569));
 
-  Widget _groupHeader(String text, int span) {
+  Widget _groupCell(String text, Color? bg) {
     return Container(
-      height: 24,
+      height: 26,
       alignment: Alignment.center,
+      color: bg ?? const Color(0xFF0D1B2A),
       child: text.isNotEmpty
-          ? Text(text, style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w800, color: _navy, letterSpacing: 0.5))
+          ? Text(text, style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5))
           : null,
     );
   }
@@ -412,9 +416,10 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   TableRow _buildDataRow(ChannelMatrixRow row) {
     final pid = row.product.id!;
     final isSelected = _selected.contains(pid);
+    final isUitverkocht = row.voorraad <= 0;
     final rowColor = isSelected
         ? const Color(0xFFF0F5FF)
-        : row.isUitverkocht
+        : isUitverkocht
             ? const Color(0xFFFFF5F5)
             : Colors.white;
 
@@ -423,9 +428,9 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
       children: [
         // Checkbox
         SizedBox(
-          height: 40,
+          height: 38,
           child: Center(child: SizedBox(
-            width: 20, height: 20,
+            width: 18, height: 18,
             child: Checkbox(
               value: isSelected,
               onChanged: (v) => setState(() { if (v == true) { _selected.add(pid); } else { _selected.remove(pid); } }),
@@ -434,9 +439,9 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             ),
           )),
         ),
-        // Product name
+        // Product name + category
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -445,6 +450,17 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
               if (row.product.categorie != null)
                 Text(_categoryLabel(row.product.categorie!), style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8))),
             ],
+          ),
+        ),
+        // Artikelnummer
+        Container(
+          height: 38,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            row.product.artikelnummer ?? '',
+            style: GoogleFonts.sourceCodePro(fontSize: 9, color: const Color(0xFF64748B)),
+            maxLines: 1, overflow: TextOverflow.ellipsis,
           ),
         ),
         // Voorraad
@@ -465,18 +481,14 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   Widget _priceCell(double? prijs, ListingStatus? status, VoidCallback? onTap) {
     if (prijs == null) {
-      return Container(
-        height: 40,
-        alignment: Alignment.center,
-        child: Text('—', style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFFCBD5E1))),
-      );
+      return Container(height: 38, alignment: Alignment.center);
     }
     final bg = _statusBg(status);
     final fg = _statusFg(status);
     return InkWell(
       onTap: onTap,
       child: Container(
-        height: 40,
+        height: 38,
         alignment: Alignment.center,
         color: bg,
         child: Text(
@@ -489,20 +501,48 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   Widget _channelCell(ChannelMatrixRow row, SalesChannel channel) {
     final listing = row.listingForChannel(channel.code);
+    final isUitverkocht = row.voorraad <= 0;
+
     if (listing == null) {
-      return InkWell(
-        onTap: () => _showAddChannelDialog(row, channel),
-        child: Container(
-          height: 40,
-          alignment: Alignment.center,
-          child: Text('—', style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFFCBD5E1))),
+      // No listing: show yellow "potential" if product has stock, grey if uitverkocht
+      final canPlace = !isUitverkocht && row.product.displayPrijs != null;
+      return Tooltip(
+        message: canPlace ? 'Klik om advertentie te plaatsen' : '',
+        child: InkWell(
+          onTap: canPlace ? () => _showAddChannelDialog(row, channel) : null,
+          child: Container(
+            height: 38,
+            alignment: Alignment.center,
+            color: canPlace ? const Color(0xFFFFFDE7) : null,
+            child: canPlace
+                ? null
+                : Text('—', style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFFE2E8F0))),
+          ),
         ),
       );
     }
-    return _priceCell(
-      listing.prijs,
-      listing.status,
-      () => _showQuickEdit(row, channel, listing),
+
+    // Has listing — show status-colored cell
+    final hasPrice = listing.prijs != null;
+    return Tooltip(
+      message: '${channel.label}: ${listing.status.label}${listing.externUrl != null ? '\nKlik voor acties' : ''}',
+      child: InkWell(
+        onTap: () => _showQuickEdit(row, channel, listing),
+        child: Container(
+          height: 38,
+          alignment: Alignment.center,
+          color: _statusBg(listing.status),
+          child: hasPrice
+              ? Text(
+                  listing.prijs!.toStringAsFixed(0),
+                  style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: _statusFg(listing.status)),
+                )
+              : Text(
+                  'x',
+                  style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: _statusFg(listing.status)),
+                ),
+        ),
+      ),
     );
   }
 
@@ -552,6 +592,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   void _showQuickEdit(ChannelMatrixRow row, SalesChannel channel, MarketplaceListing listing) {
     final prijsCtrl = TextEditingController(text: listing.prijs?.toStringAsFixed(2) ?? '');
     var selectedStatus = listing.status;
+    final hasExternUrl = listing.externUrl != null && listing.externUrl!.isNotEmpty;
 
     showDialog(
       context: context,
@@ -561,11 +602,58 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
           title: Row(children: [
             Icon(_platformIcon(channel.platform), size: 18, color: _platformColor(channel.platform)),
             const SizedBox(width: 6),
-            Expanded(child: Text('${channel.label} — ${row.product.displayNaam}', style: const TextStyle(fontSize: 14), overflow: TextOverflow.ellipsis)),
+            Expanded(child: Text('${channel.label}', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700))),
           ]),
           content: SizedBox(
-            width: 320,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
+            width: 360,
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Product info
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(row.product.displayNaam, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: _navy)),
+                  const SizedBox(height: 2),
+                  Row(children: [
+                    if (row.product.artikelnummer != null) ...[
+                      Text('Art: ${row.product.artikelnummer}', style: GoogleFonts.sourceCodePro(fontSize: 10, color: const Color(0xFF64748B))),
+                      const SizedBox(width: 10),
+                    ],
+                    Text('Voorraad: ${row.voorraad}', style: GoogleFonts.dmSans(fontSize: 10, color: row.voorraad > 0 ? const Color(0xFF2E7D32) : const Color(0xFFE53935), fontWeight: FontWeight.w600)),
+                    if (row.product.displayPrijs != null) ...[
+                      const SizedBox(width: 10),
+                      Text('Site: €${row.product.displayPrijs!.toStringAsFixed(0)}', style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF64748B))),
+                    ],
+                  ]),
+                ]),
+              ),
+              const SizedBox(height: 12),
+
+              // External link
+              if (hasExternUrl)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    onTap: () {
+                      final uri = Uri.tryParse(listing.externUrl!);
+                      if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
+                    },
+                    child: Row(children: [
+                      Icon(Icons.open_in_new, size: 14, color: _platformColor(channel.platform)),
+                      const SizedBox(width: 4),
+                      Expanded(child: Text(
+                        'Bekijk op ${channel.platform.label}',
+                        style: GoogleFonts.dmSans(fontSize: 11, color: _platformColor(channel.platform), fontWeight: FontWeight.w600, decoration: TextDecoration.underline),
+                      )),
+                    ]),
+                  ),
+                ),
+
               if (listing.platformData.containsKey('auto_actie'))
                 Container(
                   width: double.infinity,
@@ -582,6 +670,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
                     Text('Automatisch gepauzeerd/gesloten', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFE65100))),
                   ]),
                 ),
+
               DropdownButtonFormField<ListingStatus>(
                 initialValue: selectedStatus,
                 decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder(), isDense: true),
@@ -600,6 +689,11 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
+              if (listing.externTitle != null) ...[
+                const SizedBox(height: 10),
+                Text('eBay titel:', style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF94A3B8))),
+                Text(listing.externTitle!, style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF475569)), maxLines: 2, overflow: TextOverflow.ellipsis),
+              ],
             ]),
           ),
           actions: [
