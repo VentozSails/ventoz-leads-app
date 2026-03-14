@@ -52,6 +52,76 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
   String _label(String slug) =>
       CatalogProduct(naam: '', categorie: slug).categorieLabel;
 
+  Future<void> _translateAll() async {
+    final toTranslate = _descriptions.entries
+        .where((e) => e.value.beschrijvingNl.isNotEmpty && e.value.beschrijvingen.length < 20)
+        .toList();
+
+    if (toTranslate.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Alle categorieteksten zijn al vertaald'), backgroundColor: Color(0xFF2E7D32)),
+        );
+      }
+      return;
+    }
+
+    String? currentCat;
+    String? currentLang;
+    var completed = 0;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          Future<void> run() async {
+            for (final entry in toTranslate) {
+              if (ctx.mounted) setDialogState(() => currentCat = _label(entry.key));
+              try {
+                await _service.saveAndTranslate(
+                  entry.key,
+                  entry.value.beschrijvingNl,
+                  onProgress: (lang) {
+                    if (ctx.mounted) setDialogState(() => currentLang = lang);
+                  },
+                );
+              } catch (e) {
+                if (kDebugMode) debugPrint('TranslateAll ${entry.key} failed: $e');
+              }
+              completed++;
+              if (ctx.mounted) setDialogState(() {});
+            }
+            if (ctx.mounted) Navigator.pop(ctx);
+            await _load();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('$completed categorieteksten vertaald naar alle talen'), backgroundColor: const Color(0xFF2E7D32)),
+              );
+            }
+          }
+
+          if (currentCat == null) {
+            Future.microtask(run);
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: const Text('Alle teksten vertalen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              LinearProgressIndicator(value: toTranslate.isEmpty ? 1 : completed / toTranslate.length),
+              const SizedBox(height: 12),
+              if (currentCat != null)
+                Text('$currentCat ($completed/${toTranslate.length})', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              if (currentLang != null)
+                Text('Vertalen: $currentLang...', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            ]),
+          );
+        },
+      ),
+    );
+  }
+
   void _showEditDialog(String slug) {
     final desc = _descriptions[slug];
     final nlCtl = TextEditingController(text: desc?.beschrijvingNl ?? '');
@@ -159,7 +229,14 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
           const SizedBox(width: 10),
           const Text('Categorieteksten'),
         ]),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.translate),
+            tooltip: 'Alle teksten vertalen naar alle talen',
+            onPressed: _translateAll,
+          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
