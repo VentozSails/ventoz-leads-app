@@ -15,9 +15,11 @@ class _EbayMatchingScreenState extends State<EbayMatchingScreen> {
   static const _accent = Color(0xFF1B4965);
 
   final _service = MarketplaceService();
+  final _searchCtrl = TextEditingController();
   List<MarketplaceListing> _unmatched = [];
   List<MarketplaceListing> _suggested = [];
   List<MarketplaceListing> _confirmed = [];
+  List<MarketplaceListing> _allListings = [];
   bool _loading = true;
   bool _importing = false;
   bool _autoMatching = false;
@@ -28,17 +30,20 @@ class _EbayMatchingScreenState extends State<EbayMatchingScreen> {
     _loadAll();
   }
 
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadAll() async {
     setState(() => _loading = true);
     try {
       final all = await _service.getListings(platform: MarketplacePlatform.ebay);
       if (!mounted) return;
-      setState(() {
-        _unmatched = all.where((l) => l.matchStatus == 'unmatched').toList();
-        _suggested = all.where((l) => l.matchStatus == 'suggested').toList();
-        _confirmed = all.where((l) => l.matchStatus == 'confirmed' || l.matchStatus == 'manual').toList();
-        _loading = false;
-      });
+      _allListings = all;
+      _applyFilter();
+      setState(() => _loading = false);
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -46,6 +51,25 @@ class _EbayMatchingScreenState extends State<EbayMatchingScreen> {
         SnackBar(content: Text('Fout bij laden: $e'), backgroundColor: const Color(0xFFE53935)),
       );
     }
+  }
+
+  void _applyFilter() {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    final filtered = q.isEmpty
+        ? _allListings
+        : _allListings.where((l) {
+            final title = (l.externTitle ?? '').toLowerCase();
+            final sku = (l.ebaySku ?? '').toLowerCase();
+            final prodNaam = (l.productNaam ?? '').toLowerCase();
+            final account = (l.accountLabel ?? '').toLowerCase();
+            final itemId = (l.ebayItemId ?? '').toLowerCase();
+            return title.contains(q) || sku.contains(q) || prodNaam.contains(q) || account.contains(q) || itemId.contains(q);
+          }).toList();
+    setState(() {
+      _unmatched = filtered.where((l) => l.matchStatus == 'unmatched').toList();
+      _suggested = filtered.where((l) => l.matchStatus == 'suggested').toList();
+      _confirmed = filtered.where((l) => l.matchStatus == 'confirmed' || l.matchStatus == 'manual').toList();
+    });
   }
 
   Future<void> _importListings() async {
@@ -160,7 +184,9 @@ class _EbayMatchingScreenState extends State<EbayMatchingScreen> {
                 padding: const EdgeInsets.all(24),
                 children: [
                   _buildSummaryRow(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  _buildSearchBar(),
+                  const SizedBox(height: 16),
                   if (_unmatched.isNotEmpty) ...[
                     _sectionHeader('Niet gekoppeld', _unmatched.length, const Color(0xFFE53935)),
                     const SizedBox(height: 12),
@@ -183,6 +209,32 @@ class _EbayMatchingScreenState extends State<EbayMatchingScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return TextField(
+      controller: _searchCtrl,
+      onChanged: (_) => _applyFilter(),
+      decoration: InputDecoration(
+        hintText: 'Zoek op titel, SKU, product, account...',
+        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+        prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF94A3B8)),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF1B4965), width: 1.5)),
+        suffixIcon: _searchCtrl.text.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: () { _searchCtrl.clear(); _applyFilter(); },
+              )
+            : null,
+      ),
+      style: GoogleFonts.dmSans(fontSize: 13),
     );
   }
 
