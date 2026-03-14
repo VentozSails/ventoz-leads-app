@@ -93,6 +93,7 @@ async function getCredentials(
   platform: string,
   accountLabel?: string | null
 ): Promise<Record<string, string>> {
+  // Try with specified label first
   let query = supabase
     .from("marketplace_credentials")
     .select("credential_type, encrypted_value")
@@ -113,6 +114,24 @@ async function getCredentials(
       map[c.credential_type] = c.encrypted_value;
     }
   }
+
+  // Fallback: if no creds found with null label, get all for this platform
+  if (Object.keys(map).length === 0 && !accountLabel) {
+    const { data: allCreds } = await supabase
+      .from("marketplace_credentials")
+      .select("credential_type, encrypted_value")
+      .eq("platform", platform)
+      .eq("actief", true);
+
+    if (allCreds) {
+      for (const c of allCreds) {
+        if (!map[c.credential_type]) {
+          map[c.credential_type] = c.encrypted_value;
+        }
+      }
+    }
+  }
+
   return map;
 }
 

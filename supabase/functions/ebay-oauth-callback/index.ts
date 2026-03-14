@@ -24,23 +24,36 @@ serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // Get existing client_id and client_secret for this account
-    let credsQuery = supabase
-      .from("marketplace_credentials")
-      .select("credential_type, encrypted_value")
-      .eq("platform", "ebay")
-      .eq("actief", true);
+    // First try with accountLabel, then fallback to any eBay credentials
+    let resolvedLabel = accountLabel;
+    let credsMap: Record<string, string> = {};
 
-    if (accountLabel) {
-      credsQuery = credsQuery.eq("account_label", accountLabel);
-    } else {
-      credsQuery = credsQuery.is("account_label", null);
-    }
+    for (const tryLabel of [accountLabel, undefined]) {
+      let credsQuery = supabase
+        .from("marketplace_credentials")
+        .select("credential_type, encrypted_value, account_label")
+        .eq("platform", "ebay")
+        .eq("actief", true);
 
-    const { data: creds } = await credsQuery;
-    const credsMap: Record<string, string> = {};
-    if (creds) {
-      for (const c of creds) {
-        credsMap[c.credential_type] = c.encrypted_value;
+      if (tryLabel) {
+        credsQuery = credsQuery.eq("account_label", tryLabel);
+      } else if (tryLabel === undefined && accountLabel) {
+        continue;
+      } else {
+        // No label specified — get all eBay credentials
+      }
+
+      const { data: creds } = await credsQuery;
+      const map: Record<string, string> = {};
+      if (creds && creds.length > 0) {
+        resolvedLabel = creds[0].account_label || null;
+        for (const c of creds) {
+          map[c.credential_type] = c.encrypted_value;
+        }
+      }
+      if (map.client_id && map.client_secret) {
+        credsMap = map;
+        break;
       }
     }
 
@@ -75,15 +88,15 @@ serve(async (req: Request) => {
       return redirectWithMessage(appUrl, "Geen refresh token ontvangen van eBay.", true);
     }
 
-    // Save refresh_token
-    await upsertCredential(supabase, "ebay", "refresh_token", refreshToken, accountLabel);
+    // Save refresh_token under the same account_label as client_id/secret
+    await upsertCredential(supabase, "ebay", "refresh_token", refreshToken, resolvedLabel);
 
     // Also save access_token for immediate use
     if (accessToken) {
-      await upsertCredential(supabase, "ebay", "access_token", accessToken, accountLabel);
+      await upsertCredential(supabase, "ebay", "access_token", accessToken, resolvedLabel);
     }
 
-    const label = accountLabel || "Standaard";
+    const label = resolvedLabel || "Standaard";
     return redirectWithMessage(appUrl, `eBay account "${label}" succesvol gekoppeld! Refresh token is opgeslagen.`, false);
   } catch (err: unknown) {
     console.error("OAuth callback error:", err);
