@@ -131,7 +131,7 @@ enum MarketplaceOrderStatus {
 
 class MarketplaceListing {
   final String? id;
-  final int productId;
+  final int? productId;
   final MarketplacePlatform platform;
   final String? externId;
   final String? externUrl;
@@ -145,6 +145,18 @@ class MarketplaceListing {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  // eBay-specific fields
+  final String? ebayItemId;
+  final String? ebayOfferId;
+  final String? ebaySku;
+  final List<String> ebayMarketplaces;
+  final String? matchStatus;
+  final String? externTitle;
+  final String? externDescription;
+  final String? externImageUrl;
+  final int? externQuantity;
+  final String? accountLabel;
+
   // Joined fields (not stored, populated via queries)
   final String? productNaam;
   final String? productAfbeelding;
@@ -152,7 +164,7 @@ class MarketplaceListing {
 
   const MarketplaceListing({
     this.id,
-    required this.productId,
+    this.productId,
     required this.platform,
     this.externId,
     this.externUrl,
@@ -165,6 +177,16 @@ class MarketplaceListing {
     this.platformData = const {},
     this.createdAt,
     this.updatedAt,
+    this.ebayItemId,
+    this.ebayOfferId,
+    this.ebaySku,
+    this.ebayMarketplaces = const [],
+    this.matchStatus,
+    this.externTitle,
+    this.externDescription,
+    this.externImageUrl,
+    this.externQuantity,
+    this.accountLabel,
     this.productNaam,
     this.productAfbeelding,
     this.productVoorraad,
@@ -172,9 +194,10 @@ class MarketplaceListing {
 
   factory MarketplaceListing.fromJson(Map<String, dynamic> json) {
     final product = json['product_catalogus'];
+    final marketplaces = json['ebay_marketplaces'];
     return MarketplaceListing(
       id: json['id'] as String?,
-      productId: json['product_id'] as int,
+      productId: json['product_id'] as int?,
       platform: MarketplacePlatform.fromCode(json['platform'] as String? ?? 'bol_com'),
       externId: json['extern_id'] as String?,
       externUrl: json['extern_url'] as String?,
@@ -195,6 +218,18 @@ class MarketplaceListing {
       updatedAt: json['updated_at'] != null
           ? DateTime.tryParse(json['updated_at'] as String)
           : null,
+      ebayItemId: json['ebay_item_id'] as String?,
+      ebayOfferId: json['ebay_offer_id'] as String?,
+      ebaySku: json['ebay_sku'] as String?,
+      ebayMarketplaces: marketplaces is List
+          ? marketplaces.cast<String>()
+          : const [],
+      matchStatus: json['match_status'] as String?,
+      externTitle: json['extern_title'] as String?,
+      externDescription: json['extern_description'] as String?,
+      externImageUrl: json['extern_image_url'] as String?,
+      externQuantity: json['extern_quantity'] as int?,
+      accountLabel: json['account_label'] as String?,
       productNaam: product != null ? (product['naam'] as String?) : null,
       productAfbeelding: product != null && product['afbeelding_url'] != null
           ? resolveImageUrl(product['afbeelding_url'] as String)
@@ -203,7 +238,7 @@ class MarketplaceListing {
   }
 
   Map<String, dynamic> toJson() => {
-    'product_id': productId,
+    if (productId != null) 'product_id': productId,
     'platform': platform.code,
     if (externId != null) 'extern_id': externId,
     if (externUrl != null) 'extern_url': externUrl,
@@ -214,6 +249,7 @@ class MarketplaceListing {
     if (laatsteSync != null) 'laatste_sync': laatsteSync!.toIso8601String(),
     if (syncFout != null) 'sync_fout': syncFout,
     'platform_data': platformData,
+    if (accountLabel != null) 'account_label': accountLabel,
   };
 
   MarketplaceListing copyWith({
@@ -229,6 +265,8 @@ class MarketplaceListing {
     DateTime? laatsteSync,
     String? syncFout,
     Map<String, dynamic>? platformData,
+    String? matchStatus,
+    String? accountLabel,
   }) => MarketplaceListing(
     id: id ?? this.id,
     productId: productId ?? this.productId,
@@ -244,6 +282,16 @@ class MarketplaceListing {
     platformData: platformData ?? this.platformData,
     createdAt: createdAt,
     updatedAt: updatedAt,
+    ebayItemId: ebayItemId,
+    ebayOfferId: ebayOfferId,
+    ebaySku: ebaySku,
+    ebayMarketplaces: ebayMarketplaces,
+    matchStatus: matchStatus ?? this.matchStatus,
+    externTitle: externTitle,
+    externDescription: externDescription,
+    externImageUrl: externImageUrl,
+    externQuantity: externQuantity,
+    accountLabel: accountLabel ?? this.accountLabel,
     productNaam: productNaam,
     productAfbeelding: productAfbeelding,
     productVoorraad: productVoorraad,

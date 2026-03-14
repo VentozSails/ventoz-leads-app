@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/marketplace_listing.dart';
 import '../services/marketplace_service.dart';
 import 'channel_matrix_screen.dart';
+import 'ebay_matching_screen.dart';
 
 class MarketplaceDashboardScreen extends StatefulWidget {
   const MarketplaceDashboardScreen({super.key});
@@ -35,7 +36,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
     _loadAll();
   }
 
@@ -98,6 +99,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
             Tab(text: 'Overzicht'),
             Tab(text: 'Kanaaloverzicht'),
             Tab(text: 'Listings'),
+            Tab(text: 'eBay Matching'),
             Tab(text: 'Orders'),
             Tab(text: 'Feed'),
             Tab(text: 'Sync Log'),
@@ -126,6 +128,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
                 _buildOverviewTab(),
                 const ChannelMatrixScreen(),
                 _buildListingsTab(),
+                const EbayMatchingScreen(),
                 _buildOrdersTab(),
                 _buildFeedTab(),
                 _buildSyncLogTab(),
@@ -857,10 +860,10 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
                       IconButton(
                         icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFFE53935)),
                         tooltip: 'Verwijderen uit feed',
-                        onPressed: () async {
-                          await _service.removeProductFromMarktplaatsFeed(listing.productId);
+                        onPressed: listing.productId != null ? () async {
+                          await _service.removeProductFromMarktplaatsFeed(listing.productId!);
                           _loadAll();
-                        },
+                        } : null,
                       ),
                     ],
                   ),
@@ -1206,10 +1209,14 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
   // ── Dialogs ──
 
   void _showCredentialsDialog(MarketplacePlatform platform) async {
+    if (platform == MarketplacePlatform.ebay) {
+      _showEbayCredentialsDialog();
+      return;
+    }
+
     final fields = _credentialFields(platform);
     final controllers = <String, TextEditingController>{};
 
-    // Pre-load existing non-secret credential values
     final existingValues = await _service.getCredentialValues(platform);
     for (final field in fields) {
       final key = field['key']!;
@@ -1302,6 +1309,202 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('${platform.label} credentials opgeslagen'), backgroundColor: const Color(0xFF2E7D32)),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _accent, foregroundColor: Colors.white),
+            child: const Text('Opslaan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEbayCredentialsDialog() async {
+    final accounts = await _service.getEbayAccounts();
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.gavel_rounded, color: Color(0xFFE53935), size: 24),
+              const SizedBox(width: 10),
+              Text('eBay Accounts', style: GoogleFonts.dmSans(fontWeight: FontWeight.w700)),
+            ],
+          ),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Beheer meerdere eBay-accounts. Elk account heeft eigen API-credentials.',
+                  style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 16),
+                if (accounts.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, size: 18, color: Color(0xFF94A3B8)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text('Nog geen eBay-accounts geconfigureerd',
+                              style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF94A3B8))),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ...accounts.map((acct) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE8ECF1)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.gavel_rounded, size: 18, color: Color(0xFFE53935)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            acct['display_name'] as String? ?? 'eBay Account',
+                            style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit, size: 18),
+                          tooltip: 'Bewerken',
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _showSingleEbayAccountDialog(acct['account_label'] as String?);
+                          },
+                        ),
+                      ],
+                    ),
+                  )),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Sluiten')),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _showSingleEbayAccountDialog(null, isNew: true);
+              },
+              icon: const Icon(Icons.add, size: 18),
+              label: Text('Account toevoegen', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+              style: ElevatedButton.styleFrom(backgroundColor: _accent, foregroundColor: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSingleEbayAccountDialog(String? existingLabel, {bool isNew = false}) async {
+    final fields = _credentialFields(MarketplacePlatform.ebay);
+    final controllers = <String, TextEditingController>{};
+    final labelCtrl = TextEditingController(text: existingLabel ?? '');
+
+    final existingValues = existingLabel != null
+        ? await _service.getCredentialValues(MarketplacePlatform.ebay)
+        : <String, String>{};
+
+    for (final field in fields) {
+      final key = field['key']!;
+      final isSecret = field['secret'] == 'true';
+      controllers[key] = TextEditingController(
+        text: isSecret ? '' : (existingValues[key] ?? ''),
+      );
+    }
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          isNew ? 'Nieuw eBay Account' : 'eBay Account: ${existingLabel ?? "Standaard"}',
+          style: GoogleFonts.dmSans(fontWeight: FontWeight.w700, fontSize: 16),
+        ),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: labelCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Account label',
+                  hintText: 'Bijv. "eBay Hoofdaccount" of "eBay UK"',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...fields.map((field) {
+                final key = field['key']!;
+                final isSecret = field['secret'] == 'true';
+                final hasExisting = existingValues.containsKey(key);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: TextField(
+                    controller: controllers[key],
+                    obscureText: isSecret,
+                    decoration: InputDecoration(
+                      labelText: field['label'],
+                      border: const OutlineInputBorder(),
+                      hintText: isSecret && hasExisting
+                          ? '••••••••  (al ingesteld, laat leeg om te behouden)'
+                          : field['hint'],
+                      suffixIcon: hasExisting
+                          ? const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 20)
+                          : null,
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuleren')),
+          ElevatedButton(
+            onPressed: () async {
+              final label = labelCtrl.text.trim().isEmpty ? null : labelCtrl.text.trim();
+              for (final field in fields) {
+                final value = controllers[field['key']]!.text.trim();
+                if (value.isNotEmpty) {
+                  await _service.saveCredentialWithAccount(
+                    platform: MarketplacePlatform.ebay,
+                    type: field['key']!,
+                    value: value,
+                    accountLabel: label,
+                  );
+                }
+              }
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+              _loadAll();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('eBay account "${label ?? "Standaard"}" opgeslagen'),
+                    backgroundColor: const Color(0xFF2E7D32),
+                  ),
                 );
               }
             },
@@ -1609,7 +1812,15 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
     'listing_update' => 'Listing bijgewerkt',
     'listing_delete' => 'Listing verwijderd',
     'stock_sync' => 'Voorraad gesynchroniseerd',
+    'price_sync' => 'Prijs gesynchroniseerd',
     'order_import' => 'Order geïmporteerd',
+    'import_listings' => 'Listings geïmporteerd',
+    'publish_listing' => 'Listing gepubliceerd',
+    'auto_pause' => 'Automatisch gepauzeerd',
+    'auto_close' => 'Automatisch gesloten',
+    'auto_reactivate' => 'Automatisch geheractiveerd',
+    'low_stock_warning' => 'Lage voorraad waarschuwing',
+    'batch_add_to_feed' => 'Aan feed toegevoegd',
     _ => actie,
   };
 

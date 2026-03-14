@@ -34,7 +34,7 @@ class MarketplaceService {
           .toList();
 
       // Enrich with stock data
-      final productIds = listings.map((l) => l.productId).toSet();
+      final productIds = listings.map((l) => l.productId).whereType<int>().toSet();
       final stockMap = <int, int>{};
       for (final pid in productIds) {
         try {
@@ -65,9 +65,19 @@ class MarketplaceService {
         platformData: l.platformData,
         createdAt: l.createdAt,
         updatedAt: l.updatedAt,
-        productNaam: l.productNaam,
-        productAfbeelding: l.productAfbeelding,
-        productVoorraad: stockMap[l.productId] ?? 0,
+        ebayItemId: l.ebayItemId,
+        ebayOfferId: l.ebayOfferId,
+        ebaySku: l.ebaySku,
+        ebayMarketplaces: l.ebayMarketplaces,
+        matchStatus: l.matchStatus,
+        externTitle: l.externTitle,
+        externDescription: l.externDescription,
+        externImageUrl: l.externImageUrl,
+        externQuantity: l.externQuantity,
+        accountLabel: l.accountLabel,
+        productNaam: l.productNaam ?? l.externTitle,
+        productAfbeelding: l.productAfbeelding ?? l.externImageUrl,
+        productVoorraad: l.productId != null ? (stockMap[l.productId!] ?? 0) : null,
       )).toList();
     } catch (e) {
       if (kDebugMode) debugPrint('MarketplaceService.getListings error: $e');
@@ -297,11 +307,19 @@ class MarketplaceService {
               );
             }
 
-            await _callEdgeFunction('marketplace', {
-              'action': 'sync_stock',
-              'listing_id': listing.id,
-              'stock': totalStock,
-            });
+            if (listing.platform == MarketplacePlatform.ebay && listing.ebaySku != null) {
+              await _callEdgeFunction('marketplace', {
+                'action': 'sync_ebay_stock',
+                'listing_id': listing.id,
+                'stock': totalStock,
+              });
+            } else {
+              await _callEdgeFunction('marketplace', {
+                'action': 'sync_stock',
+                'listing_id': listing.id,
+                'stock': totalStock,
+              });
+            }
             await _client.from(_listingsTable).update({
               'laatste_sync': DateTime.now().toUtc().toIso8601String(),
               'sync_fout': null,
@@ -336,8 +354,8 @@ class MarketplaceService {
     try {
       final listings = await getListings(status: ListingStatus.actief);
       final productIds = listings
-          .where((l) => l.voorraadSync)
-          .map((l) => l.productId)
+          .where((l) => l.voorraadSync && l.productId != null)
+          .map((l) => l.productId!)
           .toSet();
       for (final pid in productIds) {
         await syncStock(pid);
@@ -624,8 +642,9 @@ class MarketplaceService {
 
       final listingsByProduct = <int, Map<MarketplacePlatform, List<MarketplaceListing>>>{};
       for (final l in allListings) {
+        if (l.productId == null) continue;
         listingsByProduct
-            .putIfAbsent(l.productId, () => {})
+            .putIfAbsent(l.productId!, () => {})
             .putIfAbsent(l.platform, () => [])
             .add(l);
       }
@@ -839,6 +858,186 @@ class MarketplaceService {
     } catch (e) {
       if (kDebugMode) debugPrint('MarketplaceService._logSync error: $e');
     }
+  }
+
+  // ── eBay Multi-Account ──
+
+  Future<List<Map<String, dynamic>>> getEbayAccounts() async {
+    final result = await _callEdgeFunction('marketplace', {
+      'action': 'get_ebay_accounts',
+    });
+    final accounts = result['accounts'] as List?;
+    return accounts?.cast<Map<String, dynamic>>() ?? [];
+  }
+
+  Future<Map<String, dynamic>> importEbayListings({String? accountLabel}) async {
+    return _callEdgeFunction('marketplace', {
+      'action': 'import_ebay_listings',
+      if (accountLabel != null) 'account_label': accountLabel,
+    });
+  }
+
+  Future<List<MarketplaceListing>> getUnmatchedListings({String? platform}) async {
+    var query = _client
+        .from(_listingsTable)
+        .select('*, product_catalogus(naam, afbeelding_url)')
+        .eq('match_status', 'unmatched');
+    if (platform != null) query = query.eq('platform', platform);
+
+    final List<dynamic> rows = await query.order('extern_title');
+    return rows.cast<Map<String, dynamic>>().map(MarketplaceListing.fromJson).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> searchCatalogProducts(String query) async {
+    final rows = await _client
+        .from('product_catalogus')
+        .select('id, naam, artikelnummer, ean_code, afbeelding_url, prijs')
+        .or('naam.ilike.%$query%,artikelnummer.ilike.%$query%,ean_code.ilike.%$query%')
+        .limit(20);
+    return (rows as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> matchListing(String listingId, int productId) async {
+    await _client.from(_listingsTable).update({
+      'product_id': productId,
+      'match_status': 'manual',
+    }).eq('id', listingId);
+  }
+
+  Future<void> confirmMatch(String listingId) async {
+    await _client.from(_listingsTable).update({
+      'match_status': 'confirmed',
+    }).eq('id', listingId);
+  }
+
+  Future<void> unmatchListing(String listingId) async {
+    await _client.from(_listingsTable).update({
+      'product_id': null,
+      'match_status': 'unmatched',
+    }).eq('id', listingId);
+  }
+
+  Future<Map<String, int>> autoMatchListings() async {
+    final unmatched = await getUnmatchedListings(platform: 'ebay');
+    int matched = 0;
+    int notFound = 0;
+
+    for (final listing in unmatched) {
+      final pd = listing.platformData;
+      final ean = pd['ean'] as String?;
+      final sku = pd['sku'] as String?;
+
+      Map<String, dynamic>? product;
+
+      // Match by EAN
+      if (ean != null && ean.isNotEmpty) {
+        final rows = await _client
+            .from('product_catalogus')
+            .select('id')
+            .eq('ean_code', ean)
+            .limit(1);
+        if ((rows as List).isNotEmpty) {
+          product = (rows as List).first as Map<String, dynamic>;
+        }
+      }
+
+      // Match by artikelnummer
+      if (product == null && sku != null && sku.isNotEmpty) {
+        final rows = await _client
+            .from('product_catalogus')
+            .select('id')
+            .eq('artikelnummer', sku)
+            .limit(1);
+        if ((rows as List).isNotEmpty) {
+          product = (rows as List).first as Map<String, dynamic>;
+        }
+      }
+
+      if (product != null && listing.id != null) {
+        await _client.from(_listingsTable).update({
+          'product_id': product['id'] as int,
+          'match_status': 'suggested',
+        }).eq('id', listing.id!);
+        matched++;
+      } else {
+        notFound++;
+      }
+    }
+
+    return {'matched': matched, 'not_found': notFound};
+  }
+
+  Future<void> saveCredentialWithAccount({
+    required MarketplacePlatform platform,
+    required String type,
+    required String value,
+    String? accountLabel,
+  }) async {
+    final existing = await _client
+        .from(_credentialsTable)
+        .select('id')
+        .eq('platform', platform.code)
+        .eq('credential_type', type);
+    final filtered = accountLabel != null
+        ? (existing as List).where((r) => r['account_label'] == accountLabel).toList()
+        : (existing as List).where((r) => r['account_label'] == null).toList();
+
+    if (filtered.isNotEmpty) {
+      await _client.from(_credentialsTable).update({
+        'encrypted_value': value,
+        'account_label': accountLabel,
+      }).eq('id', filtered.first['id']);
+    } else {
+      await _client.from(_credentialsTable).insert({
+        'platform': platform.code,
+        'credential_type': type,
+        'encrypted_value': value,
+        'account_label': accountLabel,
+      });
+    }
+  }
+
+  // ── eBay Controlled Write (Fase 2) ──
+
+  Future<Map<String, dynamic>> syncEbayStock(String listingId, int stock) async {
+    return _callEdgeFunction('marketplace', {
+      'action': 'sync_ebay_stock',
+      'listing_id': listingId,
+      'stock': stock,
+    });
+  }
+
+  Future<Map<String, dynamic>> syncEbayPrice(String listingId, double price) async {
+    return _callEdgeFunction('marketplace', {
+      'action': 'sync_ebay_price',
+      'listing_id': listingId,
+      'price': price,
+    });
+  }
+
+  Future<Map<String, dynamic>> publishToEbayNew({
+    required int productId,
+    String marketplaceId = 'EBAY_NL',
+    String? title,
+    String? description,
+    double? price,
+    int quantity = 1,
+    String condition = 'NEW',
+    String? categoryId,
+    String? accountLabel,
+  }) async {
+    return _callEdgeFunction('marketplace', {
+      'action': 'publish_to_ebay',
+      'product_id': productId,
+      'marketplace_id': marketplaceId,
+      if (title != null) 'title': title,
+      if (description != null) 'description': description,
+      if (price != null) 'price': price,
+      'quantity': quantity,
+      'condition': condition,
+      if (categoryId != null) 'category_id': categoryId,
+      if (accountLabel != null) 'account_label': accountLabel,
+    });
   }
 
   Future<Map<String, dynamic>> _callEdgeFunction(

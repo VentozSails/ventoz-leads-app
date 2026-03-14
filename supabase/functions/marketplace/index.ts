@@ -14,6 +14,14 @@ interface RequestBody {
   stock?: number;
   price?: number;
   product_ids?: number[];
+  account_label?: string;
+  product_id?: number;
+  marketplace_id?: string;
+  title?: string;
+  description?: string;
+  quantity?: number;
+  condition?: string;
+  category_id?: string;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -45,6 +53,12 @@ serve(async (req: Request) => {
         return await handleSyncPrice(supabase, body);
       case "fetch_orders":
         return await handleFetchOrders(supabase, body);
+      case "sync_ebay_stock":
+        return await handleSyncEbayStock(supabase, body);
+      case "sync_ebay_price":
+        return await handleSyncEbayPrice(supabase, body);
+      case "publish_to_ebay":
+        return await handlePublishToEbay(supabase, body);
       case "check_process_status":
         return await handleCheckProcessStatus(supabase, body);
       case "debug_bolcom":
@@ -57,6 +71,10 @@ serve(async (req: Request) => {
         });
       case "add_to_feed":
         return await handleAddToFeed(supabase, body);
+      case "import_ebay_listings":
+        return await handleImportEbayListings(supabase, body);
+      case "get_ebay_accounts":
+        return await handleGetEbayAccounts(supabase);
       default:
         return jsonResponse({ error: `Unknown action: ${action}` }, 400);
     }
@@ -72,13 +90,22 @@ serve(async (req: Request) => {
 
 async function getCredentials(
   supabase: any,
-  platform: string
+  platform: string,
+  accountLabel?: string | null
 ): Promise<Record<string, string>> {
-  const { data: creds } = await supabase
+  let query = supabase
     .from("marketplace_credentials")
     .select("credential_type, encrypted_value")
     .eq("platform", platform)
     .eq("actief", true);
+
+  if (accountLabel) {
+    query = query.eq("account_label", accountLabel);
+  } else {
+    query = query.is("account_label", null);
+  }
+
+  const { data: creds } = await query;
 
   const map: Record<string, string> = {};
   if (creds) {
@@ -153,8 +180,8 @@ async function bolComApiCall(
 // eBay API Client (prepared)
 // ═══════════════════════════════════════════
 
-async function getEbayToken(supabase: any): Promise<string | null> {
-  const creds = await getCredentials(supabase, "ebay");
+async function getEbayToken(supabase: any, accountLabel?: string | null): Promise<string | null> {
+  const creds = await getCredentials(supabase, "ebay", accountLabel);
   if (!creds.client_id || !creds.client_secret || !creds.refresh_token) return null;
 
   const authString = btoa(`${creds.client_id}:${creds.client_secret}`);
@@ -181,13 +208,14 @@ async function ebayApiCall(
   method: string,
   path: string,
   body?: any,
-  apiBase = "https://api.ebay.com"
+  apiBase = "https://api.ebay.com",
+  marketplaceId = "EBAY_NL"
 ): Promise<any> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
     Accept: "application/json",
     "Content-Language": "nl-NL",
-    "X-EBAY-C-MARKETPLACE-ID": "EBAY_NL",
+    "X-EBAY-C-MARKETPLACE-ID": marketplaceId,
   };
   if (body) {
     headers["Content-Type"] = "application/json";
@@ -646,7 +674,7 @@ async function handleFetchOrders(
       case "bol_com":
         return await fetchBolComOrders(supabase);
       case "ebay":
-        return await fetchEbayOrders(supabase);
+        return await fetchEbayOrders(supabase, body.account_label);
       default:
         return jsonResponse({
           success: false,
@@ -876,59 +904,434 @@ async function importBolComOrder(supabase: any, token: string, orderId: string):
   }
 }
 
-async function fetchEbayOrders(supabase: any): Promise<Response> {
-  const token = await getEbayToken(supabase);
+async function fetchEbayOrders(supabase: any, accountLabel?: string | null): Promise<Response> {
+  const token = await getEbayToken(supabase, accountLabel);
   if (!token) {
     return jsonResponse({ success: false, message: "eBay credentials niet geconfigureerd" });
   }
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const ordersResponse = await ebayApiCall(
-    token, "GET",
-    `/sell/fulfillment/v1/order?filter=creationdate:[${thirtyDaysAgo}..]&limit=50`
-  );
-  const orders = ordersResponse.orders || [];
-
   let imported = 0;
-  for (const order of orders) {
-    const orderId = order.orderId;
+  let totalFound = 0;
+  let offset = 0;
+  const errors: string[] = [];
 
-    const { data: existing } = await supabase
-      .from("marketplace_orders")
-      .select("id")
-      .eq("platform", "ebay")
-      .eq("extern_order_id", orderId)
-      .maybeSingle();
+  let hasMore = true;
+  while (hasMore) {
+    try {
+      const ordersResponse = await ebayApiCall(
+        token, "GET",
+        `/sell/fulfillment/v1/order?filter=creationdate:[${thirtyDaysAgo}..]&limit=50&offset=${offset}`
+      );
+      const orders = ordersResponse.orders || [];
+      totalFound += orders.length;
 
-    if (!existing) {
-      const buyer = order.buyer || {};
-      const totaal = parseFloat(order.pricingSummary?.total?.value || "0");
+      for (const order of orders) {
+        try {
+          const orderId = order.orderId;
 
-      await supabase.from("marketplace_orders").insert({
-        platform: "ebay",
-        extern_order_id: orderId,
-        status: "nieuw",
-        klant_naam: buyer.username || "",
-        klant_email: buyer.taxAddress?.email || "",
-        totaal,
-        order_data: order,
-      });
-      imported++;
+          const { data: existing } = await supabase
+            .from("marketplace_orders")
+            .select("id, verzend_straat")
+            .eq("platform", "ebay")
+            .eq("extern_order_id", orderId)
+            .maybeSingle();
+
+          if (existing && existing.verzend_straat) continue;
+
+          const buyer = order.buyer || {};
+          const fulfillmentStart = order.fulfillmentStartInstructions?.[0] || {};
+          const shipTo = fulfillmentStart.shippingStep?.shipTo || {};
+          const contact = shipTo.contactAddress || {};
+          const lineItems = order.lineItems || [];
+          const firstItem = lineItems[0] || {};
+
+          const klantNaam = shipTo.fullName || buyer.username || "";
+          const totaal = parseFloat(order.pricingSummary?.total?.value || "0");
+
+          let internalStatus = "nieuw";
+          const fulfillmentStatus = order.orderFulfillmentStatus;
+          if (fulfillmentStatus === "FULFILLED") {
+            internalStatus = "verzonden";
+          } else if (order.cancelStatus?.cancelState === "CANCELED") {
+            internalStatus = "geannuleerd";
+          }
+
+          const orderItems = lineItems.map((li: any) => ({
+            lineItemId: li.lineItemId,
+            title: li.title,
+            sku: li.sku,
+            quantity: li.quantity || 1,
+            unitPrice: parseFloat(li.lineItemCost?.value || "0"),
+            totalPrice: parseFloat(li.total?.value || li.lineItemCost?.value || "0"),
+            legacyItemId: li.legacyItemId,
+          }));
+
+          const totalQuantity = lineItems.reduce(
+            (sum: number, li: any) => sum + (li.quantity || 1), 0
+          );
+
+          const addressLine1 = contact.addressLine1 || "";
+          const streetMatch = addressLine1.match(/^(.+?)\s+(\d+\S*)$/);
+
+          const record: Record<string, any> = {
+            platform: "ebay",
+            extern_order_id: orderId,
+            status: internalStatus,
+            klant_naam: klantNaam,
+            klant_email: buyer.buyerRegistrationAddress?.email || "",
+
+            verzend_straat: streetMatch ? streetMatch[1] : addressLine1,
+            verzend_huisnummer: streetMatch ? streetMatch[2] : null,
+            verzend_postcode: contact.postalCode || null,
+            verzend_stad: contact.city || null,
+            verzend_land: contact.countryCode || null,
+
+            besteld_op: order.creationDate || null,
+            totaal,
+            aantal_items: lineItems.length,
+
+            product_ean: firstItem.sku || null,
+            product_titel: firstItem.title || null,
+            product_hoeveelheid: totalQuantity,
+            stukprijs: firstItem.lineItemCost?.value ? parseFloat(firstItem.lineItemCost.value) : null,
+
+            order_items: orderItems,
+            order_data: order,
+          };
+
+          if (existing) {
+            await supabase.from("marketplace_orders").update(record).eq("id", existing.id);
+          } else {
+            await supabase.from("marketplace_orders").insert(record);
+          }
+          imported++;
+        } catch (itemErr: unknown) {
+          errors.push(`Order ${order.orderId}: ${getErrorMessage(itemErr)}`);
+        }
+      }
+
+      hasMore = orders.length >= 50;
+      offset += orders.length;
+    } catch (pageErr: unknown) {
+      errors.push(`Page offset ${offset}: ${getErrorMessage(pageErr)}`);
+      hasMore = false;
     }
   }
 
   await logSync(supabase, "ebay", "order_import", null, {
     success: true,
-    total_from_api: orders.length,
+    account_label: accountLabel,
+    total_from_api: totalFound,
     new_imported: imported,
+    errors: errors.length > 0 ? errors : undefined,
   });
 
   return jsonResponse({
     success: true,
-    message: `${imported} nieuwe order(s) geïmporteerd van ${orders.length} totaal`,
+    message: `${imported} nieuwe/bijgewerkte order(s) van ${totalFound} totaal`,
     imported,
-    total: orders.length,
+    total: totalFound,
+    errors: errors.length > 0 ? errors : undefined,
   });
+}
+
+// ═══════════════════════════════════════════
+// eBay Controlled Write Operations (Fase 2)
+// ═══════════════════════════════════════════
+
+async function handleSyncEbayStock(
+  supabase: any,
+  body: RequestBody & { listing_id: string; stock: number }
+): Promise<Response> {
+  const { listing_id, stock } = body;
+  if (!listing_id || stock === undefined) {
+    return jsonResponse({ error: "listing_id and stock are required" }, 400);
+  }
+
+  const { data: listing } = await supabase
+    .from("marketplace_listings")
+    .select("*")
+    .eq("id", listing_id)
+    .single();
+
+  if (!listing) return jsonResponse({ error: "Listing not found" }, 404);
+  if (listing.platform !== "ebay") return jsonResponse({ error: "Not an eBay listing" }, 400);
+
+  const sku = listing.ebay_sku || listing.platform_data?.sku;
+  if (!sku) return jsonResponse({ success: false, message: "Geen SKU gevonden voor deze listing" });
+
+  try {
+    const token = await getEbayToken(supabase, listing.account_label);
+    if (!token) return jsonResponse({ success: false, message: "eBay credentials niet geconfigureerd" });
+
+    // First GET current inventory item to merge, not overwrite
+    const existing = await ebayApiCall(token, "GET", `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`);
+
+    const updatedItem = {
+      ...existing,
+      availability: {
+        ...(existing.availability || {}),
+        shipToLocationAvailability: { quantity: stock },
+      },
+    };
+
+    await ebayApiCall(token, "PUT", `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, updatedItem);
+
+    await supabase.from("marketplace_listings").update({
+      extern_quantity: stock,
+      laatste_sync: new Date().toISOString(),
+      sync_fout: null,
+    }).eq("id", listing_id);
+
+    await logSync(supabase, "ebay", "stock_sync", listing_id, {
+      success: true,
+      sku,
+      stock,
+      account_label: listing.account_label,
+    });
+
+    return jsonResponse({ success: true, message: `Voorraad bijgewerkt naar ${stock}`, stock });
+  } catch (error: unknown) {
+    const msg = getErrorMessage(error);
+    await supabase.from("marketplace_listings").update({ sync_fout: msg }).eq("id", listing_id);
+    await logSync(supabase, "ebay", "stock_sync", listing_id, { success: false, error: msg });
+    return jsonResponse({ success: false, message: msg }, 500);
+  }
+}
+
+async function handleSyncEbayPrice(
+  supabase: any,
+  body: RequestBody & { listing_id: string; price: number }
+): Promise<Response> {
+  const { listing_id, price } = body;
+  if (!listing_id || price === undefined) {
+    return jsonResponse({ error: "listing_id and price are required" }, 400);
+  }
+
+  const { data: listing } = await supabase
+    .from("marketplace_listings")
+    .select("*")
+    .eq("id", listing_id)
+    .single();
+
+  if (!listing) return jsonResponse({ error: "Listing not found" }, 404);
+  if (listing.platform !== "ebay") return jsonResponse({ error: "Not an eBay listing" }, 400);
+
+  const offerId = listing.ebay_offer_id || listing.platform_data?.offer_id;
+  if (!offerId) return jsonResponse({ success: false, message: "Geen offer ID gevonden voor deze listing" });
+
+  try {
+    const token = await getEbayToken(supabase, listing.account_label);
+    if (!token) return jsonResponse({ success: false, message: "eBay credentials niet geconfigureerd" });
+
+    // Get existing offer to merge
+    const existingOffer = await ebayApiCall(token, "GET", `/sell/inventory/v1/offer/${offerId}`);
+
+    const updatedOffer = {
+      ...existingOffer,
+      pricingSummary: {
+        ...(existingOffer.pricingSummary || {}),
+        price: { value: String(price), currency: "EUR" },
+      },
+    };
+
+    await ebayApiCall(token, "PUT", `/sell/inventory/v1/offer/${offerId}`, updatedOffer);
+
+    await supabase.from("marketplace_listings").update({
+      prijs: price,
+      laatste_sync: new Date().toISOString(),
+      sync_fout: null,
+    }).eq("id", listing_id);
+
+    await logSync(supabase, "ebay", "price_sync", listing_id, {
+      success: true,
+      offerId,
+      price,
+      account_label: listing.account_label,
+    });
+
+    return jsonResponse({ success: true, message: `Prijs bijgewerkt naar € ${price}`, price });
+  } catch (error: unknown) {
+    const msg = getErrorMessage(error);
+    await supabase.from("marketplace_listings").update({ sync_fout: msg }).eq("id", listing_id);
+    await logSync(supabase, "ebay", "price_sync", listing_id, { success: false, error: msg });
+    return jsonResponse({ success: false, message: msg }, 500);
+  }
+}
+
+async function handlePublishToEbay(
+  supabase: any,
+  body: RequestBody & {
+    product_id?: number;
+    marketplace_id?: string;
+    title?: string;
+    description?: string;
+    price?: number;
+    quantity?: number;
+    condition?: string;
+    category_id?: string;
+    account_label?: string;
+  }
+): Promise<Response> {
+  const {
+    product_id,
+    marketplace_id = "EBAY_NL",
+    title,
+    description,
+    price,
+    quantity = 1,
+    condition = "NEW",
+    category_id,
+    account_label,
+  } = body;
+
+  if (!product_id) return jsonResponse({ error: "product_id is required" }, 400);
+
+  const { data: product } = await supabase
+    .from("product_catalogus")
+    .select("*")
+    .eq("id", product_id)
+    .single();
+
+  if (!product) return jsonResponse({ error: "Product not found" }, 404);
+
+  try {
+    const token = await getEbayToken(supabase, account_label);
+    if (!token) return jsonResponse({ success: false, message: "eBay credentials niet geconfigureerd" });
+
+    const sku = product.artikelnummer || `VTZ-${product_id}`;
+    const productTitle = title || product.naam;
+    const productDescription = description || product.beschrijving || product.naam;
+    const productPrice = price || product.prijs || 0;
+
+    // Step 1: Create inventory item
+    const inventoryItem: Record<string, any> = {
+      availability: {
+        shipToLocationAvailability: { quantity },
+      },
+      condition,
+      product: {
+        title: productTitle,
+        description: productDescription,
+        aspects: {} as Record<string, string[]>,
+      },
+    };
+
+    if (product.ean_code) {
+      inventoryItem.product.ean = [product.ean_code];
+    }
+    if (product.categorie) {
+      inventoryItem.product.aspects["Type"] = [product.categorie];
+    }
+
+    await ebayApiCall(
+      token, "PUT",
+      `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`,
+      inventoryItem,
+      undefined,
+      marketplace_id
+    );
+
+    // Step 2: Create offer
+    const offerData: Record<string, any> = {
+      sku,
+      marketplaceId: marketplace_id,
+      format: "FIXED_PRICE",
+      listingDescription: productDescription,
+      pricingSummary: {
+        price: { value: String(productPrice), currency: "EUR" },
+      },
+      quantityLimitPerBuyer: 5,
+      availableQuantity: quantity,
+    };
+
+    if (category_id) {
+      offerData.categoryId = category_id;
+    }
+
+    const offerResult = await ebayApiCall(
+      token, "POST",
+      "/sell/inventory/v1/offer",
+      offerData,
+      undefined,
+      marketplace_id
+    );
+    const offerId = offerResult.offerId;
+
+    // Step 3: Publish the offer
+    let listingId: string | null = null;
+    if (offerId) {
+      try {
+        const publishResult = await ebayApiCall(
+          token, "POST",
+          `/sell/inventory/v1/offer/${offerId}/publish`,
+          undefined,
+          undefined,
+          marketplace_id
+        );
+        listingId = publishResult.listingId;
+      } catch (pubError: unknown) {
+        console.error("eBay publish error:", pubError);
+      }
+    }
+
+    // Save listing
+    await supabase.from("marketplace_listings").insert({
+      product_id,
+      platform: "ebay",
+      ebay_sku: sku,
+      ebay_offer_id: offerId,
+      ebay_item_id: listingId,
+      ebay_marketplaces: [marketplace_id],
+      extern_id: listingId || offerId,
+      extern_url: listingId ? `https://www.ebay.com/itm/${listingId}` : null,
+      extern_title: productTitle,
+      extern_quantity: quantity,
+      status: "actief",
+      prijs: productPrice,
+      taal: "nl",
+      match_status: "confirmed",
+      account_label,
+      laatste_sync: new Date().toISOString(),
+      platform_data: {
+        sku,
+        offer_id: offerId,
+        listing_id: listingId,
+        condition,
+        marketplace_id,
+        category_id: category_id || null,
+      },
+    });
+
+    await logSync(supabase, "ebay", "publish_listing", null, {
+      success: true,
+      product_id,
+      sku,
+      offerId,
+      listingId,
+      marketplace_id,
+      account_label,
+    });
+
+    return jsonResponse({
+      success: true,
+      message: listingId
+        ? `eBay listing aangemaakt (ID: ${listingId})`
+        : `eBay offer aangemaakt (ID: ${offerId}), publicatie wordt verwerkt`,
+      extern_id: listingId || offerId,
+      offer_id: offerId,
+      listing_id: listingId,
+    });
+  } catch (error: unknown) {
+    const msg = getErrorMessage(error);
+    await logSync(supabase, "ebay", "publish_listing", null, {
+      success: false,
+      product_id,
+      error: msg,
+    });
+    return jsonResponse({ success: false, message: msg }, 500);
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -1054,6 +1457,189 @@ async function handleAddToFeed(
     message: `${added} producten toegevoegd, ${skipped} overgeslagen`,
     added,
     skipped,
+    errors: errors.length > 0 ? errors : undefined,
+  });
+}
+
+// ═══════════════════════════════════════════
+// eBay Listing Import (READ-ONLY)
+// ═══════════════════════════════════════════
+
+async function handleGetEbayAccounts(supabase: any): Promise<Response> {
+  const { data: creds } = await supabase
+    .from("marketplace_credentials")
+    .select("account_label")
+    .eq("platform", "ebay")
+    .eq("actief", true);
+
+  const labels = new Set<string | null>();
+  if (creds) {
+    for (const c of creds) {
+      labels.add(c.account_label || null);
+    }
+  }
+
+  const accounts = [...labels].map((label) => ({
+    account_label: label,
+    display_name: label || "Standaard eBay-account",
+  }));
+
+  return jsonResponse({ success: true, accounts });
+}
+
+async function handleImportEbayListings(
+  supabase: any,
+  body: RequestBody
+): Promise<Response> {
+  const accountLabel = body.account_label || null;
+  const token = await getEbayToken(supabase, accountLabel);
+  if (!token) {
+    return jsonResponse({
+      success: false,
+      message: accountLabel
+        ? `eBay credentials niet geconfigureerd voor account "${accountLabel}"`
+        : "eBay credentials niet geconfigureerd",
+    });
+  }
+
+  let imported = 0;
+  let updated = 0;
+  let skipped = 0;
+  let offset = 0;
+  const limit = 200;
+  let totalInventoryItems = 0;
+  const errors: string[] = [];
+
+  // Paginate through all inventory items
+  let hasMore = true;
+  while (hasMore) {
+    try {
+      const invResp = await ebayApiCall(
+        token, "GET",
+        `/sell/inventory/v1/inventory_item?limit=${limit}&offset=${offset}`
+      );
+
+      const items = invResp.inventoryItems || [];
+      totalInventoryItems += items.length;
+
+      for (const item of items) {
+        try {
+          const sku = item.sku;
+          const product = item.product || {};
+          const availability = item.availability?.shipToLocationAvailability;
+
+          // Check if listing already exists
+          const { data: existing } = await supabase
+            .from("marketplace_listings")
+            .select("id")
+            .eq("platform", "ebay")
+            .eq("ebay_sku", sku)
+            .is("account_label", accountLabel)
+            .maybeSingle();
+
+          // Fetch offers for this SKU to get price and marketplace info
+          let offers: any[] = [];
+          try {
+            const offerResp = await ebayApiCall(
+              token, "GET",
+              `/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`
+            );
+            offers = offerResp.offers || [];
+          } catch { /* no offers */ }
+
+          const primaryOffer = offers[0];
+          const price = primaryOffer?.pricingSummary?.price?.value
+            ? parseFloat(primaryOffer.pricingSummary.price.value)
+            : null;
+          const offerId = primaryOffer?.offerId || null;
+          const listingId = primaryOffer?.listing?.listingId || null;
+          const marketplaces = offers.map((o: any) => o.marketplaceId).filter(Boolean);
+          const listingStatus = primaryOffer?.status === "ACTIVE" ? "actief" : "concept";
+          const imageUrl = product.imageUrls?.[0] || null;
+
+          const record: Record<string, any> = {
+            platform: "ebay",
+            ebay_sku: sku,
+            ebay_item_id: listingId,
+            ebay_offer_id: offerId,
+            ebay_marketplaces: marketplaces,
+            extern_id: listingId || offerId,
+            extern_url: listingId ? `https://www.ebay.com/itm/${listingId}` : null,
+            extern_title: product.title || null,
+            extern_description: product.description || null,
+            extern_image_url: imageUrl,
+            extern_quantity: availability?.quantity ?? null,
+            status: listingStatus,
+            prijs: price,
+            taal: "nl",
+            account_label: accountLabel,
+            laatste_sync: new Date().toISOString(),
+            sync_fout: null,
+            match_status: "unmatched",
+            platform_data: {
+              sku,
+              offer_id: offerId,
+              listing_id: listingId,
+              condition: item.condition,
+              ean: product.ean?.[0] || null,
+              aspects: product.aspects || {},
+              marketplaces,
+              all_offers: offers.map((o: any) => ({
+                offerId: o.offerId,
+                status: o.status,
+                marketplaceId: o.marketplaceId,
+                price: o.pricingSummary?.price,
+                quantity: o.availableQuantity,
+                listingId: o.listing?.listingId,
+              })),
+            },
+          };
+
+          if (existing) {
+            // Don't overwrite product_id or match_status if already set
+            delete record.match_status;
+            await supabase.from("marketplace_listings").update(record).eq("id", existing.id);
+            updated++;
+          } else {
+            record.product_id = null;
+            await supabase.from("marketplace_listings").insert(record);
+            imported++;
+          }
+        } catch (itemErr: unknown) {
+          const msg = `SKU ${item.sku}: ${getErrorMessage(itemErr)}`;
+          console.error(msg);
+          errors.push(msg);
+          skipped++;
+        }
+      }
+
+      hasMore = items.length >= limit;
+      offset += items.length;
+    } catch (pageErr: unknown) {
+      const msg = `Page offset ${offset}: ${getErrorMessage(pageErr)}`;
+      console.error(msg);
+      errors.push(msg);
+      hasMore = false;
+    }
+  }
+
+  await logSync(supabase, "ebay", "import_listings", null, {
+    success: true,
+    account_label: accountLabel,
+    total_inventory_items: totalInventoryItems,
+    new_imported: imported,
+    updated,
+    skipped,
+    errors: errors.length > 0 ? errors : undefined,
+  });
+
+  return jsonResponse({
+    success: true,
+    message: `${imported} nieuwe listing(s) geïmporteerd, ${updated} bijgewerkt van ${totalInventoryItems} totaal`,
+    imported,
+    updated,
+    skipped,
+    total: totalInventoryItems,
     errors: errors.length > 0 ? errors : undefined,
   });
 }
