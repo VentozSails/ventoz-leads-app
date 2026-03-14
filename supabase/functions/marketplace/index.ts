@@ -75,6 +75,13 @@ serve(async (req: Request) => {
         return await handleImportEbayListings(supabase, body);
       case "get_ebay_accounts":
         return await handleGetEbayAccounts(supabase);
+      case "debug_ebay_creds": {
+        const { data: allCreds } = await supabase
+          .from("marketplace_credentials")
+          .select("credential_type, account_label, actief")
+          .eq("platform", "ebay");
+        return jsonResponse({ success: true, credentials: allCreds });
+      }
       default:
         return jsonResponse({ error: `Unknown action: ${action}` }, 400);
     }
@@ -1648,6 +1655,132 @@ async function handleImportEbayListings(
     }
   }
 
+  // If Inventory API returned 0, fallback to sell.fulfillment/browse to find active listings
+  if (totalInventoryItems === 0) {
+    try {
+      // Use the sell/inventory/v1/bulk_migrate_listing endpoint is not available,
+      // fallback: search own listings via Buy Browse API (marketplace search with seller filter)
+      // Or use the getOrders to find recent item IDs
+      // Best approach: use the Sell Feed API or Trading API via REST
+
+      // Try the RESTful Trading API (GetMyeBaySelling equivalent)
+      // This uses the sell.inventory scope but via the trading endpoint
+      let pageNumber = 1;
+      let totalPages = 1;
+
+      while (pageNumber <= totalPages) {
+        const xmlBody = `<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials>
+    <eBayAuthToken>${token}</eBayAuthToken>
+  </RequesterCredentials>
+  <ActiveList>
+    <Sort>TimeLeft</Sort>
+    <Pagination>
+      <EntriesPerPage>200</EntriesPerPage>
+      <PageNumber>${pageNumber}</PageNumber>
+    </Pagination>
+  </ActiveList>
+  <ErrorLanguage>en_US</ErrorLanguage>
+  <WarningLevel>Low</WarningLevel>
+</GetMyeBaySellingRequest>`;
+
+        const tradingResp = await fetch("https://api.ebay.com/ws/api.dll", {
+          method: "POST",
+          headers: {
+            "X-EBAY-API-SITEID": "146",
+            "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
+            "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
+            "Content-Type": "text/xml",
+          },
+          body: xmlBody,
+        });
+
+        const xmlText = await tradingResp.text();
+
+        // Parse items from XML
+        const itemMatches = xmlText.matchAll(/<Item>([\s\S]*?)<\/Item>/g);
+        for (const match of itemMatches) {
+          try {
+            const itemXml = match[1];
+            const itemId = extractXml(itemXml, "ItemID");
+            const title = extractXml(itemXml, "Title");
+            const currentPrice = extractXml(itemXml, "CurrentPrice");
+            const quantity = extractXml(itemXml, "Quantity");
+            const quantitySold = extractXml(itemXml, "QuantitySold");
+            const listingType = extractXml(itemXml, "ListingType");
+            const viewItemURL = extractXml(itemXml, "ViewItemURL");
+            const pictureURL = extractXml(itemXml, "PictureURL") || extractXml(itemXml, "GalleryURL");
+            const sku = extractXml(itemXml, "SKU");
+            const remainingQty = quantity && quantitySold
+              ? parseInt(quantity) - parseInt(quantitySold)
+              : (quantity ? parseInt(quantity) : null);
+            const price = currentPrice ? parseFloat(currentPrice) : null;
+
+            if (!itemId) continue;
+
+            const { data: existing } = await supabase
+              .from("marketplace_listings")
+              .select("id")
+              .eq("platform", "ebay")
+              .eq("ebay_item_id", itemId)
+              .maybeSingle();
+
+            const record: Record<string, any> = {
+              platform: "ebay",
+              ebay_item_id: itemId,
+              ebay_sku: sku || null,
+              extern_id: itemId,
+              extern_url: viewItemURL || `https://www.ebay.com/itm/${itemId}`,
+              extern_title: title,
+              extern_image_url: pictureURL || null,
+              extern_quantity: remainingQty,
+              status: "actief",
+              prijs: price,
+              taal: "nl",
+              account_label: accountLabel,
+              laatste_sync: new Date().toISOString(),
+              sync_fout: null,
+              platform_data: {
+                listing_id: itemId,
+                sku: sku || null,
+                listing_type: listingType,
+                source: "trading_api",
+              },
+            };
+
+            if (existing) {
+              await supabase.from("marketplace_listings").update(record).eq("id", existing.id);
+              updated++;
+            } else {
+              record.product_id = null;
+              record.match_status = "unmatched";
+              await supabase.from("marketplace_listings").insert(record);
+              imported++;
+            }
+            totalInventoryItems++;
+          } catch (itemErr: unknown) {
+            const msg = `Trading API item: ${getErrorMessage(itemErr)}`;
+            console.error(msg);
+            errors.push(msg);
+            skipped++;
+          }
+        }
+
+        // Check pagination
+        const totalPagesMatch = xmlText.match(/<TotalNumberOfPages>(\d+)<\/TotalNumberOfPages>/);
+        if (totalPagesMatch) {
+          totalPages = parseInt(totalPagesMatch[1]);
+        }
+        pageNumber++;
+      }
+    } catch (tradingErr: unknown) {
+      const msg = `Trading API fallback: ${getErrorMessage(tradingErr)}`;
+      console.error(msg);
+      errors.push(msg);
+    }
+  }
+
   await logSync(supabase, "ebay", "import_listings", null, {
     success: true,
     account_label: accountLabel,
@@ -1667,6 +1800,11 @@ async function handleImportEbayListings(
     total: totalInventoryItems,
     errors: errors.length > 0 ? errors : undefined,
   });
+}
+
+function extractXml(xml: string, tag: string): string | null {
+  const match = xml.match(new RegExp(`<${tag}[^>]*>([^<]*)</${tag}>`));
+  return match ? match[1] : null;
 }
 
 // Utilities
