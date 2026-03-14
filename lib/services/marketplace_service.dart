@@ -652,8 +652,11 @@ class MarketplaceService {
 
       final stockMap = <int, int>{};
       for (final row in (results[2] as List)) {
-        final pid = row['product_id'] as int;
-        final qty = (row['voorraad_actueel'] as int?) ?? 0;
+        final rawPid = row['product_id'];
+        final pid = rawPid is int ? rawPid : int.tryParse(rawPid?.toString() ?? '');
+        if (pid == null) continue;
+        final rawQty = row['voorraad_actueel'];
+        final qty = rawQty is int ? rawQty : (int.tryParse(rawQty?.toString() ?? '') ?? 0);
         stockMap[pid] = (stockMap[pid] ?? 0) + qty;
       }
 

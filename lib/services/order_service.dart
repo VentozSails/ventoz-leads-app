@@ -295,6 +295,8 @@ class OrderService {
       if (kDebugMode) debugPrint('Customer auto-link error: $e');
     }
 
+    final authUserId = _client.auth.currentUser?.id;
+
     final orderData = <String, dynamic>{
       'order_nummer': orderNummer,
       'user_email': user.email,
@@ -318,6 +320,7 @@ class OrderService {
       'iban': user.iban,
       'bedrijfsnaam': user.bedrijfsnaam,
     };
+    if (authUserId != null) orderData['user_id'] = authUserId;
     if (opmerkingen != null) orderData['opmerkingen'] = opmerkingen;
     if (betaalMethode != null) orderData['betaal_methode'] = betaalMethode;
     if (klantId != null) orderData['klant_id'] = klantId;

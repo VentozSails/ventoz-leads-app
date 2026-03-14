@@ -197,7 +197,7 @@ class MarketplaceListing {
     final marketplaces = json['ebay_marketplaces'];
     return MarketplaceListing(
       id: json['id'] as String?,
-      productId: json['product_id'] as int?,
+      productId: json['product_id'] is int ? json['product_id'] as int : int.tryParse(json['product_id']?.toString() ?? ''),
       platform: MarketplacePlatform.fromCode(json['platform'] as String? ?? 'bol_com'),
       externId: json['extern_id'] as String?,
       externUrl: json['extern_url'] as String?,
@@ -228,7 +228,7 @@ class MarketplaceListing {
       externTitle: json['extern_title'] as String?,
       externDescription: json['extern_description'] as String?,
       externImageUrl: json['extern_image_url'] as String?,
-      externQuantity: json['extern_quantity'] as int?,
+      externQuantity: json['extern_quantity'] is int ? json['extern_quantity'] as int : int.tryParse(json['extern_quantity']?.toString() ?? ''),
       accountLabel: json['account_label'] as String?,
       productNaam: product != null ? (product['naam'] as String?) : null,
       productAfbeelding: product != null && product['afbeelding_url'] != null

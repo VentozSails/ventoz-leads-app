@@ -635,8 +635,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (kDebugMode) debugPrint('Error placing order: $e');
-      if (mounted) setState(() { _error = _l.t('bestelling_mislukt'); });
+      debugPrint('Error placing order: $e');
+      if (mounted) setState(() { _error = '${_l.t('bestelling_mislukt')}: $e'; });
     } finally {
       if (mounted) setState(() { _placing = false; });
     }

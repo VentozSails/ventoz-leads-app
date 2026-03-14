@@ -7,9 +7,16 @@ ALTER TABLE marketplace_credentials
 ALTER TABLE marketplace_credentials
   ADD COLUMN IF NOT EXISTS account_label text;
 
-ALTER TABLE marketplace_credentials
-  ADD CONSTRAINT marketplace_credentials_platform_type_account_key
-  UNIQUE (platform, credential_type, account_label);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'marketplace_credentials_platform_type_account_key'
+  ) THEN
+    ALTER TABLE marketplace_credentials
+      ADD CONSTRAINT marketplace_credentials_platform_type_account_key
+      UNIQUE (platform, credential_type, account_label);
+  END IF;
+END $$;
 
 -- Extra columns on marketplace_listings for eBay import & matching
 ALTER TABLE marketplace_listings
