@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ─── Roles ────────────────────────────────────────────────────────────────
@@ -1542,7 +1543,14 @@ class UserService {
     admins.remove(normalized);
     await _setAdminEmails(admins);
 
-    // 3. Remove from ventoz_users table
+    // 3. Delete Supabase auth account via Edge Function
+    try {
+      await _client.functions.invoke('delete-auth-user', body: {'email': normalized});
+    } catch (e) {
+      debugPrint('Auth account deletion failed (may not exist): $e');
+    }
+
+    // 4. Remove from ventoz_users table
     if (!_useLegacy) {
       try {
         await _client.from(_table).delete().eq('email', normalized);

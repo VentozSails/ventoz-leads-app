@@ -19,21 +19,112 @@ function escHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+type Lang = "nl" | "en" | "de" | "fr";
+
+interface Strings {
+  subject: string;
+  welcome: string;
+  invitedAs: string;
+  toGetStarted: string;
+  step1: string;
+  step2: string;
+  cta: string;
+  fallbackLink: string;
+  mfaTitle: string;
+  mfaText: (label: string) => string;
+  mfaInstall: string;
+  questions: string;
+  contact_form_mode_subject: string;
+}
+
+const i18n: Record<Lang, Strings> = {
+  nl: {
+    subject: "Uitnodiging Ventoz — maak je account aan",
+    welcome: "Welkom bij Ventoz!",
+    invitedAs: "Je bent uitgenodigd als",
+    toGetStarted: "voor het Ventoz platform. Om aan de slag te gaan, maak je een account aan met dit e-mailadres",
+    step1: "Stap 1: Ga naar het registratiescherm",
+    step2: "Stap 2: Klik op \"Uitgenodigd? Account aanmaken\"",
+    cta: "Account aanmaken →",
+    fallbackLink: "Werkt de knop niet? Kopieer deze link in je browser:",
+    mfaTitle: "🔒 Tweefactorauthenticatie (MFA) vereist",
+    mfaText: (label) => `Als ${label} is MFA verplicht. Na je eerste login word je gevraagd om MFA in te richten.`,
+    mfaInstall: "Installeer alvast een authenticator-app op je telefoon:",
+    questions: "Vragen? Neem contact op met de Ventoz beheerder die je heeft uitgenodigd.",
+    contact_form_mode_subject: "Contactformulier",
+  },
+  en: {
+    subject: "Ventoz Invitation — create your account",
+    welcome: "Welcome to Ventoz!",
+    invitedAs: "You have been invited as",
+    toGetStarted: "to the Ventoz platform. To get started, create an account with this email address",
+    step1: "Step 1: Go to the registration screen",
+    step2: "Step 2: Click \"Invited? Create account\"",
+    cta: "Create account →",
+    fallbackLink: "Button not working? Copy this link into your browser:",
+    mfaTitle: "🔒 Two-factor authentication (MFA) required",
+    mfaText: (label) => `As ${label}, MFA is required. After your first login, you will be asked to set up MFA.`,
+    mfaInstall: "Please install an authenticator app on your phone:",
+    questions: "Questions? Contact the Ventoz administrator who invited you.",
+    contact_form_mode_subject: "Contact form",
+  },
+  de: {
+    subject: "Ventoz-Einladung — erstelle dein Konto",
+    welcome: "Willkommen bei Ventoz!",
+    invitedAs: "Du wurdest eingeladen als",
+    toGetStarted: "für die Ventoz-Plattform. Um loszulegen, erstelle ein Konto mit dieser E-Mail-Adresse",
+    step1: "Schritt 1: Gehe zum Registrierungsbildschirm",
+    step2: "Schritt 2: Klicke auf \"Eingeladen? Konto erstellen\"",
+    cta: "Konto erstellen →",
+    fallbackLink: "Funktioniert der Button nicht? Kopiere diesen Link in deinen Browser:",
+    mfaTitle: "🔒 Zwei-Faktor-Authentifizierung (MFA) erforderlich",
+    mfaText: (label) => `Als ${label} ist MFA Pflicht. Nach deinem ersten Login wirst du aufgefordert, MFA einzurichten.`,
+    mfaInstall: "Installiere bitte eine Authenticator-App auf deinem Telefon:",
+    questions: "Fragen? Wende dich an den Ventoz-Administrator, der dich eingeladen hat.",
+    contact_form_mode_subject: "Kontaktformular",
+  },
+  fr: {
+    subject: "Invitation Ventoz — créez votre compte",
+    welcome: "Bienvenue chez Ventoz !",
+    invitedAs: "Vous avez été invité(e) en tant que",
+    toGetStarted: "sur la plateforme Ventoz. Pour commencer, créez un compte avec cette adresse e-mail",
+    step1: "Étape 1 : Accédez à l'écran d'inscription",
+    step2: "Étape 2 : Cliquez sur « Invité ? Créer un compte »",
+    cta: "Créer un compte →",
+    fallbackLink: "Le bouton ne fonctionne pas ? Copiez ce lien dans votre navigateur :",
+    mfaTitle: "🔒 Authentification à deux facteurs (MFA) requise",
+    mfaText: (label) => `En tant que ${label}, la MFA est obligatoire. Après votre première connexion, vous serez invité(e) à configurer la MFA.`,
+    mfaInstall: "Installez une application d'authentification sur votre téléphone :",
+    questions: "Des questions ? Contactez l'administrateur Ventoz qui vous a invité(e).",
+    contact_form_mode_subject: "Formulaire de contact",
+  },
+};
+
+function detectLang(lang?: string): Lang {
+  if (!lang) return "nl";
+  const l = lang.toLowerCase().slice(0, 2);
+  if (l in i18n) return l as Lang;
+  return "en";
+}
+
 function buildHtml(
   toEmail: string,
   userTypeLabel: string,
   mfaRequired: boolean,
   registerUrl: string,
+  lang: Lang,
 ): string {
+  const s = i18n[lang];
+
   const mfaSection = mfaRequired
     ? `
 <tr><td style="padding:20px 28px 0;font-family:Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FFF8E1;border:1px solid #F59E0B;border-radius:8px;">
 <tr><td style="padding:16px 20px;">
-<strong style="color:#92400E;font-size:14px;">&#128274; Tweefactorauthenticatie (MFA) vereist</strong>
+<strong style="color:#92400E;font-size:14px;">${s.mfaTitle}</strong>
 <p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#78350F;">
-Als ${escHtml(userTypeLabel)} is MFA verplicht. Na je eerste login word je gevraagd om MFA in te richten.<br/>
-Installeer alvast een authenticator-app op je telefoon:
+${s.mfaText(escHtml(userTypeLabel))}<br/>
+${s.mfaInstall}
 </p>
 <ul style="margin:8px 0 0;padding-left:20px;font-size:13px;color:#78350F;line-height:1.8;">
 <li><strong>Google Authenticator</strong> (Android / iOS)</li>
@@ -56,41 +147,40 @@ Installeer alvast een authenticator-app op je telefoon:
 </td></tr>
 
 <tr><td style="padding:28px;font-family:Arial,Helvetica,sans-serif;">
-<h2 style="margin:0 0 8px;font-size:20px;color:#1E293B;">Welkom bij Ventoz!</h2>
+<h2 style="margin:0 0 8px;font-size:20px;color:#1E293B;">${s.welcome}</h2>
 <p style="font-size:14px;line-height:1.7;color:#334155;margin:0 0 20px;">
-Je bent uitgenodigd als <strong>${escHtml(userTypeLabel)}</strong> voor het Ventoz platform.
-Om aan de slag te gaan, maak je een account aan met dit e-mailadres
+${s.invitedAs} <strong>${escHtml(userTypeLabel)}</strong> ${s.toGetStarted}
 (<strong>${escHtml(toEmail)}</strong>).
 </p>
 
 <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;border-radius:8px;margin-bottom:20px;">
 <tr><td style="padding:20px;text-align:center;">
-<p style="margin:0 0 4px;font-size:13px;color:#64748B;">Stap 1: Ga naar het registratiescherm</p>
-<p style="margin:0 0 16px;font-size:13px;color:#64748B;">Stap 2: Klik op <em>&quot;Uitgenodigd? Account aanmaken&quot;</em></p>
+<p style="margin:0 0 4px;font-size:13px;color:#64748B;">${s.step1}</p>
+<p style="margin:0 0 16px;font-size:13px;color:#64748B;">${s.step2}</p>
 <!--[if mso]>
 <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${registerUrl}"
 style="height:44px;v-text-anchor:middle;width:260px;" arcsize="12%"
 strokecolor="#37474F" fillcolor="#455A64">
-<center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">Account aanmaken &rarr;</center>
+<center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">${s.cta}</center>
 </v:roundrect><![endif]-->
 <!--[if !mso]><!-->
 <a href="${registerUrl}" target="_blank"
 style="display:inline-block;background-color:#455A64;color:#ffffff;
 font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;
-text-decoration:none;padding:12px 32px;border-radius:6px;">Account aanmaken &rarr;</a>
+text-decoration:none;padding:12px 32px;border-radius:6px;">${s.cta}</a>
 <!--<![endif]-->
 </td></tr>
 </table>
 
 <p style="font-size:13px;line-height:1.6;color:#64748B;margin:0;">
-Werkt de knop niet? Kopieer deze link in je browser:<br/>
+${s.fallbackLink}<br/>
 <a href="${registerUrl}" style="color:#455A64;word-break:break-all;">${registerUrl}</a>
 </p>
 </td></tr>
 ${mfaSection}
 <tr><td style="padding:20px 28px;font-family:Arial,Helvetica,sans-serif;">
 <p style="font-size:13px;line-height:1.6;color:#64748B;margin:0;">
-Vragen? Neem contact op met de Ventoz beheerder die je heeft uitgenodigd.
+${s.questions}
 </p>
 </td></tr>
 
@@ -107,24 +197,21 @@ function buildPlainText(
   userTypeLabel: string,
   mfaRequired: boolean,
   registerUrl: string,
+  lang: Lang,
 ): string {
+  const s = i18n[lang];
   let text =
-    `Welkom bij Ventoz!\n\n` +
-    `Je bent uitgenodigd als ${userTypeLabel} voor het Ventoz platform.\n` +
-    `Maak je account aan met dit e-mailadres (${toEmail}).\n\n` +
-    `Ga naar: ${registerUrl}\n` +
-    `Klik op "Uitgenodigd? Account aanmaken" en maak je account aan.\n\n`;
+    `${s.welcome}\n\n` +
+    `${s.invitedAs} ${userTypeLabel} ${s.toGetStarted} (${toEmail}).\n\n` +
+    `${s.step1}\n${s.step2}\n\n` +
+    `${registerUrl}\n\n`;
 
   if (mfaRequired) {
-    text +=
-      `Let op: MFA (tweefactorauthenticatie) is verplicht voor jouw rol.\n` +
-      `Installeer alvast Google Authenticator of Microsoft Authenticator op je telefoon.\n\n`;
+    text += `${s.mfaTitle}\n${s.mfaText(userTypeLabel)}\n${s.mfaInstall}\n` +
+      `• Google Authenticator (Android / iOS)\n• Microsoft Authenticator (Android / iOS)\n\n`;
   }
 
-  text +=
-    `Vragen? Neem contact op met de Ventoz beheerder die je heeft uitgenodigd.\n\n` +
-    `Ventoz B.V. — ventoz.com`;
-
+  text += `${s.questions}\n\nVentoz B.V. — ventoz.com`;
   return text;
 }
 
@@ -152,7 +239,6 @@ async function loadSmtpSettings(
 
   let config = data.value as SmtpConfig;
 
-  // Try server-side decryption of secrets
   try {
     const { data: decrypted } = await supabase.rpc(
       "decrypt_settings_secrets",
@@ -175,17 +261,54 @@ serve(async (req: Request) => {
   }
 
   try {
+    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    const body = await req.json();
+
+    // Contact form mode — no auth required
+    if (body.mode === "contact_form") {
+      const smtp = await loadSmtpSettings(supabase);
+      if (!smtp) {
+        return new Response(
+          JSON.stringify({ error: "SMTP not configured" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      const transportConfig = buildTransportConfig(smtp);
+      const transport = nodemailer.createTransport(transportConfig);
+
+      await new Promise<void>((resolve, reject) => {
+        transport.sendMail(
+          {
+            from: `"${smtp.from_name || "Ventoz Sails"}" <${smtp.from_email}>`,
+            to: body.to_email,
+            replyTo: body.reply_to,
+            subject: body.subject,
+            text: body.plain_body,
+            html: body.html_body,
+          },
+          (error: Error | null) => {
+            if (error) return reject(error);
+            resolve();
+          },
+        );
+      });
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Invite mode — requires auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: "Niet geautoriseerd" }),
+        JSON.stringify({ error: "Not authorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
-    // Verify the caller is authenticated
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await createClient(
       SUPABASE_URL,
@@ -194,27 +317,28 @@ serve(async (req: Request) => {
 
     if (authError || !user) {
       return new Response(
-        JSON.stringify({ error: "Ongeldige sessie" }),
+        JSON.stringify({ error: "Invalid session" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const body = await req.json();
     const {
       to_email,
       user_type_label,
       mfa_required,
       app_url,
+      lang,
     } = body as {
       to_email: string;
       user_type_label: string;
       mfa_required: boolean;
       app_url: string;
+      lang?: string;
     };
 
     if (!to_email || !user_type_label || !app_url) {
       return new Response(
-        JSON.stringify({ error: "Verplichte velden ontbreken: to_email, user_type_label, app_url" }),
+        JSON.stringify({ error: "Required fields: to_email, user_type_label, app_url" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -222,7 +346,7 @@ serve(async (req: Request) => {
     const smtp = await loadSmtpSettings(supabase);
     if (!smtp || !smtp.host || !smtp.username || !smtp.password || !smtp.from_email) {
       return new Response(
-        JSON.stringify({ error: "SMTP is niet geconfigureerd" }),
+        JSON.stringify({ error: "SMTP not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -231,31 +355,12 @@ serve(async (req: Request) => {
       ? `${app_url}inloggen`
       : `${app_url}/inloggen`;
 
-    const html = buildHtml(to_email, user_type_label, mfa_required ?? false, registerUrl);
-    const text = buildPlainText(to_email, user_type_label, mfa_required ?? false, registerUrl);
+    const detectedLang = detectLang(lang);
+    const s = i18n[detectedLang];
+    const html = buildHtml(to_email, user_type_label, mfa_required ?? false, registerUrl, detectedLang);
+    const text = buildPlainText(to_email, user_type_label, mfa_required ?? false, registerUrl, detectedLang);
 
-    const transportConfig: Record<string, unknown> = {
-      host: smtp.host,
-      port: smtp.port || 587,
-      auth: {
-        user: smtp.username,
-        pass: smtp.password,
-      },
-    };
-
-    if (smtp.encryption === "ssl") {
-      transportConfig.secure = true;
-    } else if (smtp.encryption === "starttls") {
-      transportConfig.secure = false;
-      transportConfig.requireTLS = true;
-    } else {
-      transportConfig.secure = false;
-    }
-
-    if (smtp.allow_invalid_certificate) {
-      transportConfig.tls = { rejectUnauthorized: false };
-    }
-
+    const transportConfig = buildTransportConfig(smtp);
     const transport = nodemailer.createTransport(transportConfig);
 
     await new Promise<void>((resolve, reject) => {
@@ -264,7 +369,7 @@ serve(async (req: Request) => {
           from: `"${smtp.from_name || "Ventoz Sails"}" <${smtp.from_email}>`,
           to: to_email,
           bcc: smtp.from_email,
-          subject: "Uitnodiging Ventoz \u2014 maak je account aan",
+          subject: s.subject,
           text,
           html,
         },
@@ -287,3 +392,23 @@ serve(async (req: Request) => {
     );
   }
 });
+
+function buildTransportConfig(smtp: SmtpConfig): Record<string, unknown> {
+  const config: Record<string, unknown> = {
+    host: smtp.host,
+    port: smtp.port || 587,
+    auth: { user: smtp.username, pass: smtp.password },
+  };
+  if (smtp.encryption === "ssl") {
+    config.secure = true;
+  } else if (smtp.encryption === "starttls") {
+    config.secure = false;
+    config.requireTLS = true;
+  } else {
+    config.secure = false;
+  }
+  if (smtp.allow_invalid_certificate) {
+    config.tls = { rejectUnauthorized: false };
+  }
+  return config;
+}
