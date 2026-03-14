@@ -13,9 +13,9 @@ class TranslateService {
 
   /// All target languages (everything except NL source).
   static const translationTargets = [
-    'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fi',
+    'ar', 'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fi',
     'fr', 'ga', 'hr', 'hu', 'it', 'lt', 'lv', 'mt', 'pl', 'pt',
-    'ro', 'sk', 'sl', 'sv',
+    'ro', 'sk', 'sl', 'sv', 'tr', 'zh',
   ];
 
   static const languageLabels = <String, String>{

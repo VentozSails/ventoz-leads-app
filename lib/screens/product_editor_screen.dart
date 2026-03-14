@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/catalog_product.dart';
 import '../services/web_scraper_service.dart';
+import '../services/product_image_service.dart';
 
 class ProductEditorScreen extends StatefulWidget {
   final CatalogProduct? initialProduct;
@@ -29,8 +31,67 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
   final _prijsCtrl = TextEditingController();
   final _afbeeldingUrlCtrl = TextEditingController();
   final _extraImageUrlCtrl = TextEditingController();
+  final _seoTitleCtrl = TextEditingController();
+  final _seoDescCtrl = TextEditingController();
+  final _seoKeywordsCtrl = TextEditingController();
 
   int _selectedImageIndex = 0;
+  bool _uploading = false;
+
+  Future<void> _uploadImage({bool isExtra = false}) async {
+    final product = _selectedProduct;
+    if (product == null || product.id == null) return;
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+    if (file.bytes == null) return;
+
+    setState(() => _uploading = true);
+    try {
+      final filename = isExtra
+          ? 'extra-${product.extraAfbeeldingen.length + 1}.${file.extension ?? 'jpg'}'
+          : 'main.${file.extension ?? 'jpg'}';
+
+      final url = await ProductImageService().uploadBytes(
+        file.bytes!,
+        product.id!,
+        filename,
+      );
+
+      if (url != null && mounted) {
+        if (isExtra) {
+          final extras = List<String>.from(product.extraAfbeeldingen)..add(url);
+          await _scraperService.updateProductOverrides(product.id!, {'extra_afbeeldingen': extras});
+        } else {
+          setState(() => _afbeeldingUrlCtrl.text = url);
+          await _scraperService.updateProductOverrides(product.id!, {'afbeelding_url_override': url});
+        }
+        await _loadProducts();
+        if (mounted) {
+          final updated = _products.firstWhere((p) => p.id == product.id, orElse: () => product);
+          _selectProduct(updated);
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Afbeelding geüpload'), backgroundColor: Color(0xFF2E7D32)),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload mislukt: $e'), backgroundColor: const Color(0xFFE53935)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
 
   @override
   void initState() {
@@ -76,6 +137,9 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
       _beschrijvingCtrl.text = product.beschrijvingOverride ?? '';
       _prijsCtrl.text = product.prijsOverride?.toStringAsFixed(2) ?? '';
       _afbeeldingUrlCtrl.text = product.afbeeldingUrlOverride ?? '';
+      _seoTitleCtrl.text = product.seoTitle ?? '';
+      _seoDescCtrl.text = product.seoDescription ?? '';
+      _seoKeywordsCtrl.text = product.seoKeywords ?? '';
     });
   }
 
@@ -90,6 +154,9 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
         'beschrijving_override': _beschrijvingCtrl.text.trim().isEmpty ? null : _beschrijvingCtrl.text.trim(),
         'prijs_override': _prijsCtrl.text.trim().isEmpty ? null : double.tryParse(_prijsCtrl.text.trim().replaceAll(',', '.')),
         'afbeelding_url_override': _afbeeldingUrlCtrl.text.trim().isEmpty ? null : _afbeeldingUrlCtrl.text.trim(),
+        'seo_title': _seoTitleCtrl.text.trim().isEmpty ? null : _seoTitleCtrl.text.trim(),
+        'seo_description': _seoDescCtrl.text.trim().isEmpty ? null : _seoDescCtrl.text.trim(),
+        'seo_keywords': _seoKeywordsCtrl.text.trim().isEmpty ? null : _seoKeywordsCtrl.text.trim(),
       };
       await _scraperService.updateProductOverrides(product.id!, overrides);
 
@@ -676,6 +743,34 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
             controller: _afbeeldingUrlCtrl,
             hasOverride: p.afbeeldingUrlOverride != null,
           ),
+          const SizedBox(height: 8),
+          Row(children: [
+            OutlinedButton.icon(
+              onPressed: _uploading ? null : () => _uploadImage(isExtra: false),
+              icon: _uploading
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.upload_file, size: 16),
+              label: Text(_uploading ? 'Uploaden...' : 'Hoofdafbeelding uploaden'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF1565C0),
+                side: const BorderSide(color: Color(0xFF1565C0)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                textStyle: const TextStyle(fontSize: 12),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: _uploading ? null : () => _uploadImage(isExtra: true),
+              icon: const Icon(Icons.add_photo_alternate, size: 16),
+              label: const Text('Extra afbeelding uploaden'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF6A1B9A),
+                side: const BorderSide(color: Color(0xFF6A1B9A)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                textStyle: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ]),
 
           const SizedBox(height: 24),
           Row(
@@ -740,35 +835,21 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
           Row(children: [
             const Icon(Icons.travel_explore, size: 18, color: Color(0xFF1565C0)),
             const SizedBox(width: 8),
-            Text('SEO-informatie van ventoz.nl', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF1565C0))),
+            Text('SEO-informatie', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF1565C0))),
           ]),
           const SizedBox(height: 14),
-          if ((p.seoTitle ?? '').isNotEmpty)
-            _buildSeoField('Title tag', p.seoTitle!),
-          if ((p.seoDescription ?? '').isNotEmpty)
-            _buildSeoField('Meta description', p.seoDescription!),
-          if ((p.seoKeywords ?? '').isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text('Keywords', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF1565C0))),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: p.seoKeywords!.split(',').map((k) => k.trim()).where((k) => k.isNotEmpty).map((k) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE3F2FD),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(k, style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF1565C0))),
-              )).toList(),
-            ),
-            const SizedBox(height: 8),
+          _buildSeoTextField('Title tag', _seoTitleCtrl, 'Paginatitel voor zoekmachines'),
+          const SizedBox(height: 10),
+          _buildSeoTextField('Meta description', _seoDescCtrl, 'Korte beschrijving voor zoekmachines', maxLines: 3),
+          const SizedBox(height: 10),
+          _buildSeoTextField('Keywords', _seoKeywordsCtrl, 'Kommagescheiden zoekwoorden'),
+          if ((p.canonicalUrl ?? '').isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _buildSeoReadonly('Canonical URL', p.canonicalUrl!),
           ],
-          if ((p.canonicalUrl ?? '').isNotEmpty)
-            _buildSeoField('Canonical URL', p.canonicalUrl!),
           if ((p.ogImage ?? '').isNotEmpty) ...[
-            _buildSeoField('OG Image', p.ogImage!),
+            const SizedBox(height: 10),
+            _buildSeoReadonly('OG Image', p.ogImage!),
             const SizedBox(height: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -785,19 +866,42 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
     );
   }
 
-  Widget _buildSeoField(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF1565C0))),
-          const SizedBox(height: 2),
-          SelectableText(value, style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF37474F), height: 1.4)),
-        ],
-      ),
+  Widget _buildSeoTextField(String label, TextEditingController ctrl, String hint, {int maxLines = 1}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF1565C0))),
+        const SizedBox(height: 4),
+        TextField(
+          controller: ctrl,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            hintText: hint,
+            isDense: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0xFFBBDEFB))),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0xFFBBDEFB))),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            filled: true,
+            fillColor: Colors.white,
+          ),
+          style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF37474F)),
+        ),
+      ],
     );
   }
+
+  Widget _buildSeoReadonly(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF1565C0))),
+        const SizedBox(height: 2),
+        SelectableText(value, style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF37474F), height: 1.4)),
+      ],
+    );
+  }
+
 
   Widget _buildReadonlyField(String label, String value) {
     return Padding(

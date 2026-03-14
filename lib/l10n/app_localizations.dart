@@ -8,7 +8,8 @@ class AppLocalizations {
       'cs': 'Katalog produktů', 'hu': 'Termékkatalógus', 'ro': 'Catalog de produse',
       'bg': 'Каталог на продукти', 'hr': 'Katalog proizvoda', 'sk': 'Katalóg produktov',
       'sl': 'Katalog izdelkov', 'et': 'Tootekataloog', 'lt': 'Produktų katalogas',
-      'lv': 'Produktu katalogs', 'mt': 'Katalgu tal-Prodotti', 'ga': 'Catalóg Táirgí',
+      'lv': 'Produktu katalogs', 'mt': 'Katalgu tal-Prodotti',       'ga': 'Catalóg Táirgí',
+      'zh': '产品目录', 'ar': 'كتالوج المنتجات', 'tr': 'Ürün Kataloğu',
     },
     'zoek_hint': {
       'nl': 'Zoek product, categorie, artikelnummer...', 'de': 'Produkt, Kategorie, Artikelnummer suchen...',
@@ -17,57 +18,67 @@ class AppLocalizations {
       'pl': 'Szukaj produktu, kategorii, numeru artykułu...', 'pt': 'Pesquisar produto, categoria, número de artigo...',
       'da': 'Søg produkt, kategori, artikelnummer...', 'sv': 'Sök produkt, kategori, artikelnummer...',
       'fi': 'Hae tuotetta, luokkaa, tuotenumeroa...', 'cs': 'Hledat produkt, kategorii, číslo artiklu...',
-      'hu': 'Keresés termék, kategória, cikkszám...', 'ro': 'Caută produs, categorie, număr articol...',
+      'hu': 'Keresés termék, kategória, cikkszám...',       'ro': 'Caută produs, categorie, număr articol...',
+      'zh': '搜索产品、类别、货号...', 'ar': 'بحث عن منتج، فئة، رقم المنتج...', 'tr': 'Ürün, kategori, stok numarası ara...',
     },
     'alle_categorieen': {
       'nl': 'Alle categorieën', 'de': 'Alle Kategorien', 'en': 'All categories',
       'fr': 'Toutes les catégories', 'es': 'Todas las categorías', 'it': 'Tutte le categorie',
       'pl': 'Wszystkie kategorie', 'pt': 'Todas as categorias', 'da': 'Alle kategorier',
       'sv': 'Alla kategorier', 'fi': 'Kaikki luokat', 'cs': 'Všechny kategorie',
-      'hu': 'Összes kategória', 'ro': 'Toate categoriile',
+      'hu': 'Összes kategória',       'ro': 'Toate categoriile',
+      'zh': '所有类别', 'ar': 'جميع الفئات', 'tr': 'Tüm kategoriler',
     },
     'op_voorraad': {
       'nl': 'Op voorraad', 'de': 'Auf Lager', 'en': 'In stock', 'fr': 'En stock',
       'es': 'En stock', 'it': 'Disponibile', 'pl': 'Na stanie', 'pt': 'Em estoque',
       'da': 'På lager', 'sv': 'I lager', 'fi': 'Varastossa', 'cs': 'Skladem',
-      'hu': 'Raktáron', 'ro': 'În stoc',
+      'hu': 'Raktáron',       'ro': 'În stoc',
+      'zh': '有库存', 'ar': 'متوفر', 'tr': 'Stokta',
     },
     'niet_op_voorraad': {
       'nl': 'Niet op voorraad', 'de': 'Nicht auf Lager', 'en': 'Out of stock',
       'fr': 'Rupture de stock', 'es': 'Agotado', 'it': 'Non disponibile',
       'pl': 'Brak na stanie', 'pt': 'Sem estoque', 'da': 'Ikke på lager',
-      'sv': 'Slut i lager', 'fi': 'Loppu', 'cs': 'Není skladem',
+      'sv': 'Slut i lager', 'fi': 'Loppu',       'cs': 'Není skladem',
+      'zh': '无库存', 'ar': 'غير متوفر', 'tr': 'Stokta yok',
     },
     'staffelprijzen': {
       'nl': 'Staffelprijzen', 'de': 'Staffelpreise', 'en': 'Volume prices',
       'fr': 'Prix dégressifs', 'es': 'Precios por volumen', 'it': 'Prezzi scaglionati',
       'pl': 'Ceny hurtowe', 'pt': 'Preços por volume', 'da': 'Mængdepriser',
-      'sv': 'Volympriser', 'fi': 'Paljousalennukset',
+      'sv': 'Volympriser',       'fi': 'Paljousalennukset',
+      'zh': '批量价格', 'ar': 'أسعار الجملة', 'tr': 'Toptan fiyatlar',
     },
     'specificaties': {
       'nl': 'Specificaties', 'de': 'Spezifikationen', 'en': 'Specifications',
       'fr': 'Spécifications', 'es': 'Especificaciones', 'it': 'Specifiche',
       'pl': 'Specyfikacje', 'pt': 'Especificações', 'da': 'Specifikationer',
-      'sv': 'Specifikationer', 'fi': 'Tekniset tiedot',
+      'sv': 'Specifikationer',       'fi': 'Tekniset tiedot',
+      'zh': '规格', 'ar': 'المواصفات', 'tr': 'Teknik özellikler',
     },
     'sluiten': {
       'nl': 'Sluiten', 'de': 'Schließen', 'en': 'Close', 'fr': 'Fermer',
       'es': 'Cerrar', 'it': 'Chiudi', 'pl': 'Zamknij', 'pt': 'Fechar',
-      'da': 'Luk', 'sv': 'Stäng', 'fi': 'Sulje',
+      'da': 'Luk', 'sv': 'Stäng',       'fi': 'Sulje',
+      'zh': '关闭', 'ar': 'إغلاق', 'tr': 'Kapat',
     },
     'terug': {
       'nl': 'Terug', 'en': 'Back', 'de': 'Zurück', 'fr': 'Retour',
-      'es': 'Volver', 'it': 'Indietro', 'pl': 'Wróć', 'pt': 'Voltar',
+      'es': 'Volver', 'it': 'Indietro', 'pl': 'Wróć',       'pt': 'Voltar',
+      'zh': '返回', 'ar': 'رجوع', 'tr': 'Geri',
     },
     'bekijk_op_site': {
       'nl': 'Bekijk op ventoz.nl', 'de': 'Auf ventoz.nl ansehen', 'en': 'View on ventoz.nl',
       'fr': 'Voir sur ventoz.nl', 'es': 'Ver en ventoz.nl', 'it': 'Vedi su ventoz.nl',
       'pl': 'Zobacz na ventoz.nl', 'pt': 'Ver em ventoz.nl', 'da': 'Se på ventoz.nl',
-      'sv': 'Se på ventoz.nl', 'fi': 'Katso ventoz.nl',
+      'sv': 'Se på ventoz.nl',       'fi': 'Katso ventoz.nl',
+      'zh': '在ventoz.nl上查看', 'ar': 'عرض على ventoz.nl', 'tr': 'ventoz.nl\'de görüntüle',
     },
     'geen_producten': {
       'nl': 'Geen producten in catalogus', 'de': 'Keine Produkte im Katalog', 'en': 'No products in catalogue',
-      'fr': 'Aucun produit dans le catalogue', 'es': 'No hay productos en el catálogo', 'it': 'Nessun prodotto nel catalogo',
+      'fr': 'Aucun produit dans le catalogue', 'es': 'No hay productos en el catálogo',       'it': 'Nessun prodotto nel catalogo',
+      'zh': '目录中没有产品', 'ar': 'لا توجد منتجات في الكتالوج', 'tr': 'Katalogda ürün yok',
     },
     'sync_eerst': {
       'nl': 'Synchroniseer eerst met ventoz.nl', 'de': 'Zuerst mit ventoz.nl synchronisieren',
@@ -79,7 +90,8 @@ class AppLocalizations {
     },
     'geen_gevonden': {
       'nl': 'Geen producten gevonden', 'de': 'Keine Produkte gefunden', 'en': 'No products found',
-      'fr': 'Aucun produit trouvé', 'es': 'No se encontraron productos', 'it': 'Nessun prodotto trovato',
+      'fr': 'Aucun produit trouvé', 'es': 'No se encontraron productos',       'it': 'Nessun prodotto trovato',
+      'zh': '未找到', 'ar': 'لم يتم العثور', 'tr': 'Bulunamadı',
     },
     'lijstweergave': {
       'nl': 'Lijstweergave', 'de': 'Listenansicht', 'en': 'List view', 'fr': 'Vue en liste',
@@ -1534,23 +1546,28 @@ class AppLocalizations {
     },
     'voorlijk': {
       'nl': 'Voorlijk', 'en': 'Luff', 'de': 'Vorliek', 'fr': 'Guindant',
-      'es': 'Gratil', 'it': 'Inferitura',
+      'es': 'Gratil',       'it': 'Inferitura',
+      'zh': '前缘', 'ar': 'الحافة الأمامية', 'tr': 'Ön kenar',
     },
     'onderlijk': {
       'nl': 'Onderlijk', 'en': 'Foot', 'de': 'Unterliek', 'fr': 'Bordure',
-      'es': 'Pujamen', 'it': 'Base',
+      'es': 'Pujamen',       'it': 'Base',
+      'zh': '下缘', 'ar': 'الحافة السفلية', 'tr': 'Alt kenar',
     },
     'materiaal': {
       'nl': 'Materiaal', 'en': 'Material', 'de': 'Material', 'fr': 'Matériau',
-      'es': 'Material', 'it': 'Materiale',
+      'es': 'Material',       'it': 'Materiale',
+      'zh': '材料', 'ar': 'المادة', 'tr': 'Malzeme',
     },
     'gewicht': {
       'nl': 'Gewicht', 'en': 'Weight', 'de': 'Gewicht', 'fr': 'Poids',
-      'es': 'Peso', 'it': 'Peso',
+      'es': 'Peso',       'it': 'Peso',
+      'zh': '重量', 'ar': 'الوزن', 'tr': 'Ağırlık',
     },
     'inclusief': {
       'nl': 'Inclusief', 'en': 'Includes', 'de': 'Inklusive', 'fr': 'Inclus',
-      'es': 'Incluye', 'it': 'Include',
+      'es': 'Incluye',       'it': 'Include',
+      'zh': '包含', 'ar': 'يشمل', 'tr': 'Dahildir',
     },
     'details': {
       'nl': 'Details', 'en': 'Details', 'de': 'Details', 'fr': 'Détails',
@@ -1578,7 +1595,8 @@ class AppLocalizations {
     },
     'prijs_op_aanvraag': {
       'nl': 'Prijs op aanvraag', 'en': 'Price on request', 'de': 'Preis auf Anfrage', 'fr': 'Prix sur demande',
-      'es': 'Precio a consultar', 'it': 'Prezzo su richiesta',
+      'es': 'Precio a consultar',       'it': 'Prezzo su richiesta',
+      'zh': '价格请询', 'ar': 'السعر عند الطلب', 'tr': 'Fiyat talep üzerine',
     },
     'vanaf_stuks': {
       'nl': 'Vanaf {qty} stuks', 'en': 'From {qty} pieces', 'de': 'Ab {qty} Stück', 'fr': 'À partir de {qty} pièces',
@@ -1586,7 +1604,8 @@ class AppLocalizations {
     },
     'zoek_zeil': {
       'nl': 'Zoek een zeil...', 'en': 'Search for a sail...', 'de': 'Segel suchen...', 'fr': 'Chercher une voile...',
-      'es': 'Buscar una vela...', 'it': 'Cerca una vela...',
+      'es': 'Buscar una vela...',       'it': 'Cerca una vela...',
+      'zh': '搜索帆...', 'ar': 'ابحث عن شراع...', 'tr': 'Yelken ara...',
     },
     'geen_producten_gevonden': {
       'nl': 'Geen producten gevonden.', 'en': 'No products found.', 'de': 'Keine Produkte gefunden.', 'fr': 'Aucun produit trouvé.',
@@ -1602,23 +1621,28 @@ class AppLocalizations {
     },
     'resultaten_voor': {
       'nl': 'Resultaten voor', 'en': 'Results for', 'de': 'Ergebnisse für', 'fr': 'Résultats pour',
-      'es': 'Resultados para', 'it': 'Risultati per',
+      'es': 'Resultados para',       'it': 'Risultati per',
+      'zh': '搜索结果', 'ar': 'نتائج لـ', 'tr': 'Sonuçlar',
     },
     'uitverkocht': {
       'nl': 'Uitverkocht', 'en': 'Sold out', 'de': 'Ausverkauft', 'fr': 'Épuisé',
-      'es': 'Agotado', 'it': 'Esaurito',
+      'es': 'Agotado',       'it': 'Esaurito',
+      'zh': '已售罄', 'ar': 'نفد', 'tr': 'Tükendi',
     },
     'overig': {
       'nl': 'Overig', 'en': 'Other', 'de': 'Sonstiges', 'fr': 'Autre',
-      'es': 'Otros', 'it': 'Altro',
+      'es': 'Otros',       'it': 'Altro',
+      'zh': '其他', 'ar': 'أخرى', 'tr': 'Diğer',
     },
     'navigatie': {
       'nl': 'Navigatie', 'en': 'Navigation', 'de': 'Navigation', 'fr': 'Navigation',
       'es': 'Navegación', 'it': 'Navigazione',
+      'zh': '导航', 'ar': 'التنقل', 'tr': 'Gezinme',
     },
     'alle_rechten': {
       'nl': 'Alle rechten voorbehouden.', 'en': 'All rights reserved.', 'de': 'Alle Rechte vorbehalten.', 'fr': 'Tous droits réservés.',
       'es': 'Todos los derechos reservados.', 'it': 'Tutti i diritti riservati.',
+      'zh': '版权所有。', 'ar': 'جميع الحقوق محفوظة.', 'tr': 'Tüm hakları saklıdır.',
     },
   };
 

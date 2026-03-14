@@ -19,6 +19,7 @@ import 'user_management_screen.dart';
 import 'product_editor_screen.dart';
 import 'review_platforms_screen.dart';
 import 'about_text_screen.dart';
+import 'webshop_content_screen.dart';
 import 'admin_impressions_screen.dart';
 import 'admin_category_videos_screen.dart';
 import 'product_catalogus_screen.dart';
@@ -658,6 +659,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           if (p.aboutTekstBewerken)
             _tile('Over Ventoz tekst', 'Landingspagina tekst bewerken', Icons.article_rounded, const Color(0xFF00695C),
                 onTap: () => _navigate(const AboutTextScreen())),
+          if (p.isAdmin)
+            _tile('Webshop Content', 'Hero banner & USP teksten', Icons.web_rounded, const Color(0xFF7B1FA2),
+                onTap: () => _navigate(const WebshopContentScreen())),
           if (p.aboutTekstBewerken)
             _tile('Categorieteksten', 'Beschrijvingen per categorie', Icons.description_rounded, const Color(0xFF5C6BC0),
                 onTap: () => _navigate(const AdminCategoryDescriptionsScreen())),

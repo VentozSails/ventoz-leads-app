@@ -48,9 +48,9 @@ class CatalogProduct {
   final Map<String, String> translatedDescriptions;
 
   static const _allLangs = [
-    'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fi',
+    'ar', 'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fi',
     'fr', 'ga', 'hr', 'hu', 'it', 'lt', 'lv', 'mt', 'pl', 'pt',
-    'ro', 'sk', 'sl', 'sv',
+    'ro', 'sk', 'sl', 'sv', 'tr', 'zh',
   ];
 
   const CatalogProduct({
@@ -223,7 +223,12 @@ class CatalogProduct {
 
   String naamForLang(String lang) => translatedNames[lang] ?? displayNaam;
 
-  String? beschrijvingForLang(String lang) => translatedDescriptions[lang] ?? displayBeschrijving;
+  String? beschrijvingForLang(String lang) {
+    if (lang == 'nl') return displayBeschrijving;
+    final translated = translatedDescriptions[lang];
+    if (translated != null && translated.isNotEmpty) return translated;
+    return null;
+  }
 
   bool get hasTranslations => translatedNames.isNotEmpty;
 
@@ -246,30 +251,79 @@ class CatalogProduct {
     return '€ ${p.toStringAsFixed(2).replaceAll('.', ',')}';
   }
 
-  String get categorieLabel {
-    if (categorie == null) return 'Overig';
+  String get categorieLabel => categorieLabelForLang('nl');
+
+  String categorieLabelForLang(String lang) {
+    if (categorie == null) {
+      const other = {
+        'nl': 'Overig', 'en': 'Other', 'de': 'Sonstiges', 'fr': 'Autres',
+        'es': 'Otros', 'it': 'Altro', 'bg': 'Други', 'cs': 'Ostatní',
+        'da': 'Andet', 'el': 'Άλλα', 'et': 'Muud', 'fi': 'Muut',
+        'ga': 'Eile', 'hr': 'Ostalo', 'hu': 'Egyéb', 'lt': 'Kita',
+        'lv': 'Citi', 'mt': 'Oħrajn', 'pl': 'Inne', 'pt': 'Outros',
+        'ro': 'Altele', 'sk': 'Ostatné', 'sl': 'Drugo', 'sv': 'Övrigt',
+      };
+      return other[lang] ?? 'Other';
+    }
     const map = {
       'optimist': 'Optimist',
       'ventoz-laserzeil': 'Laser / ILCA',
       'ventoz-topaz': 'Topaz',
       'ventoz-splash': 'Splash',
-      'beachsailing': 'Strandzeil',
       'ventoz-centaur': 'Centaur',
       'rs-feva': 'RS Feva',
-      'valk': 'Polyvalk',
       'randmeer': 'Randmeer',
       'hobie-cat': 'Hobie Cat',
       'ventoz-420-470-sails': '420 / 470',
       'efsix': 'EFSix',
       'sunfish': 'Sunfish',
-      'stormfok': 'Stormfok',
       'open-bic': 'Open Bic',
       'nacra-17': 'Nacra 17',
       'yamaha-seahopper': 'Yamaha Seahopper',
       'mirror': 'Mirror',
       'fox-22': 'Fox 22',
-      'diversen': 'Diversen',
     };
-    return map[categorie] ?? categorie!;
+    final fixed = map[categorie];
+    if (fixed != null) return fixed;
+
+    const translated = {
+      'beachsailing': {
+        'nl': 'Strandzeil', 'en': 'Beach Sail', 'de': 'Strandsegel', 'fr': 'Voile de plage',
+        'es': 'Vela de playa', 'it': 'Vela da spiaggia', 'bg': 'Плажно платно', 'cs': 'Plážová plachta',
+        'da': 'Strandsejl', 'el': 'Πανί παραλίας', 'et': 'Rannapuri', 'fi': 'Rantapurje',
+        'ga': 'Seol trá', 'hr': 'Jedro za plažu', 'hu': 'Strandvitorla', 'lt': 'Paplūdimio burė',
+        'lv': 'Pludmales bura', 'mt': 'Qala tal-bajja', 'pl': 'Żagiel plażowy', 'pt': 'Vela de praia',
+        'ro': 'Velă de plajă', 'sk': 'Plážová plachta', 'sl': 'Plažno jadro', 'sv': 'Strandsegel',
+      },
+      'diversen': {
+        'nl': 'Diversen', 'en': 'Accessories', 'de': 'Zubehör', 'fr': 'Accessoires',
+        'es': 'Accesorios', 'it': 'Accessori', 'bg': 'Аксесоари', 'cs': 'Příslušenství',
+        'da': 'Tilbehør', 'el': 'Αξεσουάρ', 'et': 'Tarvikud', 'fi': 'Tarvikkeet',
+        'ga': 'Gabhálais', 'hr': 'Pribor', 'hu': 'Kiegészítők', 'lt': 'Priedai',
+        'lv': 'Piederumi', 'mt': 'Aċċessorji', 'pl': 'Akcesoria', 'pt': 'Acessórios',
+        'ro': 'Accesorii', 'sk': 'Príslušenstvo', 'sl': 'Dodatki', 'sv': 'Tillbehör',
+      },
+      'stormfok': {
+        'nl': 'Stormfok', 'en': 'Storm Jib', 'de': 'Sturmfock', 'fr': 'Foc de tempête',
+        'es': 'Foque de tormenta', 'it': 'Fiocco da tempesta', 'bg': 'Щормов кливер', 'cs': 'Bouřkový kosatec',
+        'da': 'Stormfok', 'el': 'Θυελλώδες πανί', 'et': 'Tormipuri', 'fi': 'Myrskyföökki',
+        'ga': 'Seol stoirme', 'hr': 'Olujni flok', 'hu': 'Viharvitorla', 'lt': 'Audros burė',
+        'lv': 'Vētras bura', 'mt': 'Flokk ta\' maltempata', 'pl': 'Sztormowy fok', 'pt': 'Vela de tempestade',
+        'ro': 'Foc de furtună', 'sk': 'Búrková plachta', 'sl': 'Viharno jadro', 'sv': 'Stormfock',
+      },
+      'valk': {
+        'nl': 'Polyvalk', 'en': 'Polyvalk', 'de': 'Polyvalk', 'fr': 'Polyvalk',
+        'es': 'Polyvalk', 'it': 'Polyvalk', 'bg': 'Polyvalk', 'cs': 'Polyvalk',
+        'da': 'Polyvalk', 'el': 'Polyvalk', 'et': 'Polyvalk', 'fi': 'Polyvalk',
+        'ga': 'Polyvalk', 'hr': 'Polyvalk', 'hu': 'Polyvalk', 'lt': 'Polyvalk',
+        'lv': 'Polyvalk', 'mt': 'Polyvalk', 'pl': 'Polyvalk', 'pt': 'Polyvalk',
+        'ro': 'Polyvalk', 'sk': 'Polyvalk', 'sl': 'Polyvalk', 'sv': 'Polyvalk',
+      },
+    };
+    final catTranslated = translated[categorie];
+    if (catTranslated != null) {
+      return catTranslated[lang] ?? catTranslated['en'] ?? categorie!;
+    }
+    return categorie!;
   }
 }
