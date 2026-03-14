@@ -284,12 +284,11 @@ serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? SERVICE_ROLE_KEY;
     const token = authHeader.replace("Bearer ", "");
     const {
       data: { user },
       error: authError,
-    } = await createClient(SUPABASE_URL, anonKey).auth.getUser(token);
+    } = await supabase.auth.getUser(token);
 
     if (authError || !user) return json({ error: "Invalid session" }, 401);
 
