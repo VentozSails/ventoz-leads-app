@@ -239,17 +239,33 @@ async function loadSmtpSettings(
 
   let config = data.value as SmtpConfig;
 
-  try {
-    const { data: decrypted } = await supabase.rpc(
-      "decrypt_settings_secrets",
-      {
-        p_settings: config,
-        p_secret_fields: ["password"],
-      },
-    );
-    if (decrypted) config = decrypted as SmtpConfig;
-  } catch {
-    // If decryption RPC is unavailable, password may already be plaintext
+  // The decrypt_secret RPC requires auth.uid() which the service role doesn't
+  // have. Decrypt ENC: fields directly using the vault key.
+  if (config.password?.startsWith("ENC:")) {
+    try {
+      const { data: keyRow } = await supabase
+        .from("vault_keys")
+        .select("encryption_key")
+        .eq("id", 1)
+        .maybeSingle();
+
+      const rawKey = keyRow?.encryption_key;
+      if (rawKey) {
+        const parts = config.password.slice(4).split(":");
+        if (parts.length === 2) {
+          const { createDecipheriv } = await import("node:crypto");
+          const ivBuf = Buffer.from(parts[0], "base64");
+          const dataBuf = Buffer.from(parts[1], "base64");
+          const keyBuf = Buffer.from(rawKey, "base64");
+          const decipher = createDecipheriv("aes-256-cbc", keyBuf, ivBuf);
+          decipher.setAutoPadding(true);
+          const plain = Buffer.concat([decipher.update(dataBuf), decipher.final()]);
+          config.password = plain.toString("utf8");
+        }
+      }
+    } catch (e) {
+      console.error("Password decryption failed:", e);
+    }
   }
 
   return config;
