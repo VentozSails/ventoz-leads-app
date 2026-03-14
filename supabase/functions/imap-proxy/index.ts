@@ -284,18 +284,36 @@ serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+    // Verify the caller is an authenticated staff member.
+    // Create a throwaway client with the user's token to get their identity.
     const token = authHeader.replace("Bearer ", "");
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(token);
+    let userId: string | null = null;
 
-    if (authError || !user) return json({ error: "Invalid session" }, 401);
+    // Method 1: use service role getUser
+    const { data: userData, error: authError } =
+      await supabase.auth.getUser(token);
+    if (!authError && userData?.user) {
+      userId = userData.user.id;
+    }
+
+    // Method 2: create a client with the user's own JWT
+    if (!userId) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+      if (anonKey) {
+        const userClient = createClient(SUPABASE_URL, anonKey, {
+          global: { headers: { Authorization: `Bearer ${token}` } },
+        });
+        const { data: ud2 } = await userClient.auth.getUser();
+        if (ud2?.user) userId = ud2.user.id;
+      }
+    }
+
+    if (!userId) return json({ error: "Invalid session" }, 401);
 
     const { data: callerRow } = await supabase
       .from("ventoz_users")
       .select("is_owner, is_admin, user_type")
-      .eq("auth_user_id", user.id)
+      .eq("auth_user_id", userId)
       .maybeSingle();
 
     const isAdmin =
