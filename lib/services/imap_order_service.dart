@@ -1,13 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'crypto_service.dart';
 import 'mime_decoder.dart';
 import 'parsers/order_email_parser.dart';
-
-const _imapApiUrl = 'https://ventoz.com/api/imap';
 
 enum SalesChannel { jew, ebay, bol, amazon }
 
@@ -184,18 +181,22 @@ class ImapOrderService {
     final session = _client.auth.currentSession;
     if (session == null) throw Exception('Niet ingelogd');
 
-    final response = await http.post(
-      Uri.parse(_imapApiUrl),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${session.accessToken}',
-      },
-      body: jsonEncode(body),
+    final response = await _client.functions.invoke(
+      'imap-proxy',
+      body: body,
     );
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode == 401) throw Exception('Sessie verlopen — log opnieuw in');
-    if (response.statusCode == 403) throw Exception('Onvoldoende rechten');
+    if (response.status != 200 && response.status != 201) {
+      final err = response.data is Map ? (response.data['error'] as String?) : response.data?.toString();
+      if (response.status == 401) throw Exception('Sessie verlopen — log opnieuw in');
+      if (response.status == 403) throw Exception('Onvoldoende rechten');
+      throw Exception(err ?? 'IMAP API fout: ${response.status}');
+    }
+
+    final raw = response.data;
+    final data = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : (jsonDecode(raw?.toString() ?? '{}') as Map<String, dynamic>);
     return data;
   }
 
