@@ -397,12 +397,23 @@ class _InvitedRegisterFormState extends State<_InvitedRegisterForm> {
 
       final body = res.data;
       if (body is Map && body['error'] != null) {
-        final err = body['error'].toString();
-        if (err.contains('already been registered') || err.contains('already exists')) {
-          setState(() => _error = 'Er bestaat al een account met dit e-mailadres. Probeer in te loggen.');
-        } else {
-          setState(() => _error = 'Registratie mislukt: $err');
+        final err = body['error'].toString().toLowerCase();
+        if (err.contains('already been registered') || err.contains('already exists') || err.contains('duplicate')) {
+          // Account exists — confirm it and tell user to log in
+          try {
+            await client.functions.invoke('confirm-user', body: {'email': email});
+          } catch (_) {}
+          try { await widget.userService.markAsRegistered(email); } catch (_) {}
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Je account bestaat al en is geactiveerd. Je kunt nu inloggen.'),
+              backgroundColor: Color(0xFF43A047),
+            ));
+            widget.onRegistered();
+          }
+          return;
         }
+        setState(() => _error = _translateCreateError(body['error'].toString()));
         return;
       }
 
@@ -419,11 +430,13 @@ class _InvitedRegisterFormState extends State<_InvitedRegisterForm> {
       setState(() => _error = _translateRegisterError(e.message));
     } catch (e) {
       debugPrint('Register error: $e');
-      final errStr = e.toString();
+      final errStr = e.toString().toLowerCase();
       if (errStr.contains('duplicate') || errStr.contains('already')) {
         setState(() => _error = 'Er bestaat al een account met dit e-mailadres. Probeer in te loggen.');
+      } else if (errStr.contains('rate limit')) {
+        setState(() => _error = 'Te veel pogingen. Wacht een paar minuten en probeer het opnieuw.');
       } else {
-        setState(() => _error = 'Fout bij registratie: $errStr');
+        setState(() => _error = 'Fout bij registratie: $e');
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -436,7 +449,16 @@ class _InvitedRegisterFormState extends State<_InvitedRegisterForm> {
       return 'Er bestaat al een account met dit e-mailadres. Probeer in te loggen.';
     }
     if (lower.contains('password')) return 'Wachtwoord voldoet niet aan de eisen.';
+    if (lower.contains('rate limit')) return 'Te veel pogingen. Wacht een paar minuten en probeer het opnieuw.';
     return msg;
+  }
+
+  String _translateCreateError(String msg) {
+    final lower = msg.toLowerCase();
+    if (lower.contains('rate limit')) return 'Te veel pogingen. Wacht een paar minuten en probeer het opnieuw.';
+    if (lower.contains('password')) return 'Wachtwoord voldoet niet aan de eisen.';
+    if (lower.contains('already')) return 'Er bestaat al een account met dit e-mailadres. Probeer in te loggen.';
+    return 'Registratie mislukt: $msg';
   }
 
   @override
