@@ -939,14 +939,18 @@ class MarketplaceService {
     int matched = 0;
     int notFound = 0;
 
+    // Pre-fetch all catalog products for title matching
+    List<Map<String, dynamic>>? allProducts;
+
     for (final listing in unmatched) {
       final pd = listing.platformData;
       final ean = pd['ean'] as String?;
       final sku = pd['sku'] as String?;
+      final title = listing.externTitle?.toLowerCase().trim();
 
       Map<String, dynamic>? product;
 
-      // Match by EAN
+      // 1. Match by EAN (highest confidence)
       if (ean != null && ean.isNotEmpty) {
         final rows = await _client
             .from('product_catalogus')
@@ -958,7 +962,7 @@ class MarketplaceService {
         }
       }
 
-      // Match by artikelnummer
+      // 2. Match by artikelnummer / SKU
       if (product == null && sku != null && sku.isNotEmpty) {
         final rows = await _client
             .from('product_catalogus')
@@ -967,6 +971,33 @@ class MarketplaceService {
             .limit(1);
         if ((rows as List).isNotEmpty) {
           product = (rows as List).first as Map<String, dynamic>;
+        }
+      }
+
+      // 3. Match by title (fuzzy): look for catalog product name inside eBay title
+      if (product == null && title != null && title.length > 3) {
+        allProducts ??= await _client
+            .from('product_catalogus')
+            .select('id, naam')
+            .then((rows) => (rows as List).cast<Map<String, dynamic>>());
+
+        int bestScore = 0;
+        Map<String, dynamic>? bestMatch;
+
+        for (final p in allProducts!) {
+          final naam = (p['naam'] as String?)?.toLowerCase().trim();
+          if (naam == null || naam.isEmpty) continue;
+
+          final score = _titleMatchScore(title, naam);
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = p;
+          }
+        }
+
+        // Require at least 60% word overlap
+        if (bestMatch != null && bestScore >= 60) {
+          product = bestMatch;
         }
       }
 
@@ -982,6 +1013,42 @@ class MarketplaceService {
     }
 
     return {'matched': matched, 'not_found': notFound};
+  }
+
+  /// Scores how well an eBay title matches a catalog product name.
+  /// Returns 0-100: percentage of catalog name words found in eBay title.
+  /// Language-agnostic — works for NL, FR, EN, DE titles.
+  int _titleMatchScore(String ebayTitle, String catalogName) {
+    final stopWords = {
+      'de', 'het', 'een', 'van', 'voor', 'met', 'en', 'la', 'le', 'les',
+      'du', 'des', 'un', 'une', 'pour', 'the', 'a', 'an', 'of', 'for',
+      'and', 'with', 'die', 'der', 'das', 'und', 'fur', '-', '–',
+    };
+
+    List<String> toWords(String s) => s
+        .replaceAll(RegExp(r'[^\w\s]'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((w) => w.length > 1 && !stopWords.contains(w))
+        .toList();
+
+    final catalogWords = toWords(catalogName);
+    if (catalogWords.isEmpty) return 0;
+
+    final titleWords = toWords(ebayTitle).toSet();
+    int hits = 0;
+    for (final w in catalogWords) {
+      if (titleWords.contains(w)) {
+        hits++;
+      } else {
+        // Partial match: check if any title word starts with this catalog word or vice versa
+        final hasPartial = titleWords.any((tw) =>
+            (tw.length >= 4 && w.length >= 4) &&
+            (tw.startsWith(w) || w.startsWith(tw)));
+        if (hasPartial) hits++;
+      }
+    }
+
+    return ((hits / catalogWords.length) * 100).round();
   }
 
   Future<void> saveCredentialWithAccount({
