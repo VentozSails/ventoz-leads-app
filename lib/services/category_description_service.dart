@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'translate_service.dart';
 
 class CategoryDescription {
   final int? id;
@@ -8,6 +9,7 @@ class CategoryDescription {
   final String? beschrijvingEn;
   final String? beschrijvingDe;
   final String? beschrijvingFr;
+  final Map<String, String> beschrijvingen;
   final DateTime? laatstBijgewerkt;
 
   const CategoryDescription({
@@ -17,20 +19,33 @@ class CategoryDescription {
     this.beschrijvingEn,
     this.beschrijvingDe,
     this.beschrijvingFr,
+    this.beschrijvingen = const {},
     this.laatstBijgewerkt,
   });
 
-  factory CategoryDescription.fromJson(Map<String, dynamic> json) => CategoryDescription(
-    id: json['id'] as int?,
-    categorie: json['categorie'] as String,
-    beschrijvingNl: (json['beschrijving_nl'] as String?) ?? '',
-    beschrijvingEn: json['beschrijving_en'] as String?,
-    beschrijvingDe: json['beschrijving_de'] as String?,
-    beschrijvingFr: json['beschrijving_fr'] as String?,
-    laatstBijgewerkt: json['laatst_bijgewerkt'] != null
-        ? DateTime.tryParse(json['laatst_bijgewerkt'] as String)
-        : null,
-  );
+  factory CategoryDescription.fromJson(Map<String, dynamic> json) {
+    final jsonMap = json['beschrijvingen'];
+    final Map<String, String> translations = {};
+    if (jsonMap is Map) {
+      for (final e in jsonMap.entries) {
+        if (e.value is String && (e.value as String).isNotEmpty) {
+          translations[e.key as String] = e.value as String;
+        }
+      }
+    }
+    return CategoryDescription(
+      id: json['id'] as int?,
+      categorie: json['categorie'] as String,
+      beschrijvingNl: (json['beschrijving_nl'] as String?) ?? '',
+      beschrijvingEn: json['beschrijving_en'] as String?,
+      beschrijvingDe: json['beschrijving_de'] as String?,
+      beschrijvingFr: json['beschrijving_fr'] as String?,
+      beschrijvingen: translations,
+      laatstBijgewerkt: json['laatst_bijgewerkt'] != null
+          ? DateTime.tryParse(json['laatst_bijgewerkt'] as String)
+          : null,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'categorie': categorie,
@@ -38,10 +53,14 @@ class CategoryDescription {
     'beschrijving_en': beschrijvingEn,
     'beschrijving_de': beschrijvingDe,
     'beschrijving_fr': beschrijvingFr,
+    'beschrijvingen': beschrijvingen,
     'laatst_bijgewerkt': DateTime.now().toUtc().toIso8601String(),
   };
 
   String getForLocale(String locale) {
+    if (beschrijvingen.containsKey(locale) && beschrijvingen[locale]!.isNotEmpty) {
+      return beschrijvingen[locale]!;
+    }
     switch (locale) {
       case 'en': return beschrijvingEn ?? beschrijvingNl;
       case 'de': return beschrijvingDe ?? beschrijvingNl;
@@ -98,6 +117,48 @@ class CategoryDescriptionService {
       } else {
         await _client.from(_table).insert(json);
       }
+    }
+  }
+
+  Future<void> saveAndTranslate(
+    String categorie,
+    String nlText, {
+    void Function(String lang)? onProgress,
+  }) async {
+    _cache = null;
+    final translator = TranslateService();
+    final translations = <String, String>{'nl': nlText};
+
+    for (final lang in TranslateService.translationTargets) {
+      onProgress?.call(lang);
+      try {
+        final translated = await translator.translate(nlText, targetLang: lang);
+        if (translated.isNotEmpty) translations[lang] = translated;
+      } catch (e) {
+        if (kDebugMode) debugPrint('Translate $lang failed: $e');
+      }
+    }
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    final existing = await _client.from(_table)
+        .select('id')
+        .eq('categorie', categorie)
+        .limit(1);
+
+    final payload = {
+      'categorie': categorie,
+      'beschrijving_nl': nlText,
+      'beschrijving_en': translations['en'],
+      'beschrijving_de': translations['de'],
+      'beschrijving_fr': translations['fr'],
+      'beschrijvingen': translations,
+      'laatst_bijgewerkt': now,
+    };
+
+    if (existing.isNotEmpty) {
+      await _client.from(_table).update(payload).eq('id', existing.first['id'] as int);
+    } else {
+      await _client.from(_table).insert(payload);
     }
   }
 

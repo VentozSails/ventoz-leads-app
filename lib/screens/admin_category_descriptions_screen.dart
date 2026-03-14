@@ -55,60 +55,84 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
   void _showEditDialog(String slug) {
     final desc = _descriptions[slug];
     final nlCtl = TextEditingController(text: desc?.beschrijvingNl ?? '');
-    final enCtl = TextEditingController(text: desc?.beschrijvingEn ?? '');
-    final deCtl = TextEditingController(text: desc?.beschrijvingDe ?? '');
-    final frCtl = TextEditingController(text: desc?.beschrijvingFr ?? '');
+    String? progressLang;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(_label(slug), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-        content: SizedBox(
-          width: 500,
-          child: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              _langField('Nederlands', nlCtl, required: true),
-              const SizedBox(height: 12),
-              _langField('English', enCtl),
-              const SizedBox(height: 12),
-              _langField('Deutsch', deCtl),
-              const SizedBox(height: 12),
-              _langField('Français', frCtl),
-            ]),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text(_label(slug), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          content: SizedBox(
+            width: 500,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                _langField('Nederlands (bron)', nlCtl, required: true),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F7FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBBDEFB)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.translate, size: 18, color: Color(0xFF1565C0)),
+                    const SizedBox(width: 8),
+                    const Expanded(child: Text(
+                      'Na opslaan wordt de tekst automatisch vertaald naar alle 27 talen.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF1565C0)),
+                    )),
+                  ]),
+                ),
+                if (progressLang != null) ...[
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                    const SizedBox(width: 8),
+                    Text('Vertalen: $progressLang...', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                  ]),
+                ],
+              ]),
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: progressLang != null ? null : () => Navigator.pop(ctx),
+              child: const Text('Annuleren'),
+            ),
+            FilledButton(
+              onPressed: progressLang != null ? null : () async {
+                final nlText = nlCtl.text.trim();
+                if (nlText.isEmpty) return;
+                try {
+                  await _service.saveAndTranslate(
+                    slug,
+                    nlText,
+                    onProgress: (lang) {
+                      if (ctx.mounted) setDialogState(() => progressLang = lang);
+                    },
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  await _load();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${_label(slug)} opgeslagen en vertaald naar alle talen'), backgroundColor: const Color(0xFF2E7D32)),
+                    );
+                  }
+                } catch (e) {
+                  if (ctx.mounted) setDialogState(() => progressLang = null);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Opslaan mislukt: $e'), backgroundColor: const Color(0xFFEF4444)),
+                    );
+                  }
+                }
+              },
+              child: const Text('Opslaan & vertalen'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuleren')),
-          FilledButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await _service.save(CategoryDescription(
-                  id: desc?.id,
-                  categorie: slug,
-                  beschrijvingNl: nlCtl.text.trim(),
-                  beschrijvingEn: enCtl.text.trim().isEmpty ? null : enCtl.text.trim(),
-                  beschrijvingDe: deCtl.text.trim().isEmpty ? null : deCtl.text.trim(),
-                  beschrijvingFr: frCtl.text.trim().isEmpty ? null : frCtl.text.trim(),
-                ));
-                await _load();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${_label(slug)} opgeslagen'), backgroundColor: const Color(0xFF2E7D32)),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Opslaan mislukt: $e'), backgroundColor: const Color(0xFFEF4444)),
-                  );
-                }
-              }
-            },
-            child: const Text('Opslaan'),
-          ),
-        ],
       ),
     );
   }
@@ -147,8 +171,7 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
                 final slug = _allCategories[i];
                 final desc = _descriptions[slug];
                 final hasText = desc != null && desc.beschrijvingNl.isNotEmpty;
-                final translationCount = [desc?.beschrijvingEn, desc?.beschrijvingDe, desc?.beschrijvingFr]
-                    .where((t) => t != null && t.isNotEmpty).length;
+                final translationCount = desc?.beschrijvingen.length ?? 0;
 
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -175,7 +198,7 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
                           color: const Color(0xFFE3F2FD),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Text('$translationCount/${3} talen', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF1565C0))),
+                        child: Text('$translationCount/27 talen', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF1565C0))),
                       ),
                     const Icon(Icons.edit, size: 18, color: Color(0xFF6B7280)),
                   ]),
