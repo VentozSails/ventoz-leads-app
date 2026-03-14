@@ -6,19 +6,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function jsonResponse(body: object, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { email } = await req.json()
-    if (!email) {
-      return new Response(JSON.stringify({ error: 'email is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    const { action, email, password } = await req.json()
+
+    if (!email) return jsonResponse({ error: 'email is required' }, 400)
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -27,37 +30,34 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     })
 
-    // Confirm the user directly via SQL (fastest, no GoTrue API needed)
+    // Action: "create" — create a pre-confirmed auth user (no confirmation email)
+    if (action === 'create') {
+      if (!password) return jsonResponse({ error: 'password is required' }, 400)
+
+      const { data, error } = await adminClient.auth.admin.createUser({
+        email: email.toLowerCase(),
+        password,
+        email_confirm: true,
+      })
+
+      if (error) {
+        return jsonResponse({ error: error.message }, 400)
+      }
+
+      return jsonResponse({ ok: true, user_id: data.user?.id })
+    }
+
+    // Default action: confirm an existing user's email via SQL
     const { error: rpcError } = await adminClient.rpc('confirm_user_email', {
       target_email: email.toLowerCase(),
     })
 
     if (rpcError) {
-      // Fallback: try creating the RPC and retrying
-      if (rpcError.message.includes('does not exist') || rpcError.message.includes('not found')) {
-        // Create the RPC function
-        const { error: createError } = await adminClient.rpc('exec_sql', { sql: '' })
-        return new Response(JSON.stringify({
-          error: 'RPC not found. Run the migration first.',
-          detail: rpcError.message,
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
-      return new Response(JSON.stringify({ error: rpcError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: rpcError.message }, 500)
     }
 
-    return new Response(JSON.stringify({ ok: true, confirmed: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return jsonResponse({ ok: true, confirmed: true })
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return jsonResponse({ error: String(e) }, 500)
   }
 })

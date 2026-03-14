@@ -387,22 +387,23 @@ class _InvitedRegisterFormState extends State<_InvitedRegisterForm> {
       }
 
       final client = Supabase.instance.client;
-      final response = await client.auth.signUp(
-        email: email,
-        password: password,
-        emailRedirectTo: 'https://ventozsails.github.io/ventoz-leads-app/inloggen',
-      );
 
-      if (response.user == null) {
-        setState(() => _error = 'Account aanmaken mislukt. Probeer het opnieuw.');
+      // Create user via admin API (pre-confirmed, no confirmation email)
+      final res = await client.functions.invoke('confirm-user', body: {
+        'action': 'create',
+        'email': email,
+        'password': password,
+      });
+
+      final body = res.data;
+      if (body is Map && body['error'] != null) {
+        final err = body['error'].toString();
+        if (err.contains('already been registered') || err.contains('already exists')) {
+          setState(() => _error = 'Er bestaat al een account met dit e-mailadres. Probeer in te loggen.');
+        } else {
+          setState(() => _error = 'Registratie mislukt: $err');
+        }
         return;
-      }
-
-      // Auto-confirm invited users via admin API so they don't need email verification
-      try {
-        await client.functions.invoke('confirm-user', body: {'email': email});
-      } catch (e) {
-        debugPrint('Auto-confirm failed (non-fatal): $e');
       }
 
       try {
@@ -410,8 +411,6 @@ class _InvitedRegisterFormState extends State<_InvitedRegisterForm> {
       } catch (e) {
         debugPrint('markAsRegistered failed (non-fatal): $e');
       }
-
-      await client.auth.signOut();
 
       if (mounted) {
         widget.onRegistered();
