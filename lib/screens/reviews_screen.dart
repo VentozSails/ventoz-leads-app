@@ -1,8 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_windows/webview_windows.dart';
 import '../l10n/locale_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../services/review_platforms_service.dart';
@@ -159,8 +157,10 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   }
 }
 
-/// A single platform panel with header info + embedded webview preview.
-class _ReviewPlatformPanel extends StatefulWidget {
+class _ReviewPlatformPanel extends StatelessWidget {
+  static const _navy = Color(0xFF1B2A4A);
+  static const _gold = Color(0xFFC8A85C);
+
   final ReviewPlatform platform;
   final IconData Function(String) iconForPlatform;
   final AppLocalizations l;
@@ -171,62 +171,8 @@ class _ReviewPlatformPanel extends StatefulWidget {
     required this.l,
   });
 
-  @override
-  State<_ReviewPlatformPanel> createState() => _ReviewPlatformPanelState();
-}
-
-class _ReviewPlatformPanelState extends State<_ReviewPlatformPanel> {
-  static const _navy = Color(0xFF1B2A4A);
-  static const _gold = Color(0xFFC8A85C);
-
-  WebviewController? _webviewController;
-  bool _webviewReady = false;
-  bool _webviewFailed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _initWebview();
-  }
-
-  Future<void> _initWebview() async {
-    try {
-      final controller = WebviewController();
-      await controller.initialize();
-      await controller.setBackgroundColor(const Color(0xFFF8FAFB));
-      await controller.setPopupWindowPolicy(WebviewPopupWindowPolicy.deny);
-
-      final embedUrl = widget.platform.effectiveEmbedUrl;
-      if (VatService.isSafeUrl(embedUrl)) {
-        await controller.loadUrl(embedUrl);
-      } else {
-        if (mounted) setState(() => _webviewFailed = true);
-        return;
-      }
-
-      // Zoom out so the full-width page fits inside the panel
-      await controller.setZoomFactor(0.55);
-
-      if (mounted) {
-        setState(() {
-          _webviewController = controller;
-          _webviewReady = true;
-        });
-      }
-    } catch (e) {
-      if (kDebugMode) debugPrint('WebView init failed: $e');
-      if (mounted) setState(() => _webviewFailed = true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _webviewController?.dispose();
-    super.dispose();
-  }
-
-  void _openExternal() {
-    final url = widget.platform.url;
+  void _openExternal(BuildContext context) {
+    final url = platform.url;
     if (VatService.isSafeUrl(url)) {
       launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     }
@@ -234,7 +180,6 @@ class _ReviewPlatformPanelState extends State<_ReviewPlatformPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final p = widget.platform;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -248,15 +193,15 @@ class _ReviewPlatformPanelState extends State<_ReviewPlatformPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildPanelHeader(p),
-          _buildPreviewArea(),
-          _buildFooter(p),
+          _buildPanelHeader(),
+          _buildPreview(context),
+          _buildFooter(context),
         ],
       ),
     );
   }
 
-  Widget _buildPanelHeader(ReviewPlatform p) {
+  Widget _buildPanelHeader() {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
       decoration: const BoxDecoration(
@@ -270,7 +215,7 @@ class _ReviewPlatformPanelState extends State<_ReviewPlatformPanel> {
               color: _gold.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(widget.iconForPlatform(p.icon), color: _gold, size: 24),
+            child: Icon(iconForPlatform(platform.icon), color: _gold, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -278,13 +223,13 @@ class _ReviewPlatformPanelState extends State<_ReviewPlatformPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  p.name,
+                  platform.name,
                   style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.w700, color: _navy),
                 ),
-                if (p.description.isNotEmpty) ...[
+                if (platform.description.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                    p.description,
+                    platform.description,
                     style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF64748B), height: 1.4),
                     maxLines: 2, overflow: TextOverflow.ellipsis,
                   ),
@@ -292,7 +237,7 @@ class _ReviewPlatformPanelState extends State<_ReviewPlatformPanel> {
               ],
             ),
           ),
-          if (p.score.isNotEmpty) ...[
+          if (platform.score.isNotEmpty) ...[
             const SizedBox(width: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -305,7 +250,7 @@ class _ReviewPlatformPanelState extends State<_ReviewPlatformPanel> {
                 const Icon(Icons.star, size: 16, color: Color(0xFF16A34A)),
                 const SizedBox(width: 4),
                 Text(
-                  p.score,
+                  platform.score,
                   style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF16A34A)),
                 ),
               ]),
@@ -316,42 +261,9 @@ class _ReviewPlatformPanelState extends State<_ReviewPlatformPanel> {
     );
   }
 
-  Widget _buildPreviewArea() {
-    if (_webviewFailed) return _buildFallbackPreview();
-    if (!_webviewReady) return _buildLoadingPreview();
-
-    return SizedBox(
-      height: 380,
-      child: Webview(_webviewController!),
-    );
-  }
-
-  Widget _buildLoadingPreview() {
-    return Container(
-      height: 380,
-      color: const Color(0xFFF8FAFB),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 28, height: 28,
-              child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF94A3B8)),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Reviews laden...',
-              style: GoogleFonts.dmSans(fontSize: 13, color: const Color(0xFF94A3B8)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFallbackPreview() {
+  Widget _buildPreview(BuildContext context) {
     return InkWell(
-      onTap: _openExternal,
+      onTap: () => _openExternal(context),
       child: Container(
         height: 380,
         decoration: BoxDecoration(
@@ -374,14 +286,14 @@ class _ReviewPlatformPanelState extends State<_ReviewPlatformPanel> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  widget.iconForPlatform(widget.platform.icon),
+                  iconForPlatform(platform.icon),
                   size: 32,
                   color: _navy.withValues(alpha: 0.4),
                 ),
               ),
               const SizedBox(height: 18),
               Text(
-                widget.platform.name,
+                platform.name,
                 style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w600, color: _navy.withValues(alpha: 0.6)),
               ),
               const SizedBox(height: 6),
@@ -391,25 +303,22 @@ class _ReviewPlatformPanelState extends State<_ReviewPlatformPanel> {
                   Icon(Icons.open_in_new, size: 14, color: _navy.withValues(alpha: 0.35)),
                   const SizedBox(width: 6),
                   Text(
-                    'Klik om reviews te bekijken',
+                    l.t('reviews_klik_bekijken'),
                     style: GoogleFonts.dmSans(fontSize: 13, color: _navy.withValues(alpha: 0.35)),
                   ),
                 ],
               ),
-              if (widget.platform.score.isNotEmpty) ...[
+              if (platform.score.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Row(mainAxisSize: MainAxisSize.min, children: List.generate(5, (i) =>
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: Icon(
-                      Icons.star_rounded, size: 28,
-                      color: _gold.withValues(alpha: i < 5 ? 1.0 : 0.2),
-                    ),
+                    child: Icon(Icons.star_rounded, size: 28, color: _gold),
                   ),
                 )),
                 const SizedBox(height: 6),
                 Text(
-                  widget.platform.score,
+                  platform.score,
                   style: GoogleFonts.dmSans(fontSize: 20, fontWeight: FontWeight.w700, color: _navy.withValues(alpha: 0.5)),
                 ),
               ],
@@ -420,7 +329,7 @@ class _ReviewPlatformPanelState extends State<_ReviewPlatformPanel> {
     );
   }
 
-  Widget _buildFooter(ReviewPlatform p) {
+  Widget _buildFooter(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
       decoration: const BoxDecoration(
@@ -430,8 +339,8 @@ class _ReviewPlatformPanelState extends State<_ReviewPlatformPanel> {
         width: double.infinity,
         child: ElevatedButton.icon(
           icon: const Icon(Icons.open_in_new, size: 16),
-          label: Text(widget.l.t('reviews_bekijk'), style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 13)),
-          onPressed: _openExternal,
+          label: Text(l.t('reviews_bekijk'), style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 13)),
+          onPressed: () => _openExternal(context),
           style: ElevatedButton.styleFrom(
             backgroundColor: _navy,
             foregroundColor: Colors.white,

@@ -81,6 +81,7 @@ class _SiteNavbarState extends State<SiteNavbar> {
               _navLink(context, l.t('nav_assortiment'), '/catalogus'),
               _navLink(context, l.t('nav_impressies'), '/impressies'),
               _navLink(context, l.t('nav_over_ons'), '/#over-ons'),
+              _navLink(context, l.t('nav_beoordelingen'), '/beoordelingen'),
               _navLink(context, l.t('nav_contact'), '/#contact'),
             ],
             const Spacer(),
@@ -396,6 +397,11 @@ class _SiteNavbarState extends State<SiteNavbar> {
                 leading: const Icon(Icons.info_outline),
                 title: Text(l.t('nav_over_ons')),
                 onTap: () { Navigator.pop(ctx); context.go('/'); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.star_rounded),
+                title: Text(l.t('nav_beoordelingen')),
+                onTap: () { Navigator.pop(ctx); context.go('/beoordelingen'); },
               ),
               ListTile(
                 leading: const Icon(Icons.mail_outline),
