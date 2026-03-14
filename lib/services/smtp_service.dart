@@ -315,17 +315,10 @@ $html
     required bool mfaRequired,
     required String appUrl,
   }) async {
-    if (kIsWeb) {
-      await _sendInviteViaEdgeFunction(
-        toEmail: toEmail,
-        userTypeLabel: userTypeLabel,
-        mfaRequired: mfaRequired,
-        appUrl: appUrl,
-      );
-      return;
-    }
-
-    await _sendInviteViaSMTP(
+    // Always use the Edge Function for invite emails — direct SMTP requires
+    // raw TCP sockets which are unavailable on web and unreliable on some
+    // desktop environments (Windows UWP / sandbox).
+    await _sendInviteViaEdgeFunction(
       toEmail: toEmail,
       userTypeLabel: userTypeLabel,
       mfaRequired: mfaRequired,
