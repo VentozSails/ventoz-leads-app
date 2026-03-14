@@ -1719,6 +1719,9 @@ async function handleImportEbayListings(
 
             if (!itemId) continue;
 
+            // Detect eBay site/language from listing URL
+            const site = detectEbaySite(viewItemURL);
+
             const { data: existing } = await supabase
               .from("marketplace_listings")
               .select("id")
@@ -1737,15 +1740,18 @@ async function handleImportEbayListings(
               extern_quantity: remainingQty,
               status: "actief",
               prijs: price,
-              taal: "nl",
+              taal: site.lang,
               account_label: accountLabel,
               laatste_sync: new Date().toISOString(),
               sync_fout: null,
+              ebay_marketplaces: [site.marketplaceId],
               platform_data: {
                 listing_id: itemId,
                 sku: sku || null,
                 listing_type: listingType,
                 source: "trading_api",
+                ebay_site: site.site,
+                ebay_marketplace_id: site.marketplaceId,
               },
             };
 
@@ -1805,6 +1811,32 @@ async function handleImportEbayListings(
 function extractXml(xml: string, tag: string): string | null {
   const match = xml.match(new RegExp(`<${tag}[^>]*>([^<]*)</${tag}>`));
   return match ? match[1] : null;
+}
+
+function detectEbaySite(url: string | null): { site: string; lang: string; marketplaceId: string } {
+  if (!url) return { site: "ebay.com", lang: "en", marketplaceId: "EBAY_US" };
+  const siteMap: Record<string, { lang: string; marketplaceId: string }> = {
+    "ebay.nl": { lang: "nl", marketplaceId: "EBAY_NL" },
+    "ebay.be": { lang: "nl", marketplaceId: "EBAY_BE_FR" },
+    "ebay.fr": { lang: "fr", marketplaceId: "EBAY_FR" },
+    "ebay.de": { lang: "de", marketplaceId: "EBAY_DE" },
+    "ebay.co.uk": { lang: "en", marketplaceId: "EBAY_GB" },
+    "ebay.com": { lang: "en", marketplaceId: "EBAY_US" },
+    "ebay.es": { lang: "es", marketplaceId: "EBAY_ES" },
+    "ebay.it": { lang: "it", marketplaceId: "EBAY_IT" },
+    "ebay.at": { lang: "de", marketplaceId: "EBAY_AT" },
+    "ebay.ch": { lang: "de", marketplaceId: "EBAY_CH" },
+    "ebay.com.au": { lang: "en", marketplaceId: "EBAY_AU" },
+    "ebay.pl": { lang: "pl", marketplaceId: "EBAY_PL" },
+    "ebay.ie": { lang: "en", marketplaceId: "EBAY_IE" },
+    "benl.ebay.be": { lang: "nl", marketplaceId: "EBAY_BE_NL" },
+    "befr.ebay.be": { lang: "fr", marketplaceId: "EBAY_BE_FR" },
+  };
+  const lower = url.toLowerCase();
+  for (const [domain, info] of Object.entries(siteMap)) {
+    if (lower.includes(domain)) return { site: domain, ...info };
+  }
+  return { site: "ebay.com", lang: "en", marketplaceId: "EBAY_US" };
 }
 
 // Utilities
