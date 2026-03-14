@@ -832,7 +832,12 @@ class WebScraperService {
 
   Future<void> updateProductOverrides(int id, Map<String, dynamic> overrides) async {
     final allowed = <String, dynamic>{};
-    const overrideKeys = {'naam_override', 'beschrijving_override', 'prijs_override', 'afbeelding_url_override', 'extra_afbeeldingen', 'gewicht', 'ean_code'};
+    const overrideKeys = {
+      'naam_override', 'beschrijving_override', 'prijs_override',
+      'afbeelding_url_override', 'extra_afbeeldingen', 'gewicht', 'ean_code',
+      'seo_title', 'seo_description', 'seo_keywords',
+      'materiaal', 'luff', 'foot', 'sail_area', 'inclusief',
+    };
     for (final entry in overrides.entries) {
       if (overrideKeys.contains(entry.key)) {
         allowed[entry.key] = entry.value;

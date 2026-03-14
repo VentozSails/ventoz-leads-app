@@ -34,6 +34,11 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
   final _seoTitleCtrl = TextEditingController();
   final _seoDescCtrl = TextEditingController();
   final _seoKeywordsCtrl = TextEditingController();
+  final _materiaalCtrl = TextEditingController();
+  final _luffCtrl = TextEditingController();
+  final _footCtrl = TextEditingController();
+  final _sailAreaCtrl = TextEditingController();
+  final _inclusiefCtrl = TextEditingController();
 
   int _selectedImageIndex = 0;
   bool _uploading = false;
@@ -106,6 +111,11 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
     _prijsCtrl.dispose();
     _afbeeldingUrlCtrl.dispose();
     _extraImageUrlCtrl.dispose();
+    _materiaalCtrl.dispose();
+    _luffCtrl.dispose();
+    _footCtrl.dispose();
+    _sailAreaCtrl.dispose();
+    _inclusiefCtrl.dispose();
     super.dispose();
   }
 
@@ -140,6 +150,11 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
       _seoTitleCtrl.text = product.seoTitle ?? '';
       _seoDescCtrl.text = product.seoDescription ?? '';
       _seoKeywordsCtrl.text = product.seoKeywords ?? '';
+      _materiaalCtrl.text = product.materiaal ?? '';
+      _luffCtrl.text = product.luff ?? '';
+      _footCtrl.text = product.foot ?? '';
+      _sailAreaCtrl.text = product.sailArea ?? '';
+      _inclusiefCtrl.text = product.inclusief ?? '';
     });
   }
 
@@ -157,6 +172,11 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
         'seo_title': _seoTitleCtrl.text.trim().isEmpty ? null : _seoTitleCtrl.text.trim(),
         'seo_description': _seoDescCtrl.text.trim().isEmpty ? null : _seoDescCtrl.text.trim(),
         'seo_keywords': _seoKeywordsCtrl.text.trim().isEmpty ? null : _seoKeywordsCtrl.text.trim(),
+        'materiaal': _materiaalCtrl.text.trim().isEmpty ? null : _materiaalCtrl.text.trim(),
+        'luff': _luffCtrl.text.trim().isEmpty ? null : _luffCtrl.text.trim(),
+        'foot': _footCtrl.text.trim().isEmpty ? null : _footCtrl.text.trim(),
+        'sail_area': _sailAreaCtrl.text.trim().isEmpty ? null : _sailAreaCtrl.text.trim(),
+        'inclusief': _inclusiefCtrl.text.trim().isEmpty ? null : _inclusiefCtrl.text.trim(),
       };
       await _scraperService.updateProductOverrides(product.id!, overrides);
 
@@ -683,26 +703,6 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
           _buildReadonlyField('Categorie', p.categorieLabel),
           const SizedBox(height: 4),
           _buildReadonlyField('Webshop URL', p.webshopUrl ?? '-'),
-          if (p.specsTabel != null && p.specsTabel!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            _buildReadonlyField('Specificaties',
-              p.specsTabel!.entries.map((e) => '${e.key}: ${e.value}').join(' | ')),
-          ] else if (p.luff != null || p.foot != null || p.sailArea != null) ...[
-            const SizedBox(height: 4),
-            _buildReadonlyField('Specificaties', [
-              if (p.luff != null) 'Luff: ${p.luff}',
-              if (p.foot != null) 'Foot: ${p.foot}',
-              if (p.sailArea != null) 'Area: ${p.sailArea}',
-            ].join(' | ')),
-          ],
-          if (p.materiaal != null) ...[
-            const SizedBox(height: 4),
-            _buildReadonlyField('Materiaal', p.materiaal!),
-          ],
-          if (p.inclusief != null) ...[
-            const SizedBox(height: 4),
-            _buildReadonlyField('Inclusief', p.inclusief!),
-          ],
           if (p.laatstBijgewerkt != null) ...[
             const SizedBox(height: 4),
             _buildReadonlyField('Laatst bijgewerkt',
@@ -742,6 +742,52 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
             originalValue: p.afbeeldingUrl ?? '-',
             controller: _afbeeldingUrlCtrl,
             hasOverride: p.afbeeldingUrlOverride != null,
+          ),
+
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F7FF),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBBDEFB)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.sailing, size: 18, color: Color(0xFF1565C0)),
+                    const SizedBox(width: 8),
+                    Text('Specificaties', style: GoogleFonts.dmSans(
+                      fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF1565C0),
+                    )),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text('Worden getoond op de productpagina', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                const SizedBox(height: 12),
+                _buildSpecField('Materiaal', _materiaalCtrl, hint: 'bijv. sterk dacron (3.8 oz Newport by Challenge)'),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _buildSpecField('Voorlijk / Luff', _luffCtrl, hint: 'bijv. 386 cm')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _buildSpecField('Onderlijk / Foot', _footCtrl, hint: 'bijv. 153 cm')),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _buildSpecField('Zeiloppervlak', _sailAreaCtrl, hint: 'bijv. 2.8 m²')),
+                    const SizedBox(width: 10),
+                    const Expanded(child: SizedBox()),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _buildSpecField('Inclusief', _inclusiefCtrl, hint: 'bijv. zeilbattenset, opbergtas'),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           Row(children: [
@@ -902,6 +948,40 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
     );
   }
 
+
+  Widget _buildSpecField(String label, TextEditingController controller, {String? hint}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: _navy)),
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller,
+          style: const TextStyle(fontSize: 13),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(fontSize: 12, color: Colors.grey[400]),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            isDense: true,
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFBBDEFB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFBBDEFB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFF1565C0), width: 1.5),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _buildReadonlyField(String label, String value) {
     return Padding(
