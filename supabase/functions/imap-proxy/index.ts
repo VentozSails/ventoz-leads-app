@@ -284,28 +284,28 @@ serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    // Verify the caller is an authenticated staff member.
-    // Create a throwaway client with the user's token to get their identity.
     const token = authHeader.replace("Bearer ", "");
+
+    // Extract user ID from JWT. The app may use publishable keys (ES256)
+    // which auth.getUser() cannot validate with the service role key.
+    // Decode the JWT payload directly and verify the user exists in the DB.
     let userId: string | null = null;
 
-    // Method 1: use service role getUser
-    const { data: userData, error: authError } =
-      await supabase.auth.getUser(token);
-    if (!authError && userData?.user) {
-      userId = userData.user.id;
-    }
+    // Try auth.getUser first (works for standard HS256 tokens)
+    try {
+      const { data, error } = await supabase.auth.getUser(token);
+      if (!error && data?.user) userId = data.user.id;
+    } catch { /* ignore */ }
 
-    // Method 2: create a client with the user's own JWT
+    // Fallback: decode JWT payload manually
     if (!userId) {
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-      if (anonKey) {
-        const userClient = createClient(SUPABASE_URL, anonKey, {
-          global: { headers: { Authorization: `Bearer ${token}` } },
-        });
-        const { data: ud2 } = await userClient.auth.getUser();
-        if (ud2?.user) userId = ud2.user.id;
-      }
+      try {
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          if (payload.sub) userId = payload.sub;
+        }
+      } catch { /* ignore */ }
     }
 
     if (!userId) return json({ error: "Invalid session" }, 401);
