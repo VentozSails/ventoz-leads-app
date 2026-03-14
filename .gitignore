@@ -70,3 +70,6 @@ build/windows/
 
 # Web build artifacts
 build/web/
+
+# Separate webshop repo
+ventoz-webshop/

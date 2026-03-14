@@ -312,10 +312,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ...widget.cartItems.map((item) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Row(children: [
-              if (item.product.afbeeldingUrl != null)
+              if (item.product.displayAfbeeldingUrl != null)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
-                  child: Image.network(item.product.afbeeldingUrl!, width: 40, height: 40, fit: BoxFit.contain,
+                  child: Image.network(item.product.displayAfbeeldingUrl!, width: 40, height: 40, fit: BoxFit.contain,
                     errorBuilder: (_, e, s) => const SizedBox(width: 40, height: 40)),
                 )
               else
@@ -668,7 +668,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           await OrderEmailService().sendOrderConfirmation(updatedOrder);
           emailSent = true;
         } catch (e) {
-          emailError = 'E-mail verzenden mislukt.';
+          emailError = _l.t('email_verzenden_mislukt');
           if (kDebugMode) debugPrint('Auto-send confirmation failed: $e');
         }
       }

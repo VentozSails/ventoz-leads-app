@@ -184,6 +184,7 @@ class _InventoryImportScreenState extends State<InventoryImportScreen> {
       if (!confirmed) return;
     }
 
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -196,6 +197,7 @@ class _InventoryImportScreenState extends State<InventoryImportScreen> {
           final importable =
               _rows.where((r) => r.matchedStatus != 'error').toList();
           if (importable.isEmpty) {
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Geen items om te importeren.'),

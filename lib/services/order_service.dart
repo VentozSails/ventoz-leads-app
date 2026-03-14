@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'user_service.dart';
@@ -234,7 +233,7 @@ class OrderRegel {
     return OrderRegel(
       productId: product.artikelnummer ?? product.naam,
       productNaam: product.naam,
-      productAfbeelding: product.afbeeldingUrl,
+      productAfbeelding: product.displayAfbeeldingUrl,
       aantal: item.quantity,
       stukprijs: item.unitPriceExclVat,
       kortingPercentage: 0,

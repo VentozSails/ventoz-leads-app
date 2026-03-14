@@ -84,8 +84,8 @@ class _PublicCatalogScreenState extends State<PublicCatalogScreen> {
       }
       final counts = Map.fromEntries(
         rawCounts.entries.toList()..sort((a, b) {
-          final la = CatalogProduct(naam: '', categorie: a.key).categorieLabel;
-          final lb = CatalogProduct(naam: '', categorie: b.key).categorieLabel;
+          final la = CatalogProduct(naam: '', categorie: a.key).categorieLabelForLang(_lang);
+          final lb = CatalogProduct(naam: '', categorie: b.key).categorieLabelForLang(_lang);
           return la.compareTo(lb);
         }),
       );
@@ -111,7 +111,7 @@ class _PublicCatalogScreenState extends State<PublicCatalogScreen> {
       }
     } catch (e) {
       if (kDebugMode) debugPrint('Error loading catalog: $e');
-      if (mounted) setState(() { _error = 'Er is een fout opgetreden. Probeer het opnieuw.'; _loading = false; });
+      if (mounted) setState(() { _error = _l.t('fout_probeer_opnieuw'); _loading = false; });
     }
   }
 
@@ -145,6 +145,7 @@ class _PublicCatalogScreenState extends State<PublicCatalogScreen> {
     return SingleChildScrollView(
       child: Column(children: [
         _buildHeader(context),
+        _buildCategoryTabBar(context),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: isWide ? 64 : 16, vertical: 24),
           child: ConstrainedBox(
@@ -162,8 +163,6 @@ class _PublicCatalogScreenState extends State<PublicCatalogScreen> {
                   ])
                 : Column(children: [
                     _buildSearchBar(),
-                    const SizedBox(height: 12),
-                    _buildCategoryChips(),
                     const SizedBox(height: 16),
                     if (_selectedCategory != null) _buildCategoryDescription(),
                     _buildProductGrid(isWide),
@@ -178,27 +177,63 @@ class _PublicCatalogScreenState extends State<PublicCatalogScreen> {
     );
   }
 
+  Widget _buildCategoryTabBar(BuildContext context) {
+    if (_categoryCounts.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            _categoryTab(null, _l.t('alle_producten').split(' ').first),
+            ..._categoryCounts.entries.map((e) {
+              final label = CatalogProduct(naam: '', categorie: e.key).categorieLabelForLang(_lang);
+              return _categoryTab(e.key, label);
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _categoryTab(String? key, String label) {
+    final isActive = _selectedCategory == key;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: TextButton(
+        onPressed: () { setState(() => _selectedCategory = key); _applyFilters(); },
+        style: TextButton.styleFrom(
+          foregroundColor: isActive ? _navy : const Color(0xFF64748B),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          textStyle: GoogleFonts.dmSans(fontSize: 13, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500),
+        ),
+        child: Text(label),
+      ),
+    );
+  }
+
   Widget _buildHeader(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       decoration: const BoxDecoration(
         gradient: LinearGradient(colors: [Color(0xFF0F1B33), Color(0xFF1B2A4A)]),
       ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1200),
-          child: Row(children: [
-            Image.asset('assets/ventoz_emblem.png', width: 52, height: 52),
-            const SizedBox(width: 18),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_l.t('nav_assortiment'), style: GoogleFonts.dmSerifDisplay(fontSize: 28, color: Colors.white)),
-              const SizedBox(height: 4),
-              Text(
-                '${_allProducts.length} ${_l.t('producten_beschikbaar')}',
-                style: GoogleFonts.dmSans(fontSize: 14, color: const Color(0xFFB0C4DE)),
-              ),
-            ]),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_l.t('nav_assortiment'), style: GoogleFonts.dmSerifDisplay(fontSize: 28, color: Colors.white)),
+            const SizedBox(height: 4),
+            Text(
+              _l.t('catalog_subtitle'),
+              style: GoogleFonts.dmSans(fontSize: 14, color: const Color(0xFFB0C4DE)),
+            ),
           ]),
         ),
       ),
@@ -213,7 +248,7 @@ class _PublicCatalogScreenState extends State<PublicCatalogScreen> {
       const SizedBox(height: 8),
       _categoryItem(null, _l.t('alle_producten'), _allProducts.length),
       ..._categoryCounts.entries.map((e) {
-        final label = CatalogProduct(naam: '', categorie: e.key).categorieLabel;
+        final label = CatalogProduct(naam: '', categorie: e.key).categorieLabelForLang(_lang);
         return _categoryItem(e.key, label, e.value);
       }),
     ]);
@@ -258,42 +293,13 @@ class _PublicCatalogScreenState extends State<PublicCatalogScreen> {
     );
   }
 
-  Widget _buildCategoryChips() {
-    return SizedBox(
-      height: 36,
-      child: ListView(scrollDirection: Axis.horizontal, children: [
-        _chip(null, 'Alle'),
-        ..._categoryCounts.keys.map((k) {
-          final label = CatalogProduct(naam: '', categorie: k).categorieLabel;
-          return _chip(k, label);
-        }),
-      ]),
-    );
-  }
-
-  Widget _chip(String? key, String label) {
-    final isActive = _selectedCategory == key;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label, style: GoogleFonts.dmSans(fontSize: 12, color: isActive ? Colors.white : _navy)),
-        selected: isActive,
-        onSelected: (_) { setState(() => _selectedCategory = key); _applyFilters(); },
-        backgroundColor: Colors.white,
-        selectedColor: _navy,
-        side: BorderSide(color: isActive ? _navy : const Color(0xFFE2E8F0)),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-      ),
-    );
-  }
-
   Widget _buildCategoryDescription() {
     final desc = _categoryDescriptions[_selectedCategory];
     if (desc == null) return const SizedBox.shrink();
     final text = desc.getForLocale(_lang);
     if (text.isEmpty) return const SizedBox.shrink();
     final catLabel = _selectedCategory != null
-        ? CatalogProduct(naam: '', categorie: _selectedCategory!).categorieLabel
+        ? CatalogProduct(naam: '', categorie: _selectedCategory!).categorieLabelForLang(_lang)
         : null;
     return Container(
       width: double.infinity,
@@ -397,7 +403,7 @@ class _PublicCatalogScreenState extends State<PublicCatalogScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(color: _navy.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(4)),
-                        child: Text(product.categorieLabel, style: GoogleFonts.dmSans(fontSize: 9, fontWeight: FontWeight.w600, color: _navy)),
+                        child: Text(product.categorieLabelForLang(_lang), style: GoogleFonts.dmSans(fontSize: 9, fontWeight: FontWeight.w600, color: _navy)),
                       ),
                     const Spacer(),
                     Container(

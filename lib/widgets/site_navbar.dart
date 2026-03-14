@@ -4,13 +4,23 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/cart_service.dart';
 import '../services/user_service.dart';
+import '../services/web_scraper_service.dart';
+import '../models/catalog_product.dart';
 import '../l10n/locale_provider.dart';
 
-class SiteNavbar extends StatelessWidget {
+class SiteNavbar extends StatefulWidget {
   const SiteNavbar({super.key});
 
+  @override
+  State<SiteNavbar> createState() => _SiteNavbarState();
+}
+
+class _SiteNavbarState extends State<SiteNavbar> {
   static const _navy = Color(0xFF1B2A4A);
   static const _gold = Color(0xFFC8A85C);
+
+  Map<String, int> _categoryCounts = {};
+  bool _categoriesLoaded = false;
 
   bool get _isLoggedIn {
     final session = Supabase.instance.client.auth.currentSession;
@@ -20,6 +30,32 @@ class SiteNavbar extends StatelessWidget {
       return false;
     }
     return true;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final raw = await WebScraperService().fetchCatalog();
+      final products = raw.where((p) => !p.geblokkeerd).toList();
+      final counts = <String, int>{};
+      for (final p in products) {
+        final cat = p.categorie ?? 'overig';
+        counts[cat] = (counts[cat] ?? 0) + 1;
+      }
+      final sorted = Map.fromEntries(
+        counts.entries.toList()..sort((a, b) {
+          final la = CatalogProduct(naam: '', categorie: a.key).categorieLabelForLang(LocaleProvider().lang);
+          final lb = CatalogProduct(naam: '', categorie: b.key).categorieLabelForLang(LocaleProvider().lang);
+          return la.compareTo(lb);
+        }),
+      );
+      if (mounted) setState(() { _categoryCounts = sorted; _categoriesLoaded = true; });
+    } catch (_) {}
   }
 
   @override
@@ -41,6 +77,7 @@ class SiteNavbar extends StatelessWidget {
             _buildLogo(context),
             if (isWide) ...[
               const SizedBox(width: 32),
+              _navLink(context, l.t('nav_home'), '/'),
               _navLink(context, l.t('nav_assortiment'), '/catalogus'),
               _navLink(context, l.t('nav_impressies'), '/impressies'),
               _navLink(context, l.t('nav_over_ons'), '/#over-ons'),
@@ -56,7 +93,64 @@ class SiteNavbar extends StatelessWidget {
           ],
         ),
       ),
+      if (_categoriesLoaded && _categoryCounts.isNotEmpty)
+        _buildCategoryBar(context),
     ]);
+  }
+
+  Widget _buildCategoryBar(BuildContext context) {
+    final current = GoRouterState.of(context).matchedLocation;
+    final isCatalog = current == '/catalogus';
+    final queryParams = GoRouterState.of(context).uri.queryParameters;
+    final activeCategory = queryParams['categorie'];
+
+    final buttons = _categoryCounts.entries.map((e) {
+      final label = CatalogProduct(naam: '', categorie: e.key).categorieLabelForLang(LocaleProvider().lang).toUpperCase();
+      final isActive = isCatalog && activeCategory == e.key;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 2),
+        child: InkWell(
+          onTap: () => context.go('/catalogus?categorie=${e.key}'),
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: isActive ? _navy.withValues(alpha: 0.08) : Colors.transparent,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              label,
+              style: GoogleFonts.dmSans(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? _navy : const Color(0xFF64748B),
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        ),
+      );
+    }).toList();
+
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFB),
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 2,
+            runSpacing: 0,
+            children: buttons,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildImpersonationBanner(BuildContext context) {
@@ -88,7 +182,7 @@ class SiteNavbar extends StatelessWidget {
     final lp = LocaleProvider();
     return PopupMenuButton<String>(
       initialValue: lp.lang,
-      tooltip: 'Taal / Language',
+      tooltip: lp.l.t('taal_tooltip'),
       onSelected: (lang) => lp.setLang(lang),
       constraints: const BoxConstraints(maxHeight: 420),
       itemBuilder: (_) {
@@ -169,7 +263,7 @@ class SiteNavbar extends StatelessWidget {
         backgroundColor: _gold,
         child: const Icon(Icons.shopping_bag_outlined, size: 22),
       ),
-      tooltip: 'Winkelwagen',
+      tooltip: LocaleProvider().l.t('nav_winkelwagen'),
       color: _navy,
     );
   }
@@ -189,6 +283,7 @@ class SiteNavbar extends StatelessWidget {
   }
 
   Widget _buildAccountMenu(BuildContext context) {
+    final l = LocaleProvider().l;
     final email = Supabase.instance.client.auth.currentUser?.email ?? '';
     final initials = email.isNotEmpty ? email[0].toUpperCase() : '?';
     return PopupMenuButton<String>(
@@ -215,7 +310,7 @@ class SiteNavbar extends StatelessWidget {
           child: ListTile(
             dense: true,
             leading: const Icon(Icons.dashboard_rounded, size: 18),
-            title: Text('Dashboard', style: GoogleFonts.dmSans(fontSize: 13)),
+            title: Text(l.t('nav_dashboard'), style: GoogleFonts.dmSans(fontSize: 13)),
           ),
         ),
         PopupMenuItem(
@@ -223,7 +318,7 @@ class SiteNavbar extends StatelessWidget {
           child: ListTile(
             dense: true,
             leading: const Icon(Icons.receipt_long_rounded, size: 18),
-            title: Text('Mijn bestellingen', style: GoogleFonts.dmSans(fontSize: 13)),
+            title: Text(l.t('mijn_bestellingen'), style: GoogleFonts.dmSans(fontSize: 13)),
           ),
         ),
         const PopupMenuDivider(),
@@ -232,7 +327,7 @@ class SiteNavbar extends StatelessWidget {
           child: ListTile(
             dense: true,
             leading: const Icon(Icons.logout, size: 18, color: Color(0xFFE53935)),
-            title: Text('Uitloggen', style: GoogleFonts.dmSans(fontSize: 13, color: const Color(0xFFE53935))),
+            title: Text(l.t('uitloggen'), style: GoogleFonts.dmSans(fontSize: 13, color: const Color(0xFFE53935))),
           ),
         ),
       ],
@@ -267,62 +362,98 @@ class SiteNavbar extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      isScrollControlled: true,
       builder: (ctx) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const SizedBox(height: 8),
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 16),
-          _buildLangSelector(context),
-          const SizedBox(height: 8),
-          ListTile(
-            leading: const Icon(Icons.sailing),
-            title: Text(l.t('nav_assortiment')),
-            onTap: () { Navigator.pop(ctx); context.go('/catalogus'); },
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          maxChildSize: 0.9,
+          minChildSize: 0.4,
+          expand: false,
+          builder: (_, scrollCtrl) => SingleChildScrollView(
+            controller: scrollCtrl,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const SizedBox(height: 8),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 16),
+              _buildLangSelector(context),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.home_outlined),
+                title: Text(l.t('nav_home')),
+                onTap: () { Navigator.pop(ctx); context.go('/'); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.sailing),
+                title: Text(l.t('nav_assortiment')),
+                onTap: () { Navigator.pop(ctx); context.go('/catalogus'); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: Text(l.t('nav_impressies')),
+                onTap: () { Navigator.pop(ctx); context.go('/impressies'); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: Text(l.t('nav_over_ons')),
+                onTap: () { Navigator.pop(ctx); context.go('/'); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.mail_outline),
+                title: Text(l.t('nav_contact')),
+                onTap: () { Navigator.pop(ctx); context.go('/'); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.shopping_bag_outlined),
+                title: Text(l.t('nav_winkelwagen')),
+                onTap: () { Navigator.pop(ctx); context.push('/winkelwagen'); },
+              ),
+              if (_categoryCounts.isNotEmpty) ...[
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Text(l.t('categorieen'), style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))),
+                ),
+                ..._categoryCounts.entries.map((e) {
+                  final label = CatalogProduct(naam: '', categorie: e.key).categorieLabelForLang(LocaleProvider().lang);
+                  return ListTile(
+                    dense: true,
+                    title: Text(label, style: GoogleFonts.dmSans(fontSize: 13)),
+                    trailing: Text('${e.value}', style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF64748B))),
+                    onTap: () { Navigator.pop(ctx); context.go('/catalogus?categorie=${e.key}'); },
+                  );
+                }),
+              ],
+              const Divider(),
+              if (_isLoggedIn) ...[
+                ListTile(
+                  leading: const Icon(Icons.dashboard_rounded),
+                  title: Text(l.t('nav_dashboard')),
+                  onTap: () { Navigator.pop(ctx); context.go('/dashboard'); },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.receipt_long_rounded),
+                  title: Text(l.t('mijn_bestellingen')),
+                  onTap: () { Navigator.pop(ctx); context.push('/dashboard/beheer'); },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Color(0xFFE53935)),
+                  title: Text(l.t('uitloggen'), style: const TextStyle(color: Color(0xFFE53935))),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await Supabase.instance.client.auth.signOut();
+                    if (context.mounted) context.go('/');
+                  },
+                ),
+              ] else
+                ListTile(
+                  leading: const Icon(Icons.login),
+                  title: Text(l.t('nav_inloggen')),
+                  onTap: () { Navigator.pop(ctx); context.go('/inloggen'); },
+                ),
+              const SizedBox(height: 16),
+            ]),
           ),
-          ListTile(
-            leading: const Icon(Icons.photo_library_outlined),
-            title: Text(l.t('nav_impressies')),
-            onTap: () { Navigator.pop(ctx); context.go('/impressies'); },
-          ),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: Text(l.t('nav_over_ons')),
-            onTap: () { Navigator.pop(ctx); context.go('/'); },
-          ),
-          ListTile(
-            leading: const Icon(Icons.shopping_bag_outlined),
-            title: Text(l.t('nav_winkelwagen')),
-            onTap: () { Navigator.pop(ctx); context.push('/winkelwagen'); },
-          ),
-          const Divider(),
-          if (_isLoggedIn) ...[
-            ListTile(
-              leading: const Icon(Icons.dashboard_rounded),
-              title: const Text('Dashboard'),
-              onTap: () { Navigator.pop(ctx); context.go('/dashboard'); },
-            ),
-            ListTile(
-              leading: const Icon(Icons.receipt_long_rounded),
-              title: const Text('Mijn bestellingen'),
-              onTap: () { Navigator.pop(ctx); context.push('/dashboard/beheer'); },
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Color(0xFFE53935)),
-              title: const Text('Uitloggen', style: TextStyle(color: Color(0xFFE53935))),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await Supabase.instance.client.auth.signOut();
-                if (context.mounted) context.go('/');
-              },
-            ),
-          ] else
-            ListTile(
-              leading: const Icon(Icons.login),
-              title: Text(l.t('nav_inloggen')),
-              onTap: () { Navigator.pop(ctx); context.go('/inloggen'); },
-            ),
-          const SizedBox(height: 16),
-        ]),
+        ),
       ),
     );
   }

@@ -198,7 +198,9 @@ class JewOrderParser extends OrderEmailParser {
   @override
   bool canParse({required String from, required String subject}) {
     if (!from.toLowerCase().contains('jeeigenweb') &&
-        !from.toLowerCase().contains('ventoz')) return false;
+        !from.toLowerCase().contains('ventoz')) {
+      return false;
+    }
     final subLower = subject.toLowerCase();
     return _orderKeywords.any((kw) => subLower.contains(kw));
   }
@@ -422,7 +424,9 @@ class BolOrderParser extends OrderEmailParser {
   @override
   bool canParse({required String from, required String subject}) {
     if (!from.toLowerCase().contains('bol.com') &&
-        !from.toLowerCase().contains('bol ')) return false;
+        !from.toLowerCase().contains('bol ')) {
+      return false;
+    }
     final subLower = subject.toLowerCase();
     return _orderKeywords.any((kw) => subLower.contains(kw));
   }

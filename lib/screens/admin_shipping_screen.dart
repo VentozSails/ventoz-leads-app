@@ -563,7 +563,7 @@ class _AdminShippingScreenState extends State<AdminShippingScreen> {
                             ),
                           if (omtrekExceeded)
                             Text(
-                              '\u2022 Omtrek ${boxOmtrek} cm overschrijdt max ${maxOmtrekCm} cm',
+                              '\u2022 Omtrek $boxOmtrek cm overschrijdt max $maxOmtrekCm cm',
                               style: const TextStyle(fontSize: 11, color: Color(0xFFBF360C)),
                             ),
                           const SizedBox(height: 8),

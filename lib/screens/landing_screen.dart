@@ -191,17 +191,22 @@ class _LandingScreenState extends State<LandingScreen> {
             border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            Container(
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(color: Colors.white.withValues(alpha: 0.5), blurRadius: 18, spreadRadius: 2),
-                  BoxShadow(color: Colors.white.withValues(alpha: 0.25), blurRadius: 36, spreadRadius: 4),
-                ],
-              ),
-              child: Image.asset(
-                'assets/ventoz_text_logo_transparent.png',
-                height: 44,
-                fit: BoxFit.contain,
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(color: Colors.white.withValues(alpha: 0.6), blurRadius: 28, spreadRadius: 6),
+                    BoxShadow(color: Colors.white.withValues(alpha: 0.35), blurRadius: 50, spreadRadius: 10),
+                    BoxShadow(color: Colors.white.withValues(alpha: 0.15), blurRadius: 80, spreadRadius: 16),
+                  ],
+                ),
+                child: Image.asset(
+                  'assets/ventoz_text_logo_transparent.png',
+                  height: 44,
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
             const SizedBox(height: 26),
@@ -219,7 +224,7 @@ class _LandingScreenState extends State<LandingScreen> {
           left: 0, right: 0, bottom: -(btnHeight / 2),
           child: Center(
             child: ElevatedButton.icon(
-              icon: const Icon(Icons.sailing, size: 18),
+              icon: const Icon(Icons.play_arrow, size: 18),
               label: Text(_l.t('hero_cta'), style: GoogleFonts.dmSans(fontWeight: FontWeight.w700, fontSize: 14)),
               onPressed: () => context.go('/catalogus'),
               style: ElevatedButton.styleFrom(
@@ -358,7 +363,7 @@ class _LandingScreenState extends State<LandingScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(color: _navy.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(6)),
-                    child: Text(product.categorieLabel, style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
+                    child: Text(product.categorieLabelForLang(_lang), style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
                   ),
                 ),
               if (_featured.length > 1) ...[
@@ -428,16 +433,12 @@ class _LandingScreenState extends State<LandingScreen> {
 
   Widget _buildUspBar(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 800;
-    final isNl = _lang == 'nl';
 
     final usps = <(IconData, String, String, VoidCallback?, bool)>[
-      if (isNl)
-        (Icons.local_shipping, _l.t('usp_gratis'), _l.t('usp_gratis_sub'), () => context.go('/verzending'), false),
-      (Icons.public, _l.t('usp_eu'), _l.t('usp_eu_sub'), null, false),
-      (Icons.inventory_2, _l.t('usp_voorraad'), _l.t('usp_voorraad_sub'), null, false),
+      (Icons.card_giftcard, _l.t('usp_gratis'), _l.t('usp_gratis_sub'), () => context.go('/verzending'), false),
+      (Icons.flight_takeoff, _l.t('usp_eu'), _l.t('usp_eu_sub'), null, false),
+      (Icons.access_time, _l.t('usp_voorraad'), _l.t('usp_voorraad_sub'), null, false),
       (Icons.verified, _l.t('usp_kwaliteit'), _l.t('usp_kwaliteit_sub'), null, false),
-      if (!isNl)
-        (Icons.local_shipping, _l.t('usp_shipping'), _l.t('usp_shipping_sub'), () => context.go('/verzending'), false),
       (Icons.star_rounded, _l.t('usp_reviews'), _l.t('usp_reviews_sub'), () => context.go('/beoordelingen'), true),
     ];
 

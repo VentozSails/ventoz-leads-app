@@ -148,8 +148,8 @@ class _CartScreenState extends State<CartScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: product.afbeeldingUrl != null
-                  ? Image.network(product.afbeeldingUrl!, width: 64, height: 64, fit: BoxFit.contain,
+              child: product.displayAfbeeldingUrl != null
+                  ? Image.network(product.displayAfbeeldingUrl!, width: 64, height: 64, fit: BoxFit.contain,
                       errorBuilder: (_, e, s) => _placeholder())
                   : _placeholder(),
             ),

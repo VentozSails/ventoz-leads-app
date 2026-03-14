@@ -637,7 +637,7 @@ class MarketplaceService {
       )).toList();
     } catch (e) {
       if (kDebugMode) debugPrint('MarketplaceService.getChannelMatrix error: $e');
-      return [];
+      rethrow;
     }
   }
 
@@ -672,6 +672,150 @@ class MarketplaceService {
       if (kDebugMode) debugPrint('MarketplaceService.getProductsForListing error: $e');
       return [];
     }
+  }
+
+  // ── CSV Import ──
+
+  /// Column index -> SalesChannel mapping for the advertenties.csv format.
+  static const _csvColumnMap = <int, SalesChannel>{
+    // col 2 = eigen site prijs (handled separately)
+    3:  SalesChannel.ebayUk,
+    4:  SalesChannel.ebayDe,
+    5:  SalesChannel.ebayIt,
+    6:  SalesChannel.ebayFr,
+    7:  SalesChannel.ebayNl,
+    8:  SalesChannel.ebayEs,
+    9:  SalesChannel.ebayBe,
+    10: SalesChannel.ebayIe,
+    11: SalesChannel.ebayPl,
+    // col 12 = eBay UK price in GBP (handled separately)
+    14: SalesChannel.bolNl,
+    15: SalesChannel.bolBe,
+    16: SalesChannel.amazonDe,
+    17: SalesChannel.amazonFr,
+    18: SalesChannel.amazonIt,
+    19: SalesChannel.amazonNl,
+    20: SalesChannel.amazonSe,
+    21: SalesChannel.amazonUk,
+    22: SalesChannel.admarkNl,
+  };
+
+  /// Import the advertenties.csv content into marketplace_listings.
+  /// Returns a summary with counts of imported/skipped/matched products.
+  Future<Map<String, int>> importAdvertentiesCsv(String csvContent) async {
+    final lines = csvContent.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    if (lines.length < 4) return {'error': 1};
+
+    final products = await getProductsForListing();
+    final productsByName = <String, int>{};
+    for (final p in products) {
+      final naam = (p['naam'] as String? ?? '').toLowerCase().trim();
+      if (naam.isNotEmpty) productsByName[naam] = p['id'] as int;
+    }
+
+    int matched = 0, created = 0, skipped = 0;
+
+    for (int i = 3; i < lines.length; i++) {
+      final cols = lines[i].split(';');
+      final productName = (cols.isNotEmpty ? cols[0] : '').trim();
+      if (productName.isEmpty) continue;
+
+      final productId = _matchProduct(productName, productsByName);
+      if (productId == null) {
+        skipped++;
+        continue;
+      }
+      matched++;
+
+      final eigenPrijs = cols.length > 2 ? _parsePrice(cols[2]) : null;
+
+      for (final entry in _csvColumnMap.entries) {
+        final colIdx = entry.key;
+        final channel = entry.value;
+        if (colIdx >= cols.length) continue;
+
+        final raw = cols[colIdx].trim().toLowerCase();
+        double? prijs;
+
+        if (raw.isEmpty || raw == 'nvt' || raw == '-') continue;
+
+        if (raw == 'x' || raw == 'q') {
+          prijs = eigenPrijs;
+        } else if (raw == 'error') {
+          continue;
+        } else {
+          prijs = _parsePrice(cols[colIdx]);
+        }
+
+        if (prijs == null) continue;
+
+        try {
+          await _client.from(_listingsTable).upsert({
+            'product_id': productId,
+            'platform': channel.platformCode,
+            'taal': channel.country,
+            'prijs': prijs,
+            'status': 'actief',
+            'voorraad_sync': true,
+            'platform_data': <String, dynamic>{},
+          }, onConflict: 'product_id,platform,taal');
+          created++;
+        } catch (e) {
+          if (kDebugMode) debugPrint('CSV import upsert error for $productName on ${channel.code}: $e');
+        }
+      }
+
+      // Handle eBay UK GBP price separately (col 12)
+      if (cols.length > 12) {
+        final gbpRaw = cols[12].trim().toLowerCase();
+        if (gbpRaw.isNotEmpty && gbpRaw != 'nvt' && gbpRaw != '-' && gbpRaw != 'x') {
+          final gbpPrijs = _parsePrice(cols[12]);
+          if (gbpPrijs != null) {
+            try {
+              await _client.from(_listingsTable).upsert({
+                'product_id': productId,
+                'platform': 'ebay',
+                'taal': 'en',
+                'prijs': gbpPrijs,
+                'status': 'actief',
+                'voorraad_sync': true,
+                'platform_data': {'currency': 'GBP'},
+              }, onConflict: 'product_id,platform,taal');
+            } catch (_) {}
+          }
+        }
+      }
+    }
+
+    return {'matched': matched, 'created': created, 'skipped': skipped};
+  }
+
+  int? _matchProduct(String csvName, Map<String, int> productsByName) {
+    final normalized = csvName.toLowerCase().trim();
+    if (productsByName.containsKey(normalized)) return productsByName[normalized];
+
+    // Fuzzy: try to find the best substring match
+    int bestScore = 0;
+    int? bestId;
+    for (final entry in productsByName.entries) {
+      final dbName = entry.key;
+      int score = 0;
+      final csvWords = normalized.split(RegExp(r'\s+'));
+      for (final w in csvWords) {
+        if (w.length >= 2 && dbName.contains(w)) score += w.length;
+      }
+      if (score > bestScore && score >= (normalized.length * 0.5).floor()) {
+        bestScore = score;
+        bestId = entry.value;
+      }
+    }
+    return bestId;
+  }
+
+  static double? _parsePrice(String raw) {
+    final cleaned = raw.trim().replaceAll(',', '.').replaceAll(RegExp(r'[^\d.]'), '');
+    if (cleaned.isEmpty) return null;
+    return double.tryParse(cleaned);
   }
 
   // ── Private helpers ──

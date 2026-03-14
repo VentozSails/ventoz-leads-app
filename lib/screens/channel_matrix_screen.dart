@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/marketplace_listing.dart';
 import '../services/marketplace_service.dart';
 
@@ -18,9 +19,10 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   List<ChannelMatrixRow> _allRows = [];
   List<ChannelMatrixRow> _filteredRows = [];
   bool _loading = true;
+  String? _loadError;
 
   final _searchCtrl = TextEditingController();
-  String _stockFilter = 'all'; // all, in_stock, out_of_stock, low
+  String _stockFilter = 'all';
   String? _categoryFilter;
   String _sortField = 'naam';
   bool _sortAsc = true;
@@ -39,65 +41,59 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final rows = await _service.getChannelMatrix();
-    if (!mounted) return;
-    setState(() {
-      _allRows = rows;
-      _loading = false;
-      _applyFilters();
-    });
+    setState(() { _loading = true; _loadError = null; });
+    try {
+      final rows = await _service.getChannelMatrix();
+      if (!mounted) return;
+      setState(() {
+        _allRows = rows;
+        _loading = false;
+        _applyFilters();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = 'Fout bij laden: $e';
+      });
+    }
   }
 
   void _applyFilters() {
     var rows = List<ChannelMatrixRow>.from(_allRows);
-
     final q = _searchCtrl.text.trim().toLowerCase();
     if (q.isNotEmpty) {
       rows = rows.where((r) =>
-          r.product.naam.toLowerCase().contains(q) ||
-          (r.product.artikelnummer?.toLowerCase().contains(q) ?? false) ||
-          (r.product.eanCode?.toLowerCase().contains(q) ?? false)
+        r.product.naam.toLowerCase().contains(q) ||
+        (r.product.artikelnummer?.toLowerCase().contains(q) ?? false) ||
+        (r.product.eanCode?.toLowerCase().contains(q) ?? false)
       ).toList();
     }
-
     if (_categoryFilter != null) {
       rows = rows.where((r) => r.product.categorie == _categoryFilter).toList();
     }
-
     switch (_stockFilter) {
       case 'in_stock':
         rows = rows.where((r) => r.voorraad > 0).toList();
-        break;
       case 'out_of_stock':
         rows = rows.where((r) => r.voorraad <= 0).toList();
-        break;
       case 'low':
         rows = rows.where((r) => r.voorraad > 0 && r.voorraad < 5).toList();
-        break;
-      case 'auto':
-        rows = rows.where((r) => MarketplacePlatform.values.any((p) => _isAutoAction(r, p))).toList();
-        break;
     }
-
     rows.sort((a, b) {
       int cmp;
       switch (_sortField) {
         case 'prijs':
           cmp = (a.product.displayPrijs ?? 0).compareTo(b.product.displayPrijs ?? 0);
-          break;
         case 'voorraad':
           cmp = a.voorraad.compareTo(b.voorraad);
-          break;
         case 'platforms':
-          cmp = a.activeCount.compareTo(b.activeCount);
-          break;
+          cmp = a.activeChannelCount.compareTo(b.activeChannelCount);
         default:
           cmp = a.product.naam.compareTo(b.product.naam);
       }
       return _sortAsc ? cmp : -cmp;
     });
-
     setState(() => _filteredRows = rows);
   }
 
@@ -116,75 +112,108 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
-
     return RefreshIndicator(
       onRefresh: _load,
       child: Column(children: [
-        _buildToolbar(context),
+        _buildToolbar(),
         if (_selected.isNotEmpty) _buildBulkBar(),
-        Expanded(child: _buildMatrix(context)),
+        Expanded(child: _buildMatrix()),
       ]),
     );
   }
 
   // ── Toolbar ──
 
-  Widget _buildToolbar(BuildContext context) {
-    final wide = MediaQuery.of(context).size.width >= 900;
+  Widget _buildToolbar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // Row 1: actions
         Row(children: [
           Text(
-            '${_filteredRows.length} van ${_allRows.length} producten',
-            style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF475569)),
+            '${_filteredRows.length} / ${_allRows.length} producten',
+            style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF475569)),
           ),
           const Spacer(),
-          _sortChip('Naam', 'naam'),
-          const SizedBox(width: 4),
-          _sortChip('Prijs', 'prijs'),
-          const SizedBox(width: 4),
-          _sortChip('Voorraad', 'voorraad'),
-          const SizedBox(width: 4),
-          _sortChip('Platforms', 'platforms'),
-          const SizedBox(width: 12),
-          IconButton(
-            icon: const Icon(Icons.file_download_outlined, size: 20),
-            tooltip: 'CSV exporteren',
+          OutlinedButton.icon(
+            onPressed: _importCsv,
+            icon: const Icon(Icons.upload_file_outlined, size: 16),
+            label: const Text('CSV importeren'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: const Color(0xFF3B82F6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              textStyle: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              side: BorderSide.none,
+            ),
+          ),
+          const SizedBox(width: 6),
+          OutlinedButton.icon(
             onPressed: _exportCsv,
+            icon: const Icon(Icons.file_download_outlined, size: 16),
+            label: const Text('Exporteren'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _navy,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
           ),
         ]),
         const SizedBox(height: 8),
+        // Row 2: search + filters + sort
         Row(children: [
           Expanded(
-            flex: wide ? 3 : 2,
+            flex: 4,
             child: TextField(
               controller: _searchCtrl,
               onChanged: (_) => _applyFilters(),
               decoration: InputDecoration(
                 hintText: 'Zoek op naam, artikelnr, EAN...',
-                hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF94A3B8)),
+                hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
                 suffixIcon: _searchCtrl.text.isNotEmpty
-                    ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () { _searchCtrl.clear(); _applyFilters(); })
+                    ? IconButton(icon: const Icon(Icons.clear, size: 16), onPressed: () { _searchCtrl.clear(); _applyFilters(); })
                     : null,
               ),
-              style: const TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: 12),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           _buildCategoryDropdown(),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           _buildStockDropdown(),
+          const SizedBox(width: 10),
+          _sortChip('Naam', 'naam'),
+          const SizedBox(width: 3),
+          _sortChip('Prijs', 'prijs'),
+          const SizedBox(width: 3),
+          _sortChip('Voorraad', 'voorraad'),
+          const SizedBox(width: 3),
+          _sortChip('Kanalen', 'platforms'),
         ]),
+        if (_loadError != null) ...[
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFEBEE),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(_loadError!, style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFFE53935))),
+          ),
+        ],
       ]),
     );
   }
@@ -194,28 +223,23 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
     return InkWell(
       onTap: () {
         setState(() {
-          if (_sortField == field) {
-            _sortAsc = !_sortAsc;
-          } else {
-            _sortField = field;
-            _sortAsc = true;
-          }
+          if (_sortField == field) { _sortAsc = !_sortAsc; } else { _sortField = field; _sortAsc = true; }
         });
         _applyFilters();
       },
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(5),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
           color: active ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(5),
           border: Border.all(color: active ? const Color(0xFF3B82F6) : const Color(0xFFE2E8F0)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? const Color(0xFF1D4ED8) : const Color(0xFF64748B))),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? const Color(0xFF1D4ED8) : const Color(0xFF64748B))),
           if (active) ...[
-            const SizedBox(width: 2),
-            Icon(_sortAsc ? Icons.arrow_upward : Icons.arrow_downward, size: 12, color: const Color(0xFF1D4ED8)),
+            const SizedBox(width: 1),
+            Icon(_sortAsc ? Icons.arrow_upward : Icons.arrow_downward, size: 10, color: const Color(0xFF1D4ED8)),
           ],
         ]),
       ),
@@ -224,23 +248,17 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   Widget _buildCategoryDropdown() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(border: Border.all(color: const Color(0xFFE2E8F0)), borderRadius: BorderRadius.circular(8)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
           value: _categoryFilter,
-          hint: const Text('Categorie', style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
+          hint: const Text('Categorie', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
           isDense: true,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+          style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
           items: [
-            const DropdownMenuItem(value: null, child: Text('Alle categorieën')),
-            ..._allCategories.map((c) => DropdownMenuItem(
-              value: c,
-              child: Text(_categoryLabel(c), overflow: TextOverflow.ellipsis),
-            )),
+            const DropdownMenuItem(value: null, child: Text('Alle')),
+            ..._allCategories.map((c) => DropdownMenuItem(value: c, child: Text(_categoryLabel(c), overflow: TextOverflow.ellipsis))),
           ],
           onChanged: (v) { setState(() => _categoryFilter = v); _applyFilters(); },
         ),
@@ -250,22 +268,18 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   Widget _buildStockDropdown() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(border: Border.all(color: const Color(0xFFE2E8F0)), borderRadius: BorderRadius.circular(8)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _stockFilter,
           isDense: true,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+          style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
           items: const [
-            DropdownMenuItem(value: 'all', child: Text('Alle voorraad')),
+            DropdownMenuItem(value: 'all', child: Text('Alle')),
             DropdownMenuItem(value: 'in_stock', child: Text('Op voorraad')),
             DropdownMenuItem(value: 'low', child: Text('Laag (< 5)')),
             DropdownMenuItem(value: 'out_of_stock', child: Text('Uitverkocht')),
-            DropdownMenuItem(value: 'auto', child: Text('Auto-acties')),
           ],
           onChanged: (v) { if (v != null) { setState(() => _stockFilter = v); _applyFilters(); } },
         ),
@@ -277,126 +291,41 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   Widget _buildBulkBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       color: const Color(0xFFEFF6FF),
       child: Row(children: [
-        Text(
-          '${_selected.length} geselecteerd',
-          style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF1D4ED8)),
-        ),
-        const SizedBox(width: 8),
+        Text('${_selected.length} geselecteerd', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1D4ED8))),
+        const SizedBox(width: 6),
         TextButton.icon(
           onPressed: () => setState(() => _selected.clear()),
-          icon: const Icon(Icons.clear, size: 16),
-          label: const Text('Wis selectie'),
-          style: TextButton.styleFrom(foregroundColor: const Color(0xFF64748B), textStyle: const TextStyle(fontSize: 12)),
+          icon: const Icon(Icons.clear, size: 14),
+          label: const Text('Wis'),
+          style: TextButton.styleFrom(foregroundColor: const Color(0xFF64748B), textStyle: const TextStyle(fontSize: 11)),
         ),
         const Spacer(),
-        ...MarketplacePlatform.values.map((p) => Padding(
-          padding: const EdgeInsets.only(left: 4),
-          child: _bulkAction(p),
-        )),
+        _bulkActionButton('Uitverkocht op alle kanalen', Icons.block_rounded, const Color(0xFFE53935), _bulkSetUitverkocht),
+        const SizedBox(width: 6),
+        _bulkActionButton('Activeer op alle kanalen', Icons.check_circle_outline, const Color(0xFF2E7D32), _bulkActivateAll),
       ]),
     );
   }
 
-  Widget _bulkAction(MarketplacePlatform platform) {
-    return PopupMenuButton<String>(
-      tooltip: platform.label,
-      itemBuilder: (_) => [
-        PopupMenuItem(value: 'add', child: Text('Toevoegen aan ${platform.label}')),
-        PopupMenuItem(value: 'pause', child: Text('Pauzeren op ${platform.label}')),
-        PopupMenuItem(value: 'activate', child: Text('Activeren op ${platform.label}')),
-        const PopupMenuDivider(),
-        PopupMenuItem(value: 'remove', child: Text('Verwijderen van ${platform.label}', style: const TextStyle(color: Color(0xFFE53935)))),
-      ],
-      onSelected: (action) => _executeBulkAction(platform, action),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(_platformIcon(platform), size: 14, color: _platformColor(platform)),
-          const SizedBox(width: 4),
-          Text(platform.label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-          const Icon(Icons.arrow_drop_down, size: 16),
-        ]),
+  Widget _bulkActionButton(String label, IconData icon, Color color, VoidCallback onPressed) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 14, color: color),
+      label: Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: color.withValues(alpha: 0.4)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
     );
   }
 
-  Future<void> _executeBulkAction(MarketplacePlatform platform, String action) async {
-    final ids = _selected.toList();
-    if (ids.isEmpty) return;
+  // ── Matrix Table ──
 
-    String message;
-    switch (action) {
-      case 'add':
-        if (platform == MarketplacePlatform.marktplaats) {
-          await _service.addProductsToMarktplaatsFeed(ids);
-        } else {
-          for (final pid in ids) {
-            final row = _allRows.where((r) => r.product.id == pid).firstOrNull;
-            if (row == null) continue;
-            if (row.listings[platform]?.isNotEmpty ?? false) continue;
-            await _service.createListing(MarketplaceListing(
-              productId: pid,
-              platform: platform,
-              status: ListingStatus.concept,
-              prijs: row.product.displayPrijs,
-              taal: 'nl',
-            ));
-          }
-        }
-        message = '${ids.length} product(en) toegevoegd aan ${platform.label}';
-        break;
-      case 'pause':
-        for (final pid in ids) {
-          final row = _allRows.where((r) => r.product.id == pid).firstOrNull;
-          final listing = row?.primaryListing(platform);
-          if (listing?.id != null && listing!.status == ListingStatus.actief) {
-            await _service.updateListing(listing.id!, status: ListingStatus.gepauzeerd);
-          }
-        }
-        message = '${ids.length} product(en) gepauzeerd op ${platform.label}';
-        break;
-      case 'activate':
-        for (final pid in ids) {
-          final row = _allRows.where((r) => r.product.id == pid).firstOrNull;
-          final listing = row?.primaryListing(platform);
-          if (listing?.id != null && listing!.status == ListingStatus.gepauzeerd) {
-            await _service.updateListing(listing.id!, status: ListingStatus.actief);
-          }
-        }
-        message = '${ids.length} product(en) geactiveerd op ${platform.label}';
-        break;
-      case 'remove':
-        for (final pid in ids) {
-          final row = _allRows.where((r) => r.product.id == pid).firstOrNull;
-          final listing = row?.primaryListing(platform);
-          if (listing != null && listing.id != null) {
-            await _service.updateListing(listing.id!, status: ListingStatus.verwijderd);
-          }
-        }
-        message = '${ids.length} product(en) verwijderd van ${platform.label}';
-        break;
-      default:
-        return;
-    }
-
-    setState(() => _selected.clear());
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: const Color(0xFF2E7D32)));
-    }
-    _load();
-  }
-
-  // ── Matrix / Table ──
-
-  Widget _buildMatrix(BuildContext context) {
+  Widget _buildMatrix() {
     if (_filteredRows.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -407,302 +336,212 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
       );
     }
 
-    final wide = MediaQuery.of(context).size.width >= 900;
-    if (wide) return _buildWideTable();
-    return _buildNarrowList();
-  }
-
-  // ── Wide: DataTable ──
-
-  Widget _buildWideTable() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-          dataRowMinHeight: 48,
-          dataRowMaxHeight: 56,
-          columnSpacing: 16,
-          horizontalMargin: 12,
-          showCheckboxColumn: true,
-          columns: [
-            const DataColumn(label: Text('Product', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-            const DataColumn(label: Text('Prijs', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)), numeric: true),
-            const DataColumn(label: Text('Voorraad', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)), numeric: true),
-            ...MarketplacePlatform.values.map((p) => DataColumn(
-              label: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(_platformIcon(p), size: 14, color: _platformColor(p)),
-                const SizedBox(width: 4),
-                Text(p.label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-              ]),
-            )),
-          ],
-          rows: _filteredRows.map((row) {
-            final pid = row.product.id!;
-            return DataRow(
-              selected: _selected.contains(pid),
-              onSelectChanged: (v) => setState(() {
-                if (v == true) { _selected.add(pid); } else { _selected.remove(pid); }
-              }),
-              cells: [
-                DataCell(
-                  SizedBox(
-                    width: 220,
-                    child: Row(children: [
-                      if (row.product.displayAfbeeldingUrl != null)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: Image.network(row.product.displayAfbeeldingUrl!, width: 32, height: 32, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const SizedBox(width: 32, height: 32)),
-                        )
-                      else
-                        Container(width: 32, height: 32, decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(4)),
-                          child: const Icon(Icons.sailing, size: 18, color: Color(0xFFCBD5E1))),
-                      const SizedBox(width: 8),
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(row.product.displayNaam, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          if (row.product.categorie != null)
-                            Text(_categoryLabel(row.product.categorie!), style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
-                        ],
-                      )),
-                    ]),
-                  ),
-                ),
-                DataCell(Text(
-                  row.product.displayPrijs != null ? '€${row.product.displayPrijs!.toStringAsFixed(0)}' : '-',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                )),
-                DataCell(_stockBadge(row.voorraad)),
-                ...MarketplacePlatform.values.map((p) => DataCell(
-                  _platformCell(row, p),
-                  onTap: () => _showQuickEdit(row, p),
-                )),
-              ],
-            );
-          }).toList(),
-        ),
+        child: _buildTable(),
       ),
     );
   }
 
-  // ── Narrow: Card list ──
+  Widget _buildTable() {
+    const headerBg = Color(0xFFF1F5F9);
+    const groupBg = Color(0xFFE8EDF2);
+    const borderColor = Color(0xFFE2E8F0);
+    const cellPad = EdgeInsets.symmetric(horizontal: 4, vertical: 6);
 
-  Widget _buildNarrowList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: _filteredRows.length,
-      itemBuilder: (context, i) {
-        final row = _filteredRows[i];
-        final pid = row.product.id!;
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: _selected.contains(pid)
-                ? const BorderSide(color: Color(0xFF3B82F6), width: 2)
-                : const BorderSide(color: Color(0xFFE2E8F0)),
-          ),
-          child: InkWell(
-            onLongPress: () => setState(() {
-              if (_selected.contains(pid)) { _selected.remove(pid); } else { _selected.add(pid); }
-            }),
-            borderRadius: BorderRadius.circular(10),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  if (_selected.isNotEmpty)
-                    Checkbox(
-                      value: _selected.contains(pid),
-                      onChanged: (v) => setState(() {
-                        if (v == true) { _selected.add(pid); } else { _selected.remove(pid); }
-                      }),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  Expanded(child: Text(row.product.displayNaam, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
-                  _stockBadge(row.voorraad),
-                ]),
-                Row(children: [
-                  if (row.product.categorie != null)
-                    Text(_categoryLabel(row.product.categorie!), style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-                  const Spacer(),
-                  Text(
-                    row.product.displayPrijs != null ? '€${row.product.displayPrijs!.toStringAsFixed(2)}' : '-',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
-                  ),
-                ]),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: MarketplacePlatform.values.map((p) => GestureDetector(
-                    onTap: () => _showQuickEdit(row, p),
-                    child: _platformChip(row, p),
-                  )).toList(),
-                ),
-              ]),
-            ),
-          ),
-        );
+    return Table(
+      border: TableBorder.all(color: borderColor, width: 0.5),
+      defaultColumnWidth: const FixedColumnWidth(62),
+      columnWidths: const {
+        0: FixedColumnWidth(28),   // checkbox
+        1: FixedColumnWidth(190),  // product
+        2: FixedColumnWidth(52),   // voorraad
+        3: FixedColumnWidth(62),   // eigen site
       },
+      children: [
+        // Group header row
+        TableRow(
+          decoration: const BoxDecoration(color: groupBg),
+          children: [
+            _groupHeader('', 1),
+            _groupHeader('', 1),
+            _groupHeader('', 1),
+            _groupHeader('Site', 1),
+            ...SalesChannel.ebayChannels.map((ch) => _groupHeader(ch == SalesChannel.ebayUk ? 'eBay' : '', 1)),
+            ...SalesChannel.bolChannels.map((ch) => _groupHeader(ch == SalesChannel.bolNl ? 'Bol' : '', 1)),
+            ...SalesChannel.amazonChannels.map((ch) => _groupHeader(ch == SalesChannel.amazonDe ? 'Amazon' : '', 1)),
+            _groupHeader('Adm', 1),
+          ],
+        ),
+        // Sub-header row (country codes)
+        TableRow(
+          decoration: const BoxDecoration(color: headerBg),
+          children: [
+            const SizedBox(height: 28), // checkbox placeholder
+            Padding(
+              padding: cellPad,
+              child: Text('Product', style: _headerStyle),
+            ),
+            Padding(padding: cellPad, child: Text('Vrrd', style: _headerStyle, textAlign: TextAlign.center)),
+            Padding(padding: cellPad, child: Text('Prijs', style: _headerStyle, textAlign: TextAlign.center)),
+            ...SalesChannel.ebayChannels.map((ch) => Padding(padding: cellPad, child: Text(ch.shortLabel, style: _headerStyle, textAlign: TextAlign.center))),
+            ...SalesChannel.bolChannels.map((ch) => Padding(padding: cellPad, child: Text(ch.shortLabel, style: _headerStyle, textAlign: TextAlign.center))),
+            ...SalesChannel.amazonChannels.map((ch) => Padding(padding: cellPad, child: Text(ch.shortLabel, style: _headerStyle, textAlign: TextAlign.center))),
+            Padding(padding: cellPad, child: Text('Adm', style: _headerStyle, textAlign: TextAlign.center)),
+          ],
+        ),
+        // Data rows
+        ..._filteredRows.map(_buildDataRow),
+      ],
     );
   }
 
-  // ── Platform cells / chips ──
+  TextStyle get _headerStyle => GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF475569));
 
-  bool _isAutoAction(ChannelMatrixRow row, MarketplacePlatform platform) {
-    final listing = row.primaryListing(platform);
-    if (listing == null) return false;
-    return listing.platformData.containsKey('auto_actie');
-  }
-
-  String? _autoActionLabel(MarketplaceListing listing) {
-    final actie = listing.platformData['auto_actie'] as String?;
-    if (actie == null) return null;
-    switch (actie) {
-      case 'auto_pause': return 'AUTO-PAUZE';
-      case 'auto_close': return 'AUTO-GESLOTEN';
-      default: return 'AUTO';
-    }
-  }
-
-  String? _autoRedenLabel(MarketplaceListing listing) {
-    final reden = listing.platformData['auto_reden'] as String?;
-    if (reden == null) return null;
-    switch (reden) {
-      case 'uitverkocht': return 'Uitverkocht';
-      case 'laatste_besteld': return 'Laatste besteld';
-      case 'voorraad_laag': return 'Voorraad < 2';
-      default: return reden;
-    }
-  }
-
-  Widget _platformCell(ChannelMatrixRow row, MarketplacePlatform platform) {
-    final status = row.statusOn(platform);
-    final prijs = row.prijsOp(platform);
-    final taal = row.taalOp(platform);
-    final isAuto = _isAutoAction(row, platform);
-
-    if (status == null) {
-      return Container(
-        width: 100,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: const Center(child: Text('—', style: TextStyle(fontSize: 12, color: Color(0xFFCBD5E1)))),
-      );
-    }
-
-    final color = _statusColor(status);
+  Widget _groupHeader(String text, int span) {
     return Container(
-      width: 100,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: isAuto ? const Color(0xFFE65100).withValues(alpha: 0.5) : color.withValues(alpha: 0.3),
-          width: isAuto ? 1.5 : 1,
-        ),
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(_statusIcon(status), size: 12, color: color),
-          const SizedBox(width: 3),
-          if (prijs != null)
-            Text('€${prijs.toStringAsFixed(0)}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
-        ]),
-        if (isAuto)
-          Container(
-            margin: const EdgeInsets.only(top: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE65100).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Text(
-              _autoActionLabel(row.primaryListing(platform)!) ?? 'AUTO',
-              style: const TextStyle(fontSize: 7, fontWeight: FontWeight.w800, color: Color(0xFFE65100), letterSpacing: 0.3),
-            ),
-          )
-        else if (taal != null)
-          Text(taal, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7), fontWeight: FontWeight.w600)),
-      ]),
+      height: 24,
+      alignment: Alignment.center,
+      child: text.isNotEmpty
+          ? Text(text, style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w800, color: _navy, letterSpacing: 0.5))
+          : null,
     );
   }
 
-  Widget _platformChip(ChannelMatrixRow row, MarketplacePlatform platform) {
-    final status = row.statusOn(platform);
-    final prijs = row.prijsOp(platform);
-    final isAuto = _isAutoAction(row, platform);
+  TableRow _buildDataRow(ChannelMatrixRow row) {
+    final pid = row.product.id!;
+    final isSelected = _selected.contains(pid);
+    final rowColor = isSelected
+        ? const Color(0xFFF0F5FF)
+        : row.isUitverkocht
+            ? const Color(0xFFFFF5F5)
+            : Colors.white;
 
-    if (status == null) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Text(platform.label, style: const TextStyle(fontSize: 10, color: Color(0xFFCBD5E1))),
-      );
-    }
-
-    final color = _statusColor(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: isAuto ? const Color(0xFFE65100).withValues(alpha: 0.5) : color.withValues(alpha: 0.3),
-          width: isAuto ? 1.5 : 1,
-        ),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(_statusIcon(status), size: 12, color: color),
-        const SizedBox(width: 3),
-        Text(platform.label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
-        if (isAuto) ...[
-          const SizedBox(width: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE65100).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(3),
+    return TableRow(
+      decoration: BoxDecoration(color: rowColor),
+      children: [
+        // Checkbox
+        SizedBox(
+          height: 40,
+          child: Center(child: SizedBox(
+            width: 20, height: 20,
+            child: Checkbox(
+              value: isSelected,
+              onChanged: (v) => setState(() { if (v == true) { _selected.add(pid); } else { _selected.remove(pid); } }),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text('AUTO', style: TextStyle(fontSize: 7, fontWeight: FontWeight.w800, color: Color(0xFFE65100))),
+          )),
+        ),
+        // Product name
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(row.product.displayNaam, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: _navy), maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (row.product.categorie != null)
+                Text(_categoryLabel(row.product.categorie!), style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8))),
+            ],
           ),
-        ] else if (prijs != null) ...[
-          const SizedBox(width: 4),
-          Text('€${prijs.toStringAsFixed(0)}', style: TextStyle(fontSize: 10, color: color)),
-        ],
-      ]),
+        ),
+        // Voorraad
+        Center(child: _stockBadge(row.voorraad)),
+        // Eigen site prijs
+        _priceCell(row.product.displayPrijs, null, null),
+        // eBay channels
+        ...SalesChannel.ebayChannels.map((ch) => _channelCell(row, ch)),
+        // Bol channels
+        ...SalesChannel.bolChannels.map((ch) => _channelCell(row, ch)),
+        // Amazon channels
+        ...SalesChannel.amazonChannels.map((ch) => _channelCell(row, ch)),
+        // Admark
+        _channelCell(row, SalesChannel.admarkNl),
+      ],
     );
+  }
+
+  Widget _priceCell(double? prijs, ListingStatus? status, VoidCallback? onTap) {
+    if (prijs == null) {
+      return Container(
+        height: 40,
+        alignment: Alignment.center,
+        child: Text('—', style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFFCBD5E1))),
+      );
+    }
+    final bg = _statusBg(status);
+    final fg = _statusFg(status);
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        height: 40,
+        alignment: Alignment.center,
+        color: bg,
+        child: Text(
+          prijs.toStringAsFixed(0),
+          style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
+        ),
+      ),
+    );
+  }
+
+  Widget _channelCell(ChannelMatrixRow row, SalesChannel channel) {
+    final listing = row.listingForChannel(channel.code);
+    if (listing == null) {
+      return InkWell(
+        onTap: () => _showAddChannelDialog(row, channel),
+        child: Container(
+          height: 40,
+          alignment: Alignment.center,
+          child: Text('—', style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFFCBD5E1))),
+        ),
+      );
+    }
+    return _priceCell(
+      listing.prijs,
+      listing.status,
+      () => _showQuickEdit(row, channel, listing),
+    );
+  }
+
+  Color _statusBg(ListingStatus? status) {
+    if (status == null) return Colors.transparent;
+    return switch (status) {
+      ListingStatus.actief     => const Color(0xFFE8F5E9),
+      ListingStatus.gepauzeerd => const Color(0xFFFFF3E0),
+      ListingStatus.fout       => const Color(0xFFFFEBEE),
+      ListingStatus.verwijderd => const Color(0xFFF1F5F9),
+      ListingStatus.concept    => const Color(0xFFE3F2FD),
+    };
+  }
+
+  Color _statusFg(ListingStatus? status) {
+    if (status == null) return _navy;
+    return switch (status) {
+      ListingStatus.actief     => const Color(0xFF2E7D32),
+      ListingStatus.gepauzeerd => const Color(0xFFE65100),
+      ListingStatus.fout       => const Color(0xFFE53935),
+      ListingStatus.verwijderd => const Color(0xFF94A3B8),
+      ListingStatus.concept    => const Color(0xFF1565C0),
+    };
   }
 
   Widget _stockBadge(int stock) {
     Color bg, fg;
     String label;
     if (stock <= 0) {
-      bg = const Color(0xFFFFEBEE); fg = const Color(0xFFE53935); label = 'Uitverkocht';
-    } else if (stock < 2) {
-      bg = const Color(0xFFFFEBEE); fg = const Color(0xFFE53935); label = '$stock — PAUZEREN';
+      bg = const Color(0xFFFFEBEE); fg = const Color(0xFFE53935); label = '0';
     } else if (stock < 5) {
-      bg = const Color(0xFFFFF3E0); fg = const Color(0xFFE65100); label = '$stock — LET OP';
+      bg = const Color(0xFFFFF3E0); fg = const Color(0xFFE65100); label = '$stock';
     } else {
       bg = const Color(0xFFE8F5E9); fg = const Color(0xFF2E7D32); label = '$stock';
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
+      child: Text(label, style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
     );
   }
 
@@ -710,24 +549,9 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   // Quick Edit Dialog
   // ═══════════════════════════════════════════
 
-  void _showQuickEdit(ChannelMatrixRow row, MarketplacePlatform platform) {
-    final listing = row.primaryListing(platform);
-    final hasListing = listing != null;
-
-    if (!hasListing) {
-      _showAddListingDialog(row, platform);
-      return;
-    }
-
-    final prijsCtrl = TextEditingController(text: listing.prijs?.toStringAsFixed(2) ?? row.product.displayPrijs?.toStringAsFixed(2) ?? '');
-    var selectedTaal = listing.taal;
+  void _showQuickEdit(ChannelMatrixRow row, SalesChannel channel, MarketplaceListing listing) {
+    final prijsCtrl = TextEditingController(text: listing.prijs?.toStringAsFixed(2) ?? '');
     var selectedStatus = listing.status;
-    var voorraadSync = listing.voorraadSync;
-
-    final isFeed = platform == MarketplacePlatform.marktplaats;
-    final cpcCtrl = TextEditingController(text: ((listing.platformData['cpc_eurocent'] ?? listing.platformData['cpc'] ?? 2) as num).toString());
-    final totalBudgetCtrl = TextEditingController(text: ((listing.platformData['total_budget_eurocent'] ?? listing.platformData['total_budget'] ?? 5000) as num).toString());
-    final dailyBudgetCtrl = TextEditingController(text: ((listing.platformData['daily_budget_eurocent'] ?? listing.platformData['daily_budget'] ?? 1000) as num).toString());
 
     showDialog(
       context: context,
@@ -735,76 +559,31 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
         builder: (ctx, setDlg) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: Row(children: [
-            Icon(_platformIcon(platform), size: 20, color: _platformColor(platform)),
-            const SizedBox(width: 8),
-            Expanded(child: Text('${platform.label} — ${row.product.displayNaam}', style: const TextStyle(fontSize: 15), overflow: TextOverflow.ellipsis)),
+            Icon(_platformIcon(channel.platform), size: 18, color: _platformColor(channel.platform)),
+            const SizedBox(width: 6),
+            Expanded(child: Text('${channel.label} — ${row.product.displayNaam}', style: const TextStyle(fontSize: 14), overflow: TextOverflow.ellipsis)),
           ]),
           content: SizedBox(
-            width: 360,
-            child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-              if (listing.platformData.containsKey('auto_actie')) ...[
+            width: 320,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (listing.platformData.containsKey('auto_actie'))
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(8),
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF3E0),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.3)),
                   ),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      const Icon(Icons.auto_mode_rounded, size: 16, color: Color(0xFFE65100)),
-                      const SizedBox(width: 6),
-                      Text(
-                        _autoActionLabel(listing) ?? 'AUTO',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFE65100)),
-                      ),
-                    ]),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Reden: ${_autoRedenLabel(listing) ?? "onbekend"} (voorraad: ${listing.platformData['auto_voorraad'] ?? "?"})',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF795548)),
-                    ),
-                    if (listing.platformData['auto_datum'] != null)
-                      Text(
-                        'Sinds: ${_formatAutoDate(listing.platformData['auto_datum'] as String)}',
-                        style: const TextStyle(fontSize: 10, color: Color(0xFF9E9E9E)),
-                      ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          Navigator.pop(ctx);
-                          final pd = Map<String, dynamic>.from(listing.platformData);
-                          pd.remove('auto_actie');
-                          pd.remove('auto_reden');
-                          pd.remove('auto_datum');
-                          pd.remove('auto_voorraad');
-                          await _service.updateListing(listing.id!, status: ListingStatus.actief, platformData: pd);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Listing handmatig geheractiveerd'), backgroundColor: Color(0xFF2E7D32)),
-                            );
-                          }
-                          _load();
-                        },
-                        icon: const Icon(Icons.play_circle_outline, size: 16),
-                        label: const Text('Handmatig heractiveren'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF2E7D32),
-                          side: const BorderSide(color: Color(0xFF2E7D32)),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
+                  child: Row(children: [
+                    const Icon(Icons.auto_mode_rounded, size: 14, color: Color(0xFFE65100)),
+                    const SizedBox(width: 6),
+                    Text('Automatisch gepauzeerd/gesloten', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFE65100))),
                   ]),
                 ),
-              ],
               DropdownButtonFormField<ListingStatus>(
-                value: selectedStatus,
+                initialValue: selectedStatus,
                 decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder(), isDense: true),
                 items: [ListingStatus.actief, ListingStatus.gepauzeerd, ListingStatus.concept].map((s) =>
                     DropdownMenuItem(value: s, child: Text(s.label))).toList(),
@@ -813,63 +592,22 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: prijsCtrl,
-                decoration: const InputDecoration(labelText: 'Prijs (€)', border: OutlineInputBorder(), isDense: true, prefixText: '€ '),
+                decoration: InputDecoration(
+                  labelText: 'Prijs (${channel.currency})',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  prefixText: channel.currency == 'GBP' ? '£ ' : '€ ',
+                ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: selectedTaal,
-                decoration: const InputDecoration(labelText: 'Taal', border: OutlineInputBorder(), isDense: true),
-                items: ['nl', 'en', 'de', 'fr'].map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase()))).toList(),
-                onChanged: (v) { if (v != null) setDlg(() => selectedTaal = v); },
-              ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                title: const Text('Voorraad sync', style: TextStyle(fontSize: 13)),
-                subtitle: const Text('Auto-pauzeer bij lage voorraad', style: TextStyle(fontSize: 11)),
-                value: voorraadSync,
-                dense: true,
-                onChanged: (v) => setDlg(() => voorraadSync = v),
-                activeColor: const Color(0xFF2E7D32),
-              ),
-              if (isFeed) ...[
-                const Divider(height: 24),
-                const Text('Marktplaats Budget', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: cpcCtrl,
-                  decoration: const InputDecoration(labelText: 'CPC (eurocent)', border: OutlineInputBorder(), isDense: true),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: totalBudgetCtrl,
-                  decoration: const InputDecoration(labelText: 'Totaalbudget (eurocent)', border: OutlineInputBorder(), isDense: true, helperText: '5000 = €50'),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: dailyBudgetCtrl,
-                  decoration: const InputDecoration(labelText: 'Dagbudget (eurocent)', border: OutlineInputBorder(), isDense: true, helperText: '1000 = €10'),
-                  keyboardType: TextInputType.number,
-                ),
-              ],
-            ])),
+            ]),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annuleren'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuleren')),
             TextButton(
               onPressed: () async {
                 Navigator.pop(ctx);
                 await _service.updateListing(listing.id!, status: ListingStatus.verwijderd);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${platform.label} listing verwijderd'), backgroundColor: const Color(0xFFE65100)),
-                  );
-                }
                 _load();
               },
               style: TextButton.styleFrom(foregroundColor: const Color(0xFFE53935)),
@@ -878,35 +616,20 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(ctx);
-                final newPrijs = double.tryParse(prijsCtrl.text.replaceAll(',', '.'));
                 final pd = Map<String, dynamic>.from(listing.platformData);
-                if (isFeed) {
-                  pd['cpc_eurocent'] = int.tryParse(cpcCtrl.text) ?? 2;
-                  pd['total_budget_eurocent'] = int.tryParse(totalBudgetCtrl.text) ?? 5000;
-                  pd['daily_budget_eurocent'] = int.tryParse(dailyBudgetCtrl.text) ?? 1000;
-                }
-                if (pd.containsKey('auto_actie')) {
-                  pd.remove('auto_actie');
-                  pd.remove('auto_reden');
-                  pd.remove('auto_datum');
-                  pd.remove('auto_voorraad');
-                }
+                pd.remove('auto_actie');
+                pd.remove('auto_reden');
+                pd.remove('auto_datum');
+                pd.remove('auto_voorraad');
                 await _service.updateListing(
                   listing.id!,
-                  prijs: newPrijs,
-                  taal: selectedTaal,
+                  prijs: double.tryParse(prijsCtrl.text.replaceAll(',', '.')),
                   status: selectedStatus,
-                  voorraadSync: voorraadSync,
                   platformData: pd,
                 );
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Listing bijgewerkt'), backgroundColor: Color(0xFF2E7D32)),
-                  );
-                }
                 _load();
               },
-              style: ElevatedButton.styleFrom(backgroundColor: _navy),
+              style: ElevatedButton.styleFrom(backgroundColor: _navy, foregroundColor: Colors.white),
               child: const Text('Opslaan'),
             ),
           ],
@@ -915,26 +638,30 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
     );
   }
 
-  void _showAddListingDialog(ChannelMatrixRow row, MarketplacePlatform platform) {
+  void _showAddChannelDialog(ChannelMatrixRow row, SalesChannel channel) {
     final prijsCtrl = TextEditingController(text: row.product.displayPrijs?.toStringAsFixed(2) ?? '');
-
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Row(children: [
-          Icon(_platformIcon(platform), size: 20, color: _platformColor(platform)),
-          const SizedBox(width: 8),
-          Text('Toevoegen aan ${platform.label}', style: const TextStyle(fontSize: 15)),
+          Icon(_platformIcon(channel.platform), size: 18, color: _platformColor(channel.platform)),
+          const SizedBox(width: 6),
+          Text('Toevoegen: ${channel.label}', style: const TextStyle(fontSize: 14)),
         ]),
         content: SizedBox(
-          width: 320,
+          width: 300,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(row.product.displayNaam, style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 16),
+            Text(row.product.displayNaam, style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 14),
             TextField(
               controller: prijsCtrl,
-              decoration: const InputDecoration(labelText: 'Prijs (€)', border: OutlineInputBorder(), isDense: true, prefixText: '€ '),
+              decoration: InputDecoration(
+                labelText: 'Prijs (${channel.currency})',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                prefixText: channel.currency == 'GBP' ? '£ ' : '€ ',
+              ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
           ]),
@@ -945,25 +672,16 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               final prijs = double.tryParse(prijsCtrl.text.replaceAll(',', '.'));
-              if (platform == MarketplacePlatform.marktplaats) {
-                await _service.addProductsToMarktplaatsFeed([row.product.id!]);
-              } else {
-                await _service.createListing(MarketplaceListing(
-                  productId: row.product.id!,
-                  platform: platform,
-                  status: ListingStatus.actief,
-                  prijs: prijs ?? row.product.displayPrijs,
-                  taal: 'nl',
-                ));
-              }
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Toegevoegd aan ${platform.label}'), backgroundColor: const Color(0xFF2E7D32)),
-                );
-              }
+              await _service.createListing(MarketplaceListing(
+                productId: row.product.id!,
+                platform: channel.platform,
+                status: ListingStatus.actief,
+                prijs: prijs ?? row.product.displayPrijs,
+                taal: channel.country,
+              ));
               _load();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: _navy),
+            style: ElevatedButton.styleFrom(backgroundColor: _navy, foregroundColor: Colors.white),
             child: const Text('Toevoegen'),
           ),
         ],
@@ -972,114 +690,217 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   }
 
   // ═══════════════════════════════════════════
+  // Bulk Actions
+  // ═══════════════════════════════════════════
+
+  Future<void> _bulkSetUitverkocht() async {
+    final ids = _selected.toList();
+    if (ids.isEmpty) return;
+    int count = 0;
+    for (final pid in ids) {
+      final row = _allRows.where((r) => r.product.id == pid).firstOrNull;
+      if (row == null) continue;
+      for (final entry in row.listings.entries) {
+        for (final listing in entry.value) {
+          if (listing.id != null && listing.status != ListingStatus.verwijderd) {
+            await _service.updateListing(listing.id!, status: ListingStatus.gepauzeerd);
+            count++;
+          }
+        }
+      }
+    }
+    setState(() => _selected.clear());
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('$count listing(s) gepauzeerd'),
+        backgroundColor: const Color(0xFFE65100),
+      ));
+    }
+    _load();
+  }
+
+  Future<void> _bulkActivateAll() async {
+    final ids = _selected.toList();
+    if (ids.isEmpty) return;
+    int count = 0;
+    for (final pid in ids) {
+      final row = _allRows.where((r) => r.product.id == pid).firstOrNull;
+      if (row == null) continue;
+      for (final entry in row.listings.entries) {
+        for (final listing in entry.value) {
+          if (listing.id != null && listing.status == ListingStatus.gepauzeerd) {
+            final pd = Map<String, dynamic>.from(listing.platformData);
+            pd.remove('auto_actie');
+            pd.remove('auto_reden');
+            pd.remove('auto_datum');
+            pd.remove('auto_voorraad');
+            await _service.updateListing(listing.id!, status: ListingStatus.actief, platformData: pd);
+            count++;
+          }
+        }
+      }
+    }
+    setState(() => _selected.clear());
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('$count listing(s) geactiveerd'),
+        backgroundColor: const Color(0xFF2E7D32),
+      ));
+    }
+    _load();
+  }
+
+  // ═══════════════════════════════════════════
+  // CSV Import
+  // ═══════════════════════════════════════════
+
+  Future<void> _importCsv() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv', 'txt'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final bytes = result.files.first.bytes;
+    if (bytes == null) return;
+    final content = String.fromCharCodes(bytes);
+
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text('CSV Importeren'),
+        content: SizedBox(
+          width: 400,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(
+              'Bestand: ${result.files.first.name}\n'
+              'Regels: ${content.split('\n').where((l) => l.trim().isNotEmpty).length}',
+              style: GoogleFonts.dmSans(fontSize: 13, color: const Color(0xFF475569)),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8E1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFF59E0B)),
+              ),
+              child: Text(
+                'Producten worden gematcht op naam. Bestaande listings worden bijgewerkt met nieuwe prijzen.',
+                style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF92400E)),
+              ),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuleren')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: _navy, foregroundColor: Colors.white),
+            child: const Text('Importeren'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('CSV wordt geïmporteerd...'), duration: Duration(seconds: 2)),
+    );
+
+    try {
+      final summary = await _service.importAdvertentiesCsv(content);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Import klaar: ${summary['matched'] ?? 0} producten gematcht, ${summary['created'] ?? 0} listings aangemaakt/bijgewerkt, ${summary['skipped'] ?? 0} overgeslagen'),
+        backgroundColor: const Color(0xFF2E7D32),
+        duration: const Duration(seconds: 5),
+      ));
+      _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Import mislukt: $e'),
+        backgroundColor: const Color(0xFFE53935),
+      ));
+    }
+  }
+
+  // ═══════════════════════════════════════════
   // CSV Export
   // ═══════════════════════════════════════════
 
   void _exportCsv() {
     final buf = StringBuffer();
-    buf.writeln('Product;Artikelnr;Categorie;Prijs;Voorraad;${MarketplacePlatform.values.map((p) => '${p.label} Status;${p.label} Prijs;${p.label} Taal').join(';')}');
+    final allChannels = SalesChannel.allChannels;
+    buf.write('Product;Artikelnr;Categorie;Voorraad;Eigen site');
+    for (final ch in allChannels) {
+      buf.write(';${ch.label}');
+    }
+    buf.writeln();
 
     for (final row in _filteredRows) {
       final fields = <String>[
         row.product.displayNaam,
         row.product.artikelnummer ?? '',
         row.product.categorie != null ? _categoryLabel(row.product.categorie!) : '',
-        row.product.displayPrijs?.toStringAsFixed(2) ?? '',
         row.voorraad.toString(),
+        row.product.displayPrijs?.toStringAsFixed(2) ?? '',
       ];
-      for (final p in MarketplacePlatform.values) {
-        final status = row.statusOn(p);
-        fields.add(status?.label ?? '-');
-        fields.add(row.prijsOp(p)?.toStringAsFixed(2) ?? '-');
-        fields.add(row.taalOp(p) ?? '-');
+      for (final ch in allChannels) {
+        final listing = row.listingForChannel(ch.code);
+        if (listing == null) {
+          fields.add('-');
+        } else {
+          final statusPrefix = listing.status == ListingStatus.actief ? '' : '(${listing.status.label}) ';
+          fields.add('$statusPrefix${listing.prijs?.toStringAsFixed(2) ?? "x"}');
+        }
       }
       buf.writeln(fields.join(';'));
     }
 
-    final csv = buf.toString();
-    Clipboard.setData(ClipboardData(text: csv));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('CSV (${_filteredRows.length} rijen) gekopieerd naar klembord'),
+    Clipboard.setData(ClipboardData(text: buf.toString()));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('CSV (${_filteredRows.length} rijen, ${allChannels.length + 5} kolommen) gekopieerd naar klembord'),
         backgroundColor: const Color(0xFF2E7D32),
-        action: SnackBarAction(label: 'OK', textColor: Colors.white, onPressed: () {}),
-      ),
-    );
+      ));
+    }
   }
 
   // ═══════════════════════════════════════════
   // Helpers
   // ═══════════════════════════════════════════
 
-  Color _statusColor(ListingStatus status) {
-    switch (status) {
-      case ListingStatus.actief: return const Color(0xFF2E7D32);
-      case ListingStatus.gepauzeerd: return const Color(0xFFE65100);
-      case ListingStatus.fout: return const Color(0xFFE53935);
-      case ListingStatus.concept: return const Color(0xFF1565C0);
-      case ListingStatus.verwijderd: return const Color(0xFF94A3B8);
-    }
-  }
+  IconData _platformIcon(MarketplacePlatform p) => switch (p) {
+    MarketplacePlatform.bolCom => Icons.shopping_bag_rounded,
+    MarketplacePlatform.ebay => Icons.gavel_rounded,
+    MarketplacePlatform.amazon => Icons.local_shipping_rounded,
+    MarketplacePlatform.marktplaats => Icons.storefront_rounded,
+    MarketplacePlatform.admark => Icons.campaign_rounded,
+  };
 
-  IconData _statusIcon(ListingStatus status) {
-    switch (status) {
-      case ListingStatus.actief: return Icons.check_circle;
-      case ListingStatus.gepauzeerd: return Icons.pause_circle;
-      case ListingStatus.fout: return Icons.error;
-      case ListingStatus.concept: return Icons.edit_note;
-      case ListingStatus.verwijderd: return Icons.remove_circle;
-    }
-  }
-
-  IconData _platformIcon(MarketplacePlatform p) {
-    switch (p) {
-      case MarketplacePlatform.bolCom: return Icons.shopping_bag_rounded;
-      case MarketplacePlatform.ebay: return Icons.gavel_rounded;
-      case MarketplacePlatform.amazon: return Icons.local_shipping_rounded;
-      case MarketplacePlatform.marktplaats: return Icons.storefront_rounded;
-    }
-  }
-
-  Color _platformColor(MarketplacePlatform p) {
-    switch (p) {
-      case MarketplacePlatform.bolCom: return const Color(0xFF0000CC);
-      case MarketplacePlatform.ebay: return const Color(0xFFE53238);
-      case MarketplacePlatform.amazon: return const Color(0xFFFF9900);
-      case MarketplacePlatform.marktplaats: return const Color(0xFF2D8CFF);
-    }
-  }
+  Color _platformColor(MarketplacePlatform p) => switch (p) {
+    MarketplacePlatform.bolCom => const Color(0xFF0000CC),
+    MarketplacePlatform.ebay => const Color(0xFFE53238),
+    MarketplacePlatform.amazon => const Color(0xFFFF9900),
+    MarketplacePlatform.marktplaats => const Color(0xFF2D8CFF),
+    MarketplacePlatform.admark => const Color(0xFF00897B),
+  };
 
   static const _catLabels = {
-    'optimist': 'Optimist',
-    'ventoz-laserzeil': 'Laser / ILCA',
-    'ventoz-topaz': 'Topaz',
-    'ventoz-splash': 'Splash',
-    'beachsailing': 'Strandzeil',
-    'ventoz-centaur': 'Centaur',
-    'rs-feva': 'RS Feva',
-    'valk': 'Polyvalk',
-    'randmeer': 'Randmeer',
-    'hobie-cat': 'Hobie Cat',
-    'ventoz-420-470-sails': '420 / 470',
-    'efsix': 'EFSix',
-    'sunfish': 'Sunfish',
-    'stormfok': 'Stormfok',
-    'open-bic': 'Open Bic',
-    'nacra-17': 'Nacra 17',
-    'yamaha-seahopper': 'Yamaha Seahopper',
-    'mirror': 'Mirror',
-    'fox-22': 'Fox 22',
-    'diversen': 'Diversen',
+    'optimist': 'Optimist', 'ventoz-laserzeil': 'Laser / ILCA', 'ventoz-topaz': 'Topaz',
+    'ventoz-splash': 'Splash', 'beachsailing': 'Strandzeil', 'ventoz-centaur': 'Centaur',
+    'rs-feva': 'RS Feva', 'valk': 'Polyvalk', 'randmeer': 'Randmeer', 'hobie-cat': 'Hobie Cat',
+    'ventoz-420-470-sails': '420 / 470', 'efsix': 'EFSix', 'sunfish': 'Sunfish',
+    'stormfok': 'Stormfok', 'open-bic': 'Open Bic', 'nacra-17': 'Nacra 17',
+    'yamaha-seahopper': 'Yamaha Seahopper', 'mirror': 'Mirror', 'fox-22': 'Fox 22', 'diversen': 'Diversen',
   };
 
   String _categoryLabel(String cat) => _catLabels[cat] ?? cat;
-
-  String _formatAutoDate(String isoDate) {
-    try {
-      final dt = DateTime.parse(isoDate).toLocal();
-      return '${dt.day}-${dt.month}-${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return isoDate;
-    }
-  }
 }

@@ -66,7 +66,7 @@ class _AdminSalesChannelsScreenState extends State<AdminSalesChannelsScreen> {
                   value: actief,
                   onChanged: (v) => setDialogState(() => actief = v),
                   activeTrackColor: Colors.green.withValues(alpha: 0.4),
-                  activeColor: Colors.green,
+                  activeThumbColor: Colors.green,
                 ),
               ],
             ),
@@ -84,9 +84,11 @@ class _AdminSalesChannelsScreenState extends State<AdminSalesChannelsScreen> {
                     actief: actief,
                     sortOrder: channel?.sortOrder ?? _channels.length,
                   ));
+                  if (!ctx.mounted) return;
                   Navigator.pop(ctx);
                   _load();
                 } catch (e) {
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Fout: $e'), backgroundColor: const Color(0xFFE53935)),
                   );
@@ -218,7 +220,7 @@ class _AdminSalesChannelsScreenState extends State<AdminSalesChannelsScreen> {
                                 _load();
                               },
                               activeTrackColor: Colors.green.withValues(alpha: 0.4),
-                              activeColor: Colors.green,
+                              activeThumbColor: Colors.green,
                             ),
                             IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 18),

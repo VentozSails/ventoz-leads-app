@@ -62,9 +62,9 @@ class _WebshopContentScreenState extends State<WebshopContentScreen> {
   }
 
   Future<void> _load() async {
-    final perms = await _userService.getCurrentUserPermissions();
+    final isAdmin = await _userService.isCurrentUserAdmin();
     if (!mounted) return;
-    if (!perms.isAdmin) {
+    if (!isAdmin) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Geen toegang'), backgroundColor: Color(0xFFE53935)),

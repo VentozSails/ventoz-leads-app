@@ -308,7 +308,8 @@ class BuckarooService {
     }
 
     final rawSignature = '${config.websiteKey}$httpMethod$encodedUri$timeStamp$nonce$contentHash';
-    final hmacBytes = Hmac(sha256, utf8.encode(config.secretKey)).convert(utf8.encode(rawSignature)).bytes;
+    final keyBytes = base64Decode(config.secretKey);
+    final hmacBytes = Hmac(sha256, keyBytes).convert(utf8.encode(rawSignature)).bytes;
     final hmacHash = base64Encode(hmacBytes);
 
     return {

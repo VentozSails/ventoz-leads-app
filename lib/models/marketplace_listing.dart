@@ -5,7 +5,8 @@ enum MarketplacePlatform {
   bolCom('bol_com', 'Bol.com'),
   ebay('ebay', 'eBay'),
   amazon('amazon', 'Amazon'),
-  marktplaats('marktplaats', 'Marktplaats');
+  marktplaats('marktplaats', 'Marktplaats'),
+  admark('admark', 'Admark');
 
   final String code;
   final String label;
@@ -16,6 +17,81 @@ enum MarketplacePlatform {
         (p) => p.code == code,
         orElse: () => MarketplacePlatform.bolCom,
       );
+}
+
+/// A sales channel is a platform + country combination (e.g. ebay_de, bol_nl).
+class SalesChannel {
+  final String code;
+  final String label;
+  final String shortLabel;
+  final MarketplacePlatform platform;
+  final String country;
+  final String currency;
+
+  const SalesChannel({
+    required this.code,
+    required this.label,
+    required this.shortLabel,
+    required this.platform,
+    required this.country,
+    this.currency = 'EUR',
+  });
+
+  String get platformCode => platform.code;
+  String get taal => country;
+
+  static const eigenSite = SalesChannel(code: 'eigen_site', label: 'Eigen site', shortLabel: 'Site', platform: MarketplacePlatform.marktplaats, country: 'nl');
+
+  static const ebayUk  = SalesChannel(code: 'ebay_uk',  label: 'eBay UK',  shortLabel: 'UK',  platform: MarketplacePlatform.ebay, country: 'en', currency: 'GBP');
+  static const ebayDe  = SalesChannel(code: 'ebay_de',  label: 'eBay DE',  shortLabel: 'DE',  platform: MarketplacePlatform.ebay, country: 'de');
+  static const ebayIt  = SalesChannel(code: 'ebay_it',  label: 'eBay IT',  shortLabel: 'IT',  platform: MarketplacePlatform.ebay, country: 'it');
+  static const ebayFr  = SalesChannel(code: 'ebay_fr',  label: 'eBay FR',  shortLabel: 'FR',  platform: MarketplacePlatform.ebay, country: 'fr');
+  static const ebayNl  = SalesChannel(code: 'ebay_nl',  label: 'eBay NL',  shortLabel: 'NL',  platform: MarketplacePlatform.ebay, country: 'nl');
+  static const ebayEs  = SalesChannel(code: 'ebay_es',  label: 'eBay ES',  shortLabel: 'ES',  platform: MarketplacePlatform.ebay, country: 'es');
+  static const ebayBe  = SalesChannel(code: 'ebay_be',  label: 'eBay BE',  shortLabel: 'BE',  platform: MarketplacePlatform.ebay, country: 'be');
+  static const ebayIe  = SalesChannel(code: 'ebay_ie',  label: 'eBay IE',  shortLabel: 'IE',  platform: MarketplacePlatform.ebay, country: 'ie');
+  static const ebayPl  = SalesChannel(code: 'ebay_pl',  label: 'eBay PL',  shortLabel: 'PL',  platform: MarketplacePlatform.ebay, country: 'pl', currency: 'PLN');
+
+  static const bolNl  = SalesChannel(code: 'bol_nl',  label: 'Bol NL',  shortLabel: 'NL',  platform: MarketplacePlatform.bolCom, country: 'nl');
+  static const bolBe  = SalesChannel(code: 'bol_be',  label: 'Bol BE',  shortLabel: 'BE',  platform: MarketplacePlatform.bolCom, country: 'be');
+
+  static const amazonDe = SalesChannel(code: 'amazon_de', label: 'Amazon DE', shortLabel: 'DE', platform: MarketplacePlatform.amazon, country: 'de');
+  static const amazonFr = SalesChannel(code: 'amazon_fr', label: 'Amazon FR', shortLabel: 'FR', platform: MarketplacePlatform.amazon, country: 'fr');
+  static const amazonIt = SalesChannel(code: 'amazon_it', label: 'Amazon IT', shortLabel: 'IT', platform: MarketplacePlatform.amazon, country: 'it');
+  static const amazonNl = SalesChannel(code: 'amazon_nl', label: 'Amazon NL', shortLabel: 'NL', platform: MarketplacePlatform.amazon, country: 'nl');
+  static const amazonSe = SalesChannel(code: 'amazon_se', label: 'Amazon SE', shortLabel: 'SE', platform: MarketplacePlatform.amazon, country: 'se');
+  static const amazonUk = SalesChannel(code: 'amazon_uk', label: 'Amazon UK', shortLabel: 'UK', platform: MarketplacePlatform.amazon, country: 'en', currency: 'GBP');
+
+  static const admarkNl = SalesChannel(code: 'admark_nl', label: 'Admark', shortLabel: 'Admark', platform: MarketplacePlatform.admark, country: 'nl');
+
+  static const allChannels = <SalesChannel>[
+    ebayUk, ebayDe, ebayIt, ebayFr, ebayNl, ebayEs, ebayBe, ebayIe, ebayPl,
+    bolNl, bolBe,
+    amazonDe, amazonFr, amazonIt, amazonNl, amazonSe, amazonUk,
+    admarkNl,
+  ];
+
+  static const ebayChannels = [ebayUk, ebayDe, ebayIt, ebayFr, ebayNl, ebayEs, ebayBe, ebayIe, ebayPl];
+  static const bolChannels = [bolNl, bolBe];
+  static const amazonChannels = [amazonDe, amazonFr, amazonIt, amazonNl, amazonSe, amazonUk];
+
+  /// Maps a listing (platform + taal) to a channel code.
+  static String channelCode(MarketplacePlatform platform, String taal) {
+    final t = taal.toLowerCase();
+    return '${platform.code}_$t';
+  }
+
+  static SalesChannel? fromCode(String code) {
+    for (final ch in allChannels) {
+      if (ch.code == code) return ch;
+    }
+    return null;
+  }
+
+  static SalesChannel? fromListing(MarketplaceListing listing) {
+    final code = channelCode(listing.platform, listing.taal);
+    return fromCode(code);
+  }
 }
 
 enum ListingStatus {
@@ -448,11 +524,34 @@ class ChannelMatrixRow {
   final int voorraad;
   final Map<MarketplacePlatform, List<MarketplaceListing>> listings;
 
-  const ChannelMatrixRow({
+  /// Channel-based lookup: key is channel code (e.g. 'ebay_de', 'bol_nl').
+  late final Map<String, MarketplaceListing> _channelMap;
+
+  ChannelMatrixRow({
     required this.product,
     this.voorraad = 0,
     this.listings = const {},
-  });
+  }) {
+    final map = <String, MarketplaceListing>{};
+    for (final entry in listings.entries) {
+      for (final listing in entry.value) {
+        final code = SalesChannel.channelCode(entry.key, listing.taal);
+        final existing = map[code];
+        if (existing == null ||
+            listing.status == ListingStatus.actief ||
+            (existing.status != ListingStatus.actief && listing.updatedAt != null && existing.updatedAt != null && listing.updatedAt!.isAfter(existing.updatedAt!))) {
+          map[code] = listing;
+        }
+      }
+    }
+    _channelMap = map;
+  }
+
+  MarketplaceListing? listingForChannel(String channelCode) => _channelMap[channelCode];
+
+  ListingStatus? channelStatus(String channelCode) => _channelMap[channelCode]?.status;
+
+  double? channelPrijs(String channelCode) => _channelMap[channelCode]?.prijs;
 
   bool isActiveOn(MarketplacePlatform platform) {
     final list = listings[platform];
@@ -493,6 +592,13 @@ class ChannelMatrixRow {
   }
 
   int get activeCount => MarketplacePlatform.values.where(isActiveOn).length;
+
+  int get activeChannelCount => SalesChannel.allChannels.where((ch) => channelStatus(ch.code) == ListingStatus.actief).length;
+
+  List<String> get allActiveChannelCodes => _channelMap.entries
+      .where((e) => e.value.status == ListingStatus.actief)
+      .map((e) => e.key)
+      .toList();
 
   bool get isUitverkocht => voorraad <= 0;
   bool get isLaagOpVoorraad => voorraad > 0 && voorraad < 5;

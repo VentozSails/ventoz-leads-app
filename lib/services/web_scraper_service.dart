@@ -5,6 +5,7 @@ import 'package:html/dom.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/catalog_product.dart';
 import 'translate_service.dart';
+import 'product_image_service.dart';
 
 class SitemapEntry {
   final String url;
@@ -625,26 +626,85 @@ class WebScraperService {
     int count = 0;
     final syncedUrls = <String>{};
 
+    final imgService = ProductImageService();
+
+    // Fetch existing products to determine which are new vs existing
+    final existingUrls = <String>{};
+    try {
+      final List<dynamic> existing = await _client
+          .from('product_catalogus')
+          .select('webshop_url');
+      for (final row in existing.cast<Map<String, dynamic>>()) {
+        final url = row['webshop_url'] as String?;
+        if (url != null) existingUrls.add(url);
+      }
+    } catch (_) {}
+
     for (final product in products) {
       try {
-        await _client.from('product_catalogus').upsert(
-          product.toJson(),
-          onConflict: 'webshop_url',
-        );
-        count++;
-        if (product.webshopUrl != null) syncedUrls.add(product.webshopUrl!);
-      } on PostgrestException catch (e) {
-        if (kDebugMode) debugPrint('Upsert failed for ${product.naam}: ${e.code} ${e.message}');
-        // Retry with minimal fields so in_stock is still updated correctly
-        try {
-          await _client.from('product_catalogus').upsert(
-            product.toJsonMinimal(),
+        final isNew = product.webshopUrl == null || !existingUrls.contains(product.webshopUrl);
+
+        if (isNew) {
+          // New product: insert all fields
+          final rows = await _client.from('product_catalogus').upsert(
+            product.toJson(),
             onConflict: 'webshop_url',
-          );
+          ).select('id');
+          count++;
+          if (product.webshopUrl != null) syncedUrls.add(product.webshopUrl!);
+
+          if (rows.isNotEmpty) {
+            final pid = rows.first['id'] as int;
+            final hasExternal = (product.afbeeldingUrl != null && imgService.isExternalUrl(product.afbeeldingUrl!)) ||
+                product.extraAfbeeldingen.any(imgService.isExternalUrl);
+            if (hasExternal) {
+              final updates = await imgService.migrateProductImages(
+                productId: pid,
+                mainImageUrl: product.afbeeldingUrl,
+                extraImageUrls: product.extraAfbeeldingen,
+              );
+              if (updates.isNotEmpty) {
+                await _client.from('product_catalogus').update(updates).eq('id', pid);
+              }
+            }
+          }
+        } else {
+          // Existing product: only update price, stock, and timestamps
+          final updateData = <String, dynamic>{
+            'prijs': product.prijs,
+            'in_stock': product.inStock,
+            'laatst_bijgewerkt': DateTime.now().toUtc().toIso8601String(),
+          };
+          if (product.staffelprijzen != null) {
+            updateData['staffelprijzen'] = product.staffelprijzen;
+          }
+
+          await _client.from('product_catalogus')
+              .update(updateData)
+              .eq('webshop_url', product.webshopUrl!);
+          count++;
+          syncedUrls.add(product.webshopUrl!);
+        }
+      } on PostgrestException catch (e) {
+        if (kDebugMode) debugPrint('Sync failed for ${product.naam}: ${e.code} ${e.message}');
+        try {
+          // Fallback: minimal update for existing, full upsert for new
+          if (product.webshopUrl != null && existingUrls.contains(product.webshopUrl)) {
+            await _client.from('product_catalogus').update({
+              'prijs': product.prijs,
+              'in_stock': product.inStock,
+              'laatst_bijgewerkt': DateTime.now().toUtc().toIso8601String(),
+            }).eq('webshop_url', product.webshopUrl!);
+          } else {
+            await _client.from('product_catalogus').upsert(
+              product.toJsonMinimal(),
+              onConflict: 'webshop_url',
+            );
+          }
           count++;
           if (product.webshopUrl != null) syncedUrls.add(product.webshopUrl!);
         } on PostgrestException catch (e2) {
-          debugPrint('Minimal upsert also failed for ${product.naam}: ${e2.code} ${e2.message}');
+          debugPrint('Fallback sync also failed for ${product.naam}: ${e2.code} ${e2.message}');
         }
       }
     }

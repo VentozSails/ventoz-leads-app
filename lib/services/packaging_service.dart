@@ -48,7 +48,7 @@ class PackagingBox {
   bool get hasAfmetingen => lengteCm > 0 && breedteCm > 0 && hoogteCm > 0;
 
   String get afmetingenLabel =>
-      hasAfmetingen ? '${lengteCm} x ${breedteCm} x ${hoogteCm} cm' : '';
+      hasAfmetingen ? '$lengteCm x $breedteCm x $hoogteCm cm' : '';
 
   /// Circumference used for carrier limit checks: 2*(B+H) + L
   int get omtrekCm => hasAfmetingen ? 2 * (breedteCm + hoogteCm) + lengteCm : 0;

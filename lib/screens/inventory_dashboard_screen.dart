@@ -60,7 +60,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       if (mounted) setState(() => _canImport = perms.voorraadImporteren);
       final items = await _svc.getAll();
       final grouped = <String, List<InventoryItem>>{};
-      for (final it in items) (grouped[_gKey(it)] ??= []).add(it);
+      for (final it in items) { (grouped[_gKey(it)] ??= []).add(it); }
       if (mounted) { setState(() { _all = items; _grouped = grouped; _loading = false; }); _filter(); }
     } catch (e) {
       if (kDebugMode) debugPrint('InventoryDashboard: $e');
@@ -129,7 +129,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
   double get _kCost => _all.fold(0.0, (s, i) => s + ((i.inkoopPrijs ?? 0) * i.voorraadActueel));
   double get _kSaleVal => _all.fold(0.0, (s, i) => s + ((i.verkoopprijsIncl ?? 0) * i.voorraadActueel));
   int get _kCats => _cats.length;
-  List<String> get _cats { final c = <String>{}; for (final ii in _grouped.values) c.add(_gCat(ii)); return c.toList()..sort(); }
+  List<String> get _cats { final c = <String>{}; for (final ii in _grouped.values) { c.add(_gCat(ii)); } return c.toList()..sort(); }
 
   String _eur(double v) => '€${v.toStringAsFixed(2).replaceAll('.', ',')}';
   String _eurS(double v) => '€${v.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
@@ -316,7 +316,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(child: DropdownButtonFormField<String>(
-                  value: categorie, isDense: true,
+                  initialValue: categorie, isDense: true,
                   decoration: const InputDecoration(labelText: 'Categorie', border: OutlineInputBorder(), isDense: true),
                   items: _cats.map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)))).toList(),
                   onChanged: (v) => setD(() => categorie = v),
@@ -365,7 +365,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                 SizedBox(width: 100, child: TextField(controller: margeCtl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Marge', border: OutlineInputBorder(), isDense: true))),
                 const SizedBox(width: 8),
                 Expanded(child: DropdownButtonFormField<String>(
-                  value: vervoer, isDense: true,
+                  initialValue: vervoer, isDense: true,
                   decoration: const InputDecoration(labelText: 'Vervoer', border: OutlineInputBorder(), isDense: true),
                   items: ['vliegtuig', 'trein', 'boot', 'overig'].map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 12)))).toList(),
                   onChanged: (v) => setD(() => vervoer = v),
@@ -643,11 +643,11 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
   }
 
   Widget _buildCatDetail() {
-    final bycat = <String, List<InventoryItem>>{}; for (final e in _grouped.entries) (bycat[_gCat(e.value)] ??= []).addAll(e.value);
+    final bycat = <String, List<InventoryItem>>{}; for (final e in _grouped.entries) { (bycat[_gCat(e.value)] ??= []).addAll(e.value); }
     final cats = bycat.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
     return Column(children: cats.map((e) {
       final stk = e.value.fold(0, (s, i) => s + i.voorraadActueel);
-      final prods = <String>{}; for (final i in e.value) if (i.variantLabel.isNotEmpty) prods.add(i.variantLabel);
+      final prods = <String>{}; for (final i in e.value) { if (i.variantLabel.isNotEmpty) { prods.add(i.variantLabel); } }
       return ListTile(dense: true, contentPadding: EdgeInsets.zero,
         leading: Container(width: 32, height: 32, decoration: BoxDecoration(color: const Color(0xFF00695C).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
           child: Center(child: Text('${prods.length}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF00695C))))),
@@ -792,7 +792,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: _border))),
         ))),
         const SizedBox(width: 4),
-        SizedBox(height: 28, width: 130, child: DropdownButtonFormField<String>(value: _selCat, isDense: true, isExpanded: true, style: const TextStyle(fontSize: 10, color: Color(0xFF334155)),
+        SizedBox(height: 28, width: 130, child: DropdownButtonFormField<String>(initialValue: _selCat, isDense: true, isExpanded: true, style: const TextStyle(fontSize: 10, color: Color(0xFF334155)),
           decoration: InputDecoration(contentPadding: const EdgeInsets.symmetric(horizontal: 6), filled: true, fillColor: Colors.white,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: _border)),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: _border))),
@@ -822,7 +822,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       PopupMenuItem(value: 'naam', child: Text('Naam${_sortBy == 'naam' ? (_sortAsc ? ' ↑' : ' ↓') : ''}', style: const TextStyle(fontSize: 12))),
       PopupMenuItem(value: 'voorraad', child: Text('Voorraad${_sortBy == 'voorraad' ? (_sortAsc ? ' ↑' : ' ↓') : ''}', style: const TextStyle(fontSize: 12))),
       PopupMenuItem(value: 'categorie', child: Text('Categorie${_sortBy == 'categorie' ? (_sortAsc ? ' ↑' : ' ↓') : ''}', style: const TextStyle(fontSize: 12))),
-    ]).then((v) { if (v != null) setState(() { if (v == _sortBy) _sortAsc = !_sortAsc; else { _sortBy = v; _sortAsc = true; } _filter(); }); });
+    ]).then((v) { if (v != null) { setState(() { if (v == _sortBy) { _sortAsc = !_sortAsc; } else { _sortBy = v; _sortAsc = true; } _filter(); }); } });
   }
 
   // ── Column Header ──
@@ -897,11 +897,16 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     final has = it.voorraadActueel > 0;
     final low = it.voorraadMinimum > 0 && it.voorraadActueel <= it.voorraadMinimum;
     final selected = it.id != null && _selectedIds.contains(it.id!);
-    Color bg;
-    if (selected) bg = const Color(0xFFE3F2FD);
-    else if (has && low) bg = const Color(0xFFFFF8E1);
-    else if (has) bg = even ? const Color(0xFFF1F8E9) : const Color(0xFFE8F5E9);
-    else bg = even ? Colors.white : const Color(0xFFFAFAFA);
+    final Color bg;
+    if (selected) {
+      bg = const Color(0xFFE3F2FD);
+    } else if (has && low) {
+      bg = const Color(0xFFFFF8E1);
+    } else if (has) {
+      bg = even ? const Color(0xFFF1F8E9) : const Color(0xFFE8F5E9);
+    } else {
+      bg = even ? Colors.white : const Color(0xFFFAFAFA);
+    }
     final tc = has ? const Color(0xFF1A1A1A) : const Color(0xFFAAAAAA);
     final bc = has ? const Color(0xFF1A1A1A) : const Color(0xFFCCCCCC);
 

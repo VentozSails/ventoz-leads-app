@@ -375,9 +375,9 @@ class ImapOrderService {
       'valuta': parsed.currency,
       'betaal_methode': parsed.channel.label,
       'betaal_referentie': '${parsed.channel.name}:${parsed.externalOrderId}',
-      if (naam != null) 'naam': naam,
-      if (adres != null) 'adres': adres,
-      if (postcode != null) 'postcode': postcode,
+      'naam': ?naam,
+      'adres': ?adres,
+      'postcode': ?postcode,
       if (parsed.city != null) 'woonplaats': parsed.city!.trim(),
       'land_code': parsed.countryCode ?? 'NL',
       'opmerkingen': '${parsed.channel.label} #${parsed.externalOrderId}'
@@ -523,8 +523,11 @@ class ImapOrderService {
         final afterBrace = braceEnd + 1;
         if (afterBrace < fetchResponse.length) {
           var content = fetchResponse.substring(afterBrace);
-          if (content.startsWith('\r\n')) content = content.substring(2);
-          else if (content.startsWith('\n')) content = content.substring(1);
+          if (content.startsWith('\r\n')) {
+            content = content.substring(2);
+          } else if (content.startsWith('\n')) {
+            content = content.substring(1);
+          }
           final closeParen = content.lastIndexOf(')');
           if (closeParen > 0) content = content.substring(0, closeParen);
           return content;
@@ -546,7 +549,7 @@ class ImapOrderService {
 }
 
 class _ImapConnection {
-  Socket _socket;
+  final Socket _socket;
   late Stream<List<int>> _stream;
 
   _ImapConnection._(this._socket) {

@@ -150,7 +150,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: Row(children: [
             InkWell(
               onTap: () => context.go('/'),
-              child: Text('Home', style: GoogleFonts.dmSans(fontSize: 13, color: _slate)),
+              child: Text(_l.t('nav_home'), style: GoogleFonts.dmSans(fontSize: 13, color: _slate)),
             ),
             Text('  /  ', style: GoogleFonts.dmSans(fontSize: 13, color: _slate)),
             InkWell(
@@ -161,7 +161,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               Text('  /  ', style: GoogleFonts.dmSans(fontSize: 13, color: _slate)),
               InkWell(
                 onTap: () => context.go('/catalogus?categorie=${p.categorie}'),
-                child: Text(p.categorieLabel, style: GoogleFonts.dmSans(fontSize: 13, color: _slate)),
+                child: Text(p.categorieLabelForLang(_lang), style: GoogleFonts.dmSans(fontSize: 13, color: _slate)),
               ),
             ],
             Text('  /  ', style: GoogleFonts.dmSans(fontSize: 13, color: _slate)),
@@ -227,7 +227,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(color: _navy.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(4)),
-          child: Text(p.categorieLabel, style: GoogleFonts.dmSans(fontSize: 12, color: _navy, fontWeight: FontWeight.w600)),
+          child: Text(p.categorieLabelForLang(_lang), style: GoogleFonts.dmSans(fontSize: 12, color: _navy, fontWeight: FontWeight.w600)),
         ),
       const SizedBox(height: 12),
       Text(p.naamForLang(_lang), style: GoogleFonts.dmSerifDisplay(fontSize: 26, color: _navy)),

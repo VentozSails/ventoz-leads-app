@@ -321,7 +321,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
           child: listing.productAfbeelding != null
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(listing.productAfbeelding!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Icon(_platformIcon(listing.platform), color: color, size: 22)),
+                  child: Image.network(listing.productAfbeelding!, fit: BoxFit.cover, errorBuilder: (_, _, _) => Icon(_platformIcon(listing.platform), color: color, size: 22)),
                 )
               : Icon(_platformIcon(listing.platform), color: color, size: 22),
         ),
@@ -1296,6 +1296,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
                   );
                 }
               }
+              if (!ctx.mounted) return;
               Navigator.pop(ctx);
               _loadAll();
               if (mounted) {
@@ -1359,7 +1360,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<MarketplacePlatform>(
-                    value: selectedPlatform,
+                    initialValue: selectedPlatform,
                     decoration: const InputDecoration(labelText: 'Platform', border: OutlineInputBorder()),
                     items: MarketplacePlatform.values.map((p) => DropdownMenuItem(value: p, child: Text(p.label))).toList(),
                     onChanged: (v) => setDialogState(() => selectedPlatform = v!),
@@ -1369,7 +1370,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
                     const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())
                   else
                     DropdownButtonFormField<int>(
-                      value: selectedProductId,
+                      initialValue: selectedProductId,
                       decoration: const InputDecoration(labelText: 'Product', border: OutlineInputBorder()),
                       items: products.map((p) => DropdownMenuItem(
                         value: p['id'] as int,
@@ -1390,7 +1391,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedTaal,
+                    initialValue: selectedTaal,
                     decoration: const InputDecoration(labelText: 'Taal advertentie', border: OutlineInputBorder()),
                     items: availableLangs.map((lang) => DropdownMenuItem(
                       value: lang,
@@ -1412,6 +1413,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
                       prijs: double.tryParse(prijsCtrl.text.replaceAll(',', '.')),
                       taal: selectedTaal,
                     ));
+                    if (!ctx.mounted) return;
                     Navigator.pop(ctx);
                     _loadAll();
                     if (mounted) {
@@ -1535,7 +1537,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
                   value: voorraadSync,
                   onChanged: (v) => setDialogState(() => voorraadSync = v),
                   activeTrackColor: Colors.green.withValues(alpha: 0.4),
-                  activeColor: Colors.green,
+                  activeThumbColor: Colors.green,
                 ),
               ],
             ),
@@ -1549,6 +1551,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
                   prijs: double.tryParse(prijsCtrl.text.replaceAll(',', '.')),
                   voorraadSync: voorraadSync,
                 );
+                if (!ctx.mounted) return;
                 Navigator.pop(ctx);
                 _loadAll();
               },
@@ -1615,6 +1618,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
     MarketplacePlatform.ebay => Icons.gavel_rounded,
     MarketplacePlatform.amazon => Icons.shopping_cart_rounded,
     MarketplacePlatform.marktplaats => Icons.sell_rounded,
+    MarketplacePlatform.admark => Icons.ads_click_rounded,
   };
 
   Color _platformColor(MarketplacePlatform platform) => switch (platform) {
@@ -1622,6 +1626,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
     MarketplacePlatform.ebay => const Color(0xFFE53935),
     MarketplacePlatform.amazon => const Color(0xFFFF9900),
     MarketplacePlatform.marktplaats => const Color(0xFF009E3D),
+    MarketplacePlatform.admark => const Color(0xFF6A1B9A),
   };
 
   Color _statusColor(ListingStatus status) => switch (status) {
@@ -1659,6 +1664,10 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
       {'key': 'client_id', 'label': 'Client ID', 'hint': 'Van Marktplaats API-registratie', 'secret': 'false'},
       {'key': 'client_secret', 'label': 'Client Secret', 'hint': 'Geheim, bewaar veilig', 'secret': 'true'},
     ],
+    MarketplacePlatform.admark => [
+      {'key': 'client_id', 'label': 'Client ID', 'hint': 'Van Admark API-registratie', 'secret': 'false'},
+      {'key': 'client_secret', 'label': 'Client Secret', 'hint': 'Geheim, bewaar veilig', 'secret': 'true'},
+    ],
   };
 
   String _platformHelpText(MarketplacePlatform platform) => switch (platform) {
@@ -1666,5 +1675,6 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
     MarketplacePlatform.ebay => 'Registreer een app op developer.ebay.com en maak OAuth tokens aan.',
     MarketplacePlatform.amazon => 'Registreer via Seller Central → Apps → Develop Apps. Jaarabonnement \$1.400 vereist.',
     MarketplacePlatform.marktplaats => 'Neem contact op met Marktplaats om API-credentials aan te vragen.',
+    MarketplacePlatform.admark => 'Neem contact op met Admark om API-credentials aan te vragen.',
   };
 }

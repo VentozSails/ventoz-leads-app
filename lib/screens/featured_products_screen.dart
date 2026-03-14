@@ -184,8 +184,8 @@ class _FeaturedProductsScreenState extends State<FeaturedProductsScreen> {
                 dense: true,
                 leading: SizedBox(
                   width: 40, height: 40,
-                  child: p.afbeeldingUrl != null
-                      ? Image.network(p.afbeeldingUrl!, fit: BoxFit.contain, errorBuilder: (_, _, _) => const Icon(Icons.sailing, size: 24))
+                  child: p.displayAfbeeldingUrl != null
+                      ? Image.network(p.displayAfbeeldingUrl!, fit: BoxFit.contain, errorBuilder: (_, _, _) => const Icon(Icons.sailing, size: 24))
                       : const Icon(Icons.sailing, size: 24),
                 ),
                 title: Text(p.naam, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -216,7 +216,7 @@ class _FeaturedProductsScreenState extends State<FeaturedProductsScreen> {
   }
 
   List<Widget> _buildProductItems() {
-    final available = _allProducts.where((p) => p.id != null && !_selectedIds.contains(p.id) && p.afbeeldingUrl != null).toList();
+    final available = _allProducts.where((p) => p.id != null && !_selectedIds.contains(p.id) && p.displayAfbeeldingUrl != null).toList();
 
     final widgets = <Widget>[];
     for (var i = 0; i < available.length; i++) {
@@ -224,8 +224,8 @@ class _FeaturedProductsScreenState extends State<FeaturedProductsScreen> {
       widgets.add(ListTile(
         leading: SizedBox(
           width: 48, height: 48,
-          child: p.afbeeldingUrl != null
-              ? Image.network(p.afbeeldingUrl!, fit: BoxFit.contain, errorBuilder: (_, _, _) => const Icon(Icons.sailing))
+          child: p.displayAfbeeldingUrl != null
+              ? Image.network(p.displayAfbeeldingUrl!, fit: BoxFit.contain, errorBuilder: (_, _, _) => const Icon(Icons.sailing))
               : const Icon(Icons.sailing),
         ),
         title: Text(p.naam, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),

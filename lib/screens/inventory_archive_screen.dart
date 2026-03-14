@@ -41,7 +41,7 @@ class _InventoryArchiveScreenState extends State<InventoryArchiveScreen> {
     try {
       final items = await _svc.getAllArchived();
       final grouped = <String, List<InventoryItem>>{};
-      for (final it in items) (grouped[_gKey(it)] ??= []).add(it);
+      for (final it in items) { (grouped[_gKey(it)] ??= []).add(it); }
       if (mounted) { setState(() { _all = items; _grouped = grouped; _loading = false; }); _filter(); }
     } catch (e) {
       if (kDebugMode) debugPrint('InventoryArchive: $e');

@@ -659,7 +659,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           if (p.aboutTekstBewerken)
             _tile('Over Ventoz tekst', 'Landingspagina tekst bewerken', Icons.article_rounded, const Color(0xFF00695C),
                 onTap: () => _navigate(const AboutTextScreen())),
-          if (p.isAdmin)
+          if (p.aboutTekstBewerken)
             _tile('Webshop Content', 'Hero banner & USP teksten', Icons.web_rounded, const Color(0xFF7B1FA2),
                 onTap: () => _navigate(const WebshopContentScreen())),
           if (p.aboutTekstBewerken)

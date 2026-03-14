@@ -278,7 +278,7 @@ class _ImapSettingsScreenState extends State<ImapSettingsScreen> {
         value: value,
         onChanged: onChanged,
         dense: true,
-        activeColor: const Color(0xFF1565C0),
+        activeThumbColor: const Color(0xFF1565C0),
         contentPadding: EdgeInsets.zero,
       ),
     );

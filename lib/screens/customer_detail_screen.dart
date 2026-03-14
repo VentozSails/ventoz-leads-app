@@ -184,6 +184,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   platform: platform,
                   externNummer: numCtrl.text.trim(),
                 ));
+                if (!ctx.mounted) return;
                 Navigator.pop(ctx);
                 _load();
               },

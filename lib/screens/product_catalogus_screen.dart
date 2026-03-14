@@ -120,7 +120,7 @@ class _ProductCatalogusScreenState extends State<ProductCatalogusScreen> {
   }
 
   bool _isGhostProduct(CatalogProduct p) =>
-      !p.inStock && p.afbeeldingUrl == null && p.prijs == null;
+      !p.inStock && p.displayAfbeeldingUrl == null && p.prijs == null;
 
   void _rebuildCategoryCounts() {
     final counts = <String, int>{};
@@ -2265,7 +2265,7 @@ class _ProductDetailContentState extends State<_ProductDetailContent> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: availableLanguages.contains(selectedTaal) ? selectedTaal : availableLanguages.first,
+                initialValue: availableLanguages.contains(selectedTaal) ? selectedTaal : availableLanguages.first,
                 decoration: const InputDecoration(labelText: 'Taal advertentie', border: OutlineInputBorder(), isDense: true),
                 items: availableLanguages.map((lang) => DropdownMenuItem(
                   value: lang,
@@ -2380,6 +2380,7 @@ class _ProductDetailContentState extends State<_ProductDetailContent> {
       case MarketplacePlatform.ebay: return Icons.gavel_rounded;
       case MarketplacePlatform.amazon: return Icons.shopping_cart_rounded;
       case MarketplacePlatform.marktplaats: return Icons.sell_rounded;
+      case MarketplacePlatform.admark: return Icons.ads_click_rounded;
     }
   }
 
@@ -2389,6 +2390,7 @@ class _ProductDetailContentState extends State<_ProductDetailContent> {
       case MarketplacePlatform.ebay: return const Color(0xFFE53238);
       case MarketplacePlatform.amazon: return const Color(0xFFFF9900);
       case MarketplacePlatform.marktplaats: return const Color(0xFF34A853);
+      case MarketplacePlatform.admark: return const Color(0xFF6A1B9A);
     }
   }
 

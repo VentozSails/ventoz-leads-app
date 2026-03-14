@@ -193,7 +193,7 @@ Future<bool> _showMatchingDialog(
               const SizedBox(height: 12),
               Expanded(child: ListView.separated(
                 itemCount: matches.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+                separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (_, i) {
                   final m = matches[i];
                   return _buildMatchRow(m, allItems, setD);
@@ -259,7 +259,7 @@ Widget _buildMatchRow(
             child: m.skip
                 ? const Text('Overgeslagen', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Color(0xFF9CA3AF)))
                 : DropdownButtonFormField<int>(
-                    value: m.selectedItem?.id,
+                    initialValue: m.selectedItem?.id,
                     isDense: true, isExpanded: true,
                     style: const TextStyle(fontSize: 11, color: Color(0xFF1A1A1A)),
                     decoration: InputDecoration(
