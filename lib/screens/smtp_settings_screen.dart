@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/smtp_service.dart';
 import '../services/vat_service.dart';
 import '../services/user_service.dart';
@@ -108,12 +109,35 @@ class _SmtpSettingsScreenState extends State<SmtpSettingsScreen> {
     setState(() => _testing = true);
     try {
       final settings = _buildSettings();
-      await _service.sendEmail(
-        settings: settings,
-        toAddress: settings.fromEmail,
-        subject: 'Ventoz Sails – SMTP Test',
-        body: 'Dit is een testbericht vanuit de Ventoz Sails app.\n\nAls je dit ontvangt, werkt de SMTP-configuratie correct.',
+
+      // First save settings so the Edge Function can read them
+      await _service.saveSettings(settings);
+
+      // Send test email via send-invite-email Edge Function (contact_form mode)
+      // to avoid Socket constructor issues on Windows/Web
+      final client = Supabase.instance.client;
+      final response = await client.functions.invoke(
+        'send-invite-email',
+        body: {
+          'mode': 'contact_form',
+          'to_email': settings.fromEmail,
+          'subject': 'Ventoz Sails – SMTP Test',
+          'html_body': '<h2>SMTP Test</h2><p>Dit is een testbericht vanuit de Ventoz Sails app.</p><p>Als je dit ontvangt, werkt de SMTP-configuratie correct.</p>',
+          'plain_body': 'Dit is een testbericht vanuit de Ventoz Sails app.\n\nAls je dit ontvangt, werkt de SMTP-configuratie correct.',
+        },
       );
+
+      if (response.status != 200) {
+        String errorMsg = 'SMTP test mislukt';
+        try {
+          final data = response.data;
+          if (data is Map && data['error'] != null) {
+            errorMsg = data['error'] as String;
+          }
+        } catch (_) {}
+        throw Exception(errorMsg);
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Testmail verzonden naar ${settings.fromEmail}')),
