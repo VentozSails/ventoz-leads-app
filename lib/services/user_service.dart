@@ -1168,8 +1168,8 @@ class UserService {
           final stored = user.permissions;
           final hasStoredPermissions = stored != const UserPermissions();
           if (hasStoredPermissions) return stored;
-          if (user.isAdmin) return UserPermissions.adminPreset;
-          return UserPermissions.defaultForRole(user.userType);
+          if (user.isAdmin) return await _rolePermissionsFor(user.userType, fallback: UserPermissions.adminPreset);
+          return await _rolePermissionsFor(user.userType);
         }
       } catch (_) {}
     }
@@ -1185,12 +1185,24 @@ class UserService {
 
     if (match.isEmpty) {
       return isAdm
-          ? UserPermissions.adminPreset
+          ? await _rolePermissionsFor(UserType.admin, fallback: UserPermissions.adminPreset)
           : const UserPermissions();
     }
 
-    if (isAdm) return UserPermissions.adminPreset;
+    if (isAdm) return await _rolePermissionsFor(UserType.admin, fallback: UserPermissions.adminPreset);
     return UserPermissions.fromJson(match['permissions'] as Map<String, dynamic>?);
+  }
+
+  /// Resolves permissions for a role: first checks the owner-editable
+  /// role_permissions matrix in app_settings, falls back to hardcoded presets.
+  Future<UserPermissions> _rolePermissionsFor(UserType role, {UserPermissions? fallback}) async {
+    try {
+      final saved = await loadRolePermissions();
+      if (saved != null && saved.containsKey(role.dbValue)) {
+        return saved[role.dbValue]!;
+      }
+    } catch (_) {}
+    return fallback ?? UserPermissions.defaultForRole(role);
   }
 
   Future<AppUser?> getCurrentUser() async {
@@ -1312,7 +1324,7 @@ class UserService {
       throw Exception('Dit e-mailadres is al uitgenodigd of geregistreerd.');
     }
 
-    final sanitized = UserPermissions.defaultForRole(userType);
+    final sanitized = await _rolePermissionsFor(userType);
 
     final user = AppUser(
       email: email.toLowerCase(),
