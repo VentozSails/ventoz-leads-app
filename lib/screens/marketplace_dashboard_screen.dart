@@ -1484,26 +1484,36 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuleren')),
           ElevatedButton(
             onPressed: () async {
-              final label = labelCtrl.text.trim().isEmpty ? null : labelCtrl.text.trim();
-              for (final field in fields) {
-                final value = controllers[field['key']]!.text.trim();
-                if (value.isNotEmpty) {
-                  await _service.saveCredentialWithAccount(
-                    platform: MarketplacePlatform.ebay,
-                    type: field['key']!,
-                    value: value,
-                    accountLabel: label,
+              try {
+                final label = labelCtrl.text.trim().isEmpty ? null : labelCtrl.text.trim();
+                for (final field in fields) {
+                  final value = controllers[field['key']]!.text.trim();
+                  if (value.isNotEmpty) {
+                    await _service.saveCredentialWithAccount(
+                      platform: MarketplacePlatform.ebay,
+                      type: field['key']!,
+                      value: value,
+                      accountLabel: label,
+                    );
+                  }
+                }
+                if (!ctx.mounted) return;
+                Navigator.pop(ctx);
+                _loadAll();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('eBay account "${label ?? "Standaard"}" opgeslagen'),
+                      backgroundColor: const Color(0xFF2E7D32),
+                    ),
                   );
                 }
-              }
-              if (!ctx.mounted) return;
-              Navigator.pop(ctx);
-              _loadAll();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+              } catch (e) {
+                if (!ctx.mounted) return;
+                ScaffoldMessenger.of(ctx).showSnackBar(
                   SnackBar(
-                    content: Text('eBay account "${label ?? "Standaard"}" opgeslagen'),
-                    backgroundColor: const Color(0xFF2E7D32),
+                    content: Text('Fout bij opslaan: $e'),
+                    backgroundColor: Colors.red,
                   ),
                 );
               }

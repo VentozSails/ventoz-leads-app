@@ -990,27 +990,38 @@ class MarketplaceService {
     required String value,
     String? accountLabel,
   }) async {
-    final existing = await _client
+    var query = _client
         .from(_credentialsTable)
-        .select('id')
+        .select('id, account_label')
         .eq('platform', platform.code)
         .eq('credential_type', type);
-    final filtered = accountLabel != null
-        ? (existing as List).where((r) => r['account_label'] == accountLabel).toList()
-        : (existing as List).where((r) => r['account_label'] == null).toList();
+
+    if (accountLabel != null) {
+      query = query.eq('account_label', accountLabel);
+    }
+
+    final existing = await query;
+    final List rows = existing as List;
+
+    // For null label, filter client-side since .is() for null varies
+    final filtered = accountLabel == null
+        ? rows.where((r) => r['account_label'] == null).toList()
+        : rows;
 
     if (filtered.isNotEmpty) {
       await _client.from(_credentialsTable).update({
         'encrypted_value': value,
-        'account_label': accountLabel,
+        'actief': true,
       }).eq('id', filtered.first['id']);
     } else {
-      await _client.from(_credentialsTable).insert({
+      final data = <String, dynamic>{
         'platform': platform.code,
         'credential_type': type,
         'encrypted_value': value,
-        'account_label': accountLabel,
-      });
+        'actief': true,
+      };
+      if (accountLabel != null) data['account_label'] = accountLabel;
+      await _client.from(_credentialsTable).insert(data);
     }
   }
 
