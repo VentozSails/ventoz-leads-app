@@ -7,6 +7,17 @@ import '../models/catalog_product.dart';
 import 'translate_service.dart';
 import 'product_image_service.dart';
 
+final _specLinePattern = RegExp(
+  r'^\s*(?:voorlijk|luff|vorliek|achterlijk|leech|achterliek|onderlijk|foot|boom|unterliek|oppervlakte|sail\s*area|fläche|surface|superficie|materiaal|material|matériau|gewicht|weight|poids|inclusief|includes?|inclus|inklusive|einschließlich|mast\s*(?:delen|sections?|teile)|mastdelen|zeillatten|battens?|lattes?|segellatten|mast(?:hoogte|lengte)|mast\s*(?:height|length))\s*(?:\([^)]*\)\s*)?[:：]',
+  caseSensitive: false,
+);
+
+String stripSpecLines(String text) {
+  final lines = text.split('\n');
+  final cleaned = lines.where((l) => !_specLinePattern.hasMatch(l)).toList();
+  return cleaned.join('\n').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+}
+
 class SitemapEntry {
   final String url;
   final String? imageUrl;
@@ -840,7 +851,11 @@ class WebScraperService {
     };
     for (final entry in overrides.entries) {
       if (overrideKeys.contains(entry.key)) {
-        allowed[entry.key] = entry.value;
+        if (entry.key == 'beschrijving_override' && entry.value is String) {
+          allowed[entry.key] = stripSpecLines(entry.value as String);
+        } else {
+          allowed[entry.key] = entry.value;
+        }
       }
     }
     if (allowed.isEmpty) return;
@@ -1024,14 +1039,16 @@ class WebScraperService {
       }
 
       if (beschrijving != null && beschrijving.isNotEmpty) {
-        for (final lang in targets) {
-          if (!forceAll) {
-            // Only translate description if name was also missing for this lang
-            if (!updates.containsKey('naam_$lang')) continue;
+        final cleanDesc = stripSpecLines(beschrijving);
+        if (cleanDesc.isNotEmpty) {
+          for (final lang in targets) {
+            if (!forceAll) {
+              if (!updates.containsKey('naam_$lang')) continue;
+            }
+            final translatedDesc = await translator.translate(cleanDesc, targetLang: lang);
+            updates['beschrijving_$lang'] = translatedDesc;
+            await Future.delayed(const Duration(milliseconds: 60));
           }
-          final translatedDesc = await translator.translate(beschrijving, targetLang: lang);
-          updates['beschrijving_$lang'] = translatedDesc;
-          await Future.delayed(const Duration(milliseconds: 60));
         }
       }
 
@@ -1057,9 +1074,12 @@ class WebScraperService {
     }
 
     if (beschrijving != null && beschrijving.isNotEmpty) {
-      for (final lang in targets) {
-        updates['beschrijving_$lang'] = await translator.translate(beschrijving, targetLang: lang);
-        await Future.delayed(const Duration(milliseconds: 60));
+      final cleanDesc = stripSpecLines(beschrijving);
+      if (cleanDesc.isNotEmpty) {
+        for (final lang in targets) {
+          updates['beschrijving_$lang'] = await translator.translate(cleanDesc, targetLang: lang);
+          await Future.delayed(const Duration(milliseconds: 60));
+        }
       }
     }
 
@@ -1105,9 +1125,12 @@ class WebScraperService {
         await Future.delayed(const Duration(milliseconds: 60));
       }
       if (beschrijving != null && beschrijving.isNotEmpty) {
-        for (final lang in targets) {
-          updates['beschrijving_$lang'] = await translator.translate(beschrijving, targetLang: lang);
-          await Future.delayed(const Duration(milliseconds: 60));
+        final cleanDesc = stripSpecLines(beschrijving);
+        if (cleanDesc.isNotEmpty) {
+          for (final lang in targets) {
+            updates['beschrijving_$lang'] = await translator.translate(cleanDesc, targetLang: lang);
+            await Future.delayed(const Duration(milliseconds: 60));
+          }
         }
       }
 
