@@ -33,6 +33,7 @@ import 'admin_shipping_screen.dart';
 import 'role_permissions_screen.dart';
 import 'admin_suppliers_screen.dart';
 import 'admin_category_descriptions_screen.dart';
+import 'legal_text_screen.dart';
 import 'imap_settings_screen.dart';
 import '../services/login_security_service.dart';
 import '../services/customer_service.dart';
@@ -93,7 +94,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       int pendingCount = 0;
       int shippingReady = 0;
       try {
-        final pending = await Supabase.instance.client.from('orders').select('id').eq('status', 'pending');
+        final pending = await Supabase.instance.client.from('orders').select('id').inFilter('status', ['concept', 'betaling_gestart']);
         pendingCount = (pending as List).length;
       } catch (_) {}
       try {
@@ -662,6 +663,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           if (p.aboutTekstBewerken)
             _tile('Webshop Content', 'Hero banner & USP teksten', Icons.web_rounded, const Color(0xFF7B1FA2),
                 onTap: () => _navigate(const WebshopContentScreen())),
+          if (p.aboutTekstBewerken)
+            _tile('Legal pagina\'s', 'Voorwaarden, privacy, garantie', Icons.gavel_rounded, const Color(0xFF4E342E),
+                onTap: () => _navigate(const LegalTextScreen())),
           if (p.aboutTekstBewerken)
             _tile('Categorieteksten', 'Beschrijvingen per categorie', Icons.description_rounded, const Color(0xFF5C6BC0),
                 onTap: () => _navigate(const AdminCategoryDescriptionsScreen())),
