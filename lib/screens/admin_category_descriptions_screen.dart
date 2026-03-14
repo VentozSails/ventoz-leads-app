@@ -52,20 +52,111 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
   String _label(String slug) =>
       CatalogProduct(naam: '', categorie: slug).categorieLabel;
 
-  Future<void> _translateAll() async {
-    final toTranslate = _descriptions.entries
-        .where((e) => e.value.beschrijvingNl.isNotEmpty && e.value.beschrijvingen.length < 20)
+  void _showTranslateDialog() {
+    final withText = _descriptions.entries
+        .where((e) => e.value.beschrijvingNl.isNotEmpty)
         .toList();
 
-    if (toTranslate.isEmpty) {
+    if (withText.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Alle categorieteksten zijn al vertaald'), backgroundColor: Color(0xFF2E7D32)),
+          const SnackBar(content: Text('Geen categorieteksten om te vertalen'), backgroundColor: Color(0xFFEF4444)),
         );
       }
       return;
     }
 
+    final selected = <String>{};
+    var selectAll = true;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Text('Vertalen naar alle talen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          content: SizedBox(
+            width: 450,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F7FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBBDEFB)),
+                  ),
+                  child: const Row(children: [
+                    Icon(Icons.info_outline, size: 18, color: Color(0xFF1565C0)),
+                    SizedBox(width: 8),
+                    Expanded(child: Text(
+                      'Zeiltermen worden correct vertaald (zeil, fok, grootzeil, voorlijk, etc.).',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF1565C0)),
+                    )),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  value: selectAll,
+                  onChanged: (v) => setDialogState(() {
+                    selectAll = v ?? true;
+                    if (selectAll) selected.clear();
+                  }),
+                  title: Text('Alle categorieën (${withText.length})',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  subtitle: Text(
+                    selectAll ? 'Alle teksten worden (opnieuw) vertaald' : 'Selecteer hieronder specifieke categorieën',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                if (!selectAll) ...[
+                  const Divider(height: 8),
+                  ...withText.map((e) {
+                    final count = e.value.beschrijvingen.length;
+                    return CheckboxListTile(
+                      value: selected.contains(e.key),
+                      onChanged: (v) => setDialogState(() {
+                        if (v == true) { selected.add(e.key); } else { selected.remove(e.key); }
+                      }),
+                      title: Text(_label(e.key), style: const TextStyle(fontSize: 13)),
+                      subtitle: Text('$count/27 talen', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    );
+                  }),
+                ],
+              ]),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuleren'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                final items = selectAll
+                    ? withText
+                    : withText.where((e) => selected.contains(e.key)).toList();
+                if (items.isNotEmpty) _runTranslation(items);
+              },
+              icon: const Icon(Icons.translate, size: 16),
+              label: Text(selectAll
+                  ? 'Alles vertalen (${withText.length})'
+                  : 'Vertalen (${selected.length})'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _runTranslation(List<MapEntry<String, CategoryDescription>> items) async {
     String? currentCat;
     String? currentLang;
     var completed = 0;
@@ -76,7 +167,7 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           Future<void> run() async {
-            for (final entry in toTranslate) {
+            for (final entry in items) {
               if (ctx.mounted) setDialogState(() => currentCat = _label(entry.key));
               try {
                 await _service.saveAndTranslate(
@@ -87,7 +178,7 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
                   },
                 );
               } catch (e) {
-                if (kDebugMode) debugPrint('TranslateAll ${entry.key} failed: $e');
+                if (kDebugMode) debugPrint('Translate ${entry.key} failed: $e');
               }
               completed++;
               if (ctx.mounted) setDialogState(() {});
@@ -96,23 +187,24 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
             await _load();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('$completed categorieteksten vertaald naar alle talen'), backgroundColor: const Color(0xFF2E7D32)),
+                SnackBar(
+                  content: Text('$completed categorieteksten vertaald naar alle talen'),
+                  backgroundColor: const Color(0xFF2E7D32),
+                ),
               );
             }
           }
 
-          if (currentCat == null) {
-            Future.microtask(run);
-          }
+          if (currentCat == null) Future.microtask(run);
 
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            title: const Text('Alle teksten vertalen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            title: const Text('Vertalen...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             content: Column(mainAxisSize: MainAxisSize.min, children: [
-              LinearProgressIndicator(value: toTranslate.isEmpty ? 1 : completed / toTranslate.length),
+              LinearProgressIndicator(value: items.isEmpty ? 1 : completed / items.length),
               const SizedBox(height: 12),
               if (currentCat != null)
-                Text('$currentCat ($completed/${toTranslate.length})', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text('$currentCat ($completed/${items.length})', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               if (currentLang != null)
                 Text('Vertalen: $currentLang...', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
             ]),
@@ -232,8 +324,8 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
         actions: [
           IconButton(
             icon: const Icon(Icons.translate),
-            tooltip: 'Alle teksten vertalen naar alle talen',
-            onPressed: _translateAll,
+            tooltip: 'Vertalen naar alle talen',
+            onPressed: _showTranslateDialog,
           ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
