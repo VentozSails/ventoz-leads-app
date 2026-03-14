@@ -50,7 +50,7 @@ serve(async (req: Request) => {
 
     // Exchange authorization code for tokens
     const authString = btoa(`${credsMap.client_id}:${credsMap.client_secret}`);
-    const callbackUrl = `${supabaseUrl}/functions/v1/ebay-oauth-callback`;
+    const callbackUrl = "Igor_Hulst-IgorHuls-Ventoz-fdmyguttc";
 
     const tokenResponse = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
       method: "POST",

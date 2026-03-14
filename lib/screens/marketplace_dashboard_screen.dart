@@ -1533,7 +1533,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
                   'https://api.ebay.com/oauth/api_scope/sell.account',
                 );
                 final callbackUrl = Uri.encodeComponent(
-                  'https://xfskhdirwocfsfmcahkf.supabase.co/functions/v1/ebay-oauth-callback',
+                  'Igor_Hulst-IgorHuls-Ventoz-fdmyguttc',
                 );
                 final state = Uri.encodeComponent(label ?? '');
                 final authUrl = 'https://auth.ebay.com/oauth2/authorize'
