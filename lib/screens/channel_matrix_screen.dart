@@ -29,6 +29,10 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   bool _sortAsc = true;
   final Set<int> _selected = {};
 
+  double _channelColWidth = 68;
+  double _productColWidth = 220;
+  double _artNrColWidth = 90;
+
   @override
   void initState() {
     super.initState();
@@ -202,6 +206,19 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
           _sortChip('Voorraad', 'voorraad'),
           const SizedBox(width: 3),
           _sortChip('Kanalen', 'platforms'),
+          const SizedBox(width: 16),
+          const Icon(Icons.view_column_outlined, size: 14, color: Color(0xFF94A3B8)),
+          const SizedBox(width: 2),
+          Text('Breedte', style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF94A3B8))),
+          SizedBox(
+            width: 80,
+            child: Slider(
+              value: _channelColWidth,
+              min: 48,
+              max: 120,
+              onChanged: (v) => setState(() => _channelColWidth = v),
+            ),
+          ),
         ]),
         if (_loadError != null) ...[
           const SizedBox(height: 6),
@@ -337,12 +354,32 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
       );
     }
 
-    return SingleChildScrollView(
+    final hScrollCtrl = ScrollController();
+    return Scrollbar(
+      controller: hScrollCtrl,
+      thumbVisibility: true,
+      trackVisibility: true,
       child: SingleChildScrollView(
+        controller: hScrollCtrl,
         scrollDirection: Axis.horizontal,
-        child: _buildTable(),
+        child: SizedBox(
+          width: _calcTableWidth(),
+          child: SingleChildScrollView(
+            child: _buildTable(),
+          ),
+        ),
       ),
     );
+  }
+
+  double _calcTableWidth() {
+    const fixedCols = 28.0 + 48.0; // checkbox + voorraad
+    final channelCount = SalesChannel.ebayChannels.length
+        + SalesChannel.bolChannels.length
+        + SalesChannel.amazonChannels.length
+        + 1 // admark
+        + 1; // eigen site prijs
+    return fixedCols + _productColWidth + _artNrColWidth + (channelCount * _channelColWidth) + 2;
   }
 
   Widget _buildTable() {
@@ -356,13 +393,13 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
     return Table(
       border: TableBorder.all(color: borderColor, width: 0.5),
-      defaultColumnWidth: const FixedColumnWidth(54),
-      columnWidths: const {
-        0: FixedColumnWidth(28),   // checkbox
-        1: FixedColumnWidth(180),  // product
-        2: FixedColumnWidth(72),   // artikelnr
-        3: FixedColumnWidth(44),   // voorraad
-        4: FixedColumnWidth(56),   // eigen site prijs
+      defaultColumnWidth: FixedColumnWidth(_channelColWidth),
+      columnWidths: {
+        0: const FixedColumnWidth(28),   // checkbox
+        1: FixedColumnWidth(_productColWidth),  // product
+        2: FixedColumnWidth(_artNrColWidth),   // artikelnr
+        3: const FixedColumnWidth(48),   // voorraad
+        4: FixedColumnWidth(_channelColWidth), // eigen site prijs
       },
       children: [
         // Group header row — platform names with colored backgrounds
