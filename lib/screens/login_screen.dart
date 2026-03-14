@@ -398,52 +398,37 @@ class _InvitedRegisterFormState extends State<_InvitedRegisterForm> {
         return;
       }
 
-      await widget.userService.markAsRegistered(email);
+      // Auto-confirm invited users via admin API so they don't need email verification
+      try {
+        await client.functions.invoke('confirm-user', body: {'email': email});
+      } catch (e) {
+        debugPrint('Auto-confirm failed (non-fatal): $e');
+      }
 
-      final needsConfirmation = response.user!.emailConfirmedAt == null;
+      try {
+        await widget.userService.markAsRegistered(email);
+      } catch (e) {
+        debugPrint('markAsRegistered failed (non-fatal): $e');
+      }
+
       await client.auth.signOut();
 
       if (mounted) {
-        if (needsConfirmation) {
-          _showConfirmationDialog();
-        } else {
-          widget.onRegistered();
-        }
+        widget.onRegistered();
       }
     } on AuthException catch (e) {
       setState(() => _error = _translateRegisterError(e.message));
     } catch (e) {
-      setState(() => _error = 'Er is een onverwachte fout opgetreden. Probeer het opnieuw.');
+      debugPrint('Register error: $e');
+      final errStr = e.toString();
+      if (errStr.contains('duplicate') || errStr.contains('already')) {
+        setState(() => _error = 'Er bestaat al een account met dit e-mailadres. Probeer in te loggen.');
+      } else {
+        setState(() => _error = 'Fout bij registratie: $errStr');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _showConfirmationDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.mark_email_read, color: Color(0xFF43A047), size: 48),
-        title: const Text('Account aangemaakt'),
-        content: const Text(
-          'Je account is succesvol aangemaakt!\n\n'
-          'Je ontvangt een bevestigingsmail. Klik op de link in de mail '
-          'om je e-mailadres te bevestigen.\n\n'
-          'Daarna kun je inloggen met je e-mailadres en wachtwoord.',
-          textAlign: TextAlign.center,
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              widget.onRegistered();
-            },
-            child: const Text('Naar inlogscherm'),
-          ),
-        ],
-      ),
-    );
   }
 
   String _translateRegisterError(String msg) {
