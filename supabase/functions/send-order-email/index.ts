@@ -11,6 +11,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function base64ToUint8(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+
 function esc(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -271,14 +278,23 @@ async function loadSmtpSettings(
       if (rawKey) {
         const parts = config.password.slice(4).split(":");
         if (parts.length === 2) {
-          const { createDecipheriv } = await import("node:crypto");
-          const ivBuf = Buffer.from(parts[0], "base64");
-          const dataBuf = Buffer.from(parts[1], "base64");
-          const keyBuf = Buffer.from(rawKey, "base64");
-          const decipher = createDecipheriv("aes-256-cbc", keyBuf, ivBuf);
-          decipher.setAutoPadding(true);
-          const plain = Buffer.concat([decipher.update(dataBuf), decipher.final()]);
-          config.password = plain.toString("utf8");
+          const ivBytes = base64ToUint8(parts[0]);
+          const dataBytes = base64ToUint8(parts[1]);
+          const keyBytes = base64ToUint8(rawKey);
+
+          const cryptoKey = await crypto.subtle.importKey(
+            "raw",
+            keyBytes,
+            { name: "AES-CBC" },
+            false,
+            ["decrypt"],
+          );
+          const decrypted = await crypto.subtle.decrypt(
+            { name: "AES-CBC", iv: ivBytes },
+            cryptoKey,
+            dataBytes,
+          );
+          config.password = new TextDecoder().decode(decrypted);
         }
       }
     } catch (e) {

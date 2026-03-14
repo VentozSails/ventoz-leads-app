@@ -1,6 +1,3 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'crypto_service.dart';
@@ -166,92 +163,66 @@ class ImapOrderService {
   }
 
   Future<String> testConnection(ImapSettings settings) async {
-    _ImapConnection? conn;
+    // Always route through Edge Function to avoid Socket issues on web/desktop
     try {
-      conn = await _ImapConnection.connect(settings.host, settings.port, timeout: const Duration(seconds: 10));
-
-      await conn.sendCommand('a001 LOGIN "${_escape(settings.username)}" "${_escape(settings.password)}"');
-      final loginResp = await conn.readResponse();
-      if (!loginResp.contains('a001 OK')) {
-        return 'Login mislukt: controleer gebruikersnaam en wachtwoord';
+      await saveSettings(settings);
+      final response = await _client.functions.invoke(
+        'imap-proxy',
+        body: {'mode': 'test'},
+      );
+      if (response.status != 200) {
+        final data = response.data;
+        final error = data is Map ? data['error'] : 'HTTP ${response.status}';
+        return 'Fout: $error';
       }
-
-      await conn.sendCommand('a002 SELECT INBOX');
-      final selectResp = await conn.readResponse();
-      if (!selectResp.contains('a002 OK')) return 'Kan INBOX niet openen';
-
-      final existsMatch = RegExp(r'(\d+) EXISTS').firstMatch(selectResp);
-      final count = existsMatch?.group(1) ?? '?';
-
-      await conn.sendCommand('a003 LOGOUT');
-      try { await conn.readResponse(); } catch (_) {}
-
-      return 'Verbinding geslaagd! INBOX bevat $count berichten.';
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        return data['message'] as String? ?? 'Verbinding geslaagd!';
+      }
+      return data is Map ? (data['error'] as String? ?? 'Onbekende fout') : 'Onbekende fout';
     } catch (e) {
       return 'Verbindingsfout: $e';
-    } finally {
-      conn?.destroy();
     }
   }
 
   Future<ImportResult> fetchNewOrders(ImapSettings settings) async {
     final result = ImportResult();
-    _ImapConnection? conn;
 
     try {
-      conn = await _ImapConnection.connect(settings.host, settings.port);
-
-      await conn.sendCommand('a001 LOGIN "${_escape(settings.username)}" "${_escape(settings.password)}"');
-      final loginResp = await conn.readResponse();
-      if (!loginResp.contains('a001 OK')) {
-        result.error = 'Login mislukt';
-        return result;
-      }
-
-      await conn.sendCommand('a002 SELECT INBOX');
-      final selectResp = await conn.readResponse();
-      if (!selectResp.contains('a002 OK')) {
-        result.error = 'Kan INBOX niet openen';
-        return result;
-      }
-
-      final existsMatch = RegExp(r'(\d+) EXISTS').firstMatch(selectResp);
-      final totalMessages = int.tryParse(existsMatch?.group(1) ?? '0') ?? 0;
-      if (totalMessages == 0) return result;
-
-      final sinceDate = DateTime(2026, 1, 1);
-      final months = ['', 'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      final since = '${sinceDate.day}-${months[sinceDate.month]}-${sinceDate.year}';
-
-      final searchQuery = settings.lastFetchedUid > 0
-          ? 'a003 UID SEARCH SINCE $since UID ${settings.lastFetchedUid + 1}:*'
-          : 'a003 UID SEARCH SINCE $since';
-      await conn.sendCommand(searchQuery);
-      final searchResp = await conn.readResponse();
-
-      final searchLine = searchResp.split('\n').firstWhere(
-        (l) => l.startsWith('* SEARCH'), orElse: () => '',
+      // Fetch raw emails via Edge Function
+      final response = await _client.functions.invoke(
+        'imap-proxy',
+        body: {
+          'mode': 'fetch',
+          'last_fetched_uid': settings.lastFetchedUid,
+        },
       );
-      if (searchLine.isEmpty) return result;
 
-      final uids = RegExp(r'\d+')
-          .allMatches(searchLine.replaceFirst('* SEARCH', ''))
-          .map((m) => int.parse(m.group(0)!))
-          .toList()
-        ..sort();
+      if (response.status != 200) {
+        final data = response.data;
+        result.error = data is Map ? (data['error'] as String?) ?? 'HTTP ${response.status}' : 'HTTP ${response.status}';
+        return result;
+      }
 
-      if (uids.isEmpty) return result;
+      final data = response.data;
+      if (data is! Map) {
+        result.error = 'Ongeldig antwoord van server';
+        return result;
+      }
 
-      result.scanned = uids.length;
-      if (kDebugMode) debugPrint('IMAP: ${uids.length} emails gevonden sinds 1-Jan-2026');
+      final emails = (data['emails'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      if (emails.isEmpty) return result;
+
+      result.scanned = emails.length;
+      if (kDebugMode) debugPrint('IMAP: ${emails.length} emails opgehaald via Edge Function');
       int highestUid = settings.lastFetchedUid;
       int skipped = 0;
 
-      for (final uid in uids) {
-        try {
-          await conn.sendCommand('f$uid UID FETCH $uid BODY[]');
-          final fetchResp = await conn.readResponse(timeout: const Duration(seconds: 15));
+      for (final emailEntry in emails) {
+        final uid = emailEntry['uid'] as int? ?? 0;
+        final fetchResp = emailEntry['raw'] as String? ?? '';
 
+        try {
           final rawBody = _extractFetchBody(fetchResp);
           final mime = MimeDecoder.decode(rawBody);
 
@@ -328,17 +299,12 @@ class ImapOrderService {
         await _updateLastUid(highestUid);
       }
 
-      await conn.sendCommand('a099 LOGOUT');
-      try { await conn.readResponse(); } catch (_) {}
-
       final markedShipped = await markOldOrdersAsShipped();
       if (markedShipped > 0) {
         result.markedShipped = markedShipped;
       }
     } catch (e) {
       result.error = 'IMAP-fout: $e';
-    } finally {
-      conn?.destroy();
     }
 
     return result;
@@ -545,82 +511,6 @@ class ImapOrderService {
     return match?.group(1)?.trim() ?? '';
   }
 
-  String _escape(String s) => s.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
-}
-
-class _ImapConnection {
-  final Socket _socket;
-  late Stream<List<int>> _stream;
-
-  _ImapConnection._(this._socket) {
-    _stream = _socket.asBroadcastStream();
-  }
-
-  static Future<_ImapConnection> connect(String host, int port, {Duration timeout = const Duration(seconds: 15)}) async {
-    if (port == 993) {
-      final socket = await SecureSocket.connect(host, port, timeout: timeout);
-      final conn = _ImapConnection._(socket);
-      final greeting = await conn.readResponse();
-      if (!greeting.contains('OK')) throw Exception('Server gaf geen OK-antwoord');
-      return conn;
-    }
-
-    final plain = await Socket.connect(host, port, timeout: timeout);
-    final conn = _ImapConnection._(plain);
-    final greeting = await conn.readResponse();
-    if (!greeting.contains('OK')) throw Exception('Server gaf geen OK-antwoord');
-    return conn;
-  }
-
-  Future<void> sendCommand(String command) async {
-    _socket.write('$command\r\n');
-    await _socket.flush();
-  }
-
-  Future<String> readResponse({Duration timeout = const Duration(seconds: 12)}) async {
-    final buffer = StringBuffer();
-    final completer = Completer<String>();
-
-    late StreamSubscription<List<int>> sub;
-    Timer? timer;
-
-    timer = Timer(timeout, () {
-      sub.cancel();
-      if (!completer.isCompleted) completer.complete(buffer.toString());
-    });
-
-    final tagPattern = RegExp(r'^[a-zA-Z0-9]+ (OK|NO|BAD|BYE)\b', multiLine: true);
-
-    sub = _stream.listen(
-      (data) {
-        final chunk = utf8.decode(data, allowMalformed: true);
-        buffer.write(chunk);
-        final content = buffer.toString();
-        final lastLines = content.length > 200 ? content.substring(content.length - 200) : content;
-        if (tagPattern.hasMatch(lastLines) ||
-            (content.length < 200 && content.contains('* OK') && !content.contains('a0'))) {
-          timer?.cancel();
-          sub.cancel();
-          if (!completer.isCompleted) completer.complete(content);
-        }
-      },
-      onError: (e) {
-        timer?.cancel();
-        sub.cancel();
-        if (!completer.isCompleted) completer.completeError(e);
-      },
-      onDone: () {
-        timer?.cancel();
-        if (!completer.isCompleted) completer.complete(buffer.toString());
-      },
-    );
-
-    return completer.future;
-  }
-
-  void destroy() {
-    _socket.destroy();
-  }
 }
 
 class ImportResult {
