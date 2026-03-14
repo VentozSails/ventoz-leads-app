@@ -1863,7 +1863,8 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
     MarketplacePlatform.ebay => [
       {'key': 'client_id', 'label': 'App ID (Client ID)', 'hint': 'Van developer.ebay.com', 'secret': 'false'},
       {'key': 'client_secret', 'label': 'Cert ID (Client Secret)', 'hint': 'Geheim, bewaar veilig', 'secret': 'true'},
-      {'key': 'refresh_token', 'label': 'Refresh Token', 'hint': 'OAuth user token', 'secret': 'true'},
+      {'key': 'refresh_token', 'label': 'Refresh Token', 'hint': 'Langlevende OAuth token (optioneel als access token is ingevuld)', 'secret': 'true'},
+      {'key': 'access_token', 'label': 'User Access Token', 'hint': 'Van "User Tokens" pagina — geldig ~2 uur', 'secret': 'true'},
     ],
     MarketplacePlatform.amazon => [
       {'key': 'client_id', 'label': 'Client ID', 'hint': 'SP-API App Client ID', 'secret': 'false'},

@@ -182,6 +182,12 @@ async function bolComApiCall(
 
 async function getEbayToken(supabase: any, accountLabel?: string | null): Promise<string | null> {
   const creds = await getCredentials(supabase, "ebay", accountLabel);
+
+  // If a direct access_token is stored, use it (short-lived, ~2h)
+  if (creds.access_token) {
+    return creds.access_token;
+  }
+
   if (!creds.client_id || !creds.client_secret || !creds.refresh_token) return null;
 
   const authString = btoa(`${creds.client_id}:${creds.client_secret}`);
