@@ -1416,21 +1416,18 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
   }
 
   void _showSingleEbayAccountDialog(String? existingLabel, {bool isNew = false}) async {
-    final fields = _credentialFields(MarketplacePlatform.ebay);
-    final controllers = <String, TextEditingController>{};
     final labelCtrl = TextEditingController(text: existingLabel ?? '');
+    final clientIdCtrl = TextEditingController();
+    final clientSecretCtrl = TextEditingController();
 
     final existingValues = existingLabel != null
         ? await _service.getCredentialValues(MarketplacePlatform.ebay)
         : <String, String>{};
 
-    for (final field in fields) {
-      final key = field['key']!;
-      final isSecret = field['secret'] == 'true';
-      controllers[key] = TextEditingController(
-        text: isSecret ? '' : (existingValues[key] ?? ''),
-      );
-    }
+    clientIdCtrl.text = existingValues['client_id'] ?? '';
+    final hasClientId = existingValues.containsKey('client_id');
+    final hasClientSecret = existingValues.containsKey('client_secret');
+    final hasRefreshToken = existingValues.containsKey('refresh_token');
 
     if (!mounted) return;
     showDialog(
@@ -1442,60 +1439,145 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
           style: GoogleFonts.dmSans(fontWeight: FontWeight.w700, fontSize: 16),
         ),
         content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: labelCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Account label',
-                  hintText: 'Bijv. "eBay Hoofdaccount" of "eBay UK"',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          width: 440,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: labelCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Account label',
+                    hintText: 'Bijv. "eBay Hoofdaccount" of "eBay UK"',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              ...fields.map((field) {
-                final key = field['key']!;
-                final isSecret = field['secret'] == 'true';
-                final hasExisting = existingValues.containsKey(key);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: TextField(
-                    controller: controllers[key],
-                    obscureText: isSecret,
-                    decoration: InputDecoration(
-                      labelText: field['label'],
-                      border: const OutlineInputBorder(),
-                      hintText: isSecret && hasExisting
-                          ? '••••••••  (al ingesteld, laat leeg om te behouden)'
-                          : field['hint'],
-                      suffixIcon: hasExisting
-                          ? const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 20)
-                          : null,
+                const SizedBox(height: 16),
+                TextField(
+                  controller: clientIdCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'App ID (Client ID)',
+                    hintText: 'Van developer.ebay.com',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: hasClientId
+                        ? const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 20)
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: clientSecretCtrl,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Cert ID (Client Secret)',
+                    border: const OutlineInputBorder(),
+                    hintText: hasClientSecret
+                        ? '••••••••  (al ingesteld, laat leeg om te behouden)'
+                        : 'Geheim, bewaar veilig',
+                    suffixIcon: hasClientSecret
+                        ? const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 20)
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: hasRefreshToken ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: hasRefreshToken ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
                     ),
                   ),
-                );
-              }),
-            ],
+                  child: Row(
+                    children: [
+                      Icon(
+                        hasRefreshToken ? Icons.link : Icons.link_off,
+                        color: hasRefreshToken ? const Color(0xFF2E7D32) : const Color(0xFFE65100),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          hasRefreshToken
+                              ? 'eBay-account is gekoppeld (refresh token actief)'
+                              : 'Nog niet gekoppeld — sla eerst Client ID en Secret op, klik dan op "Koppel met eBay"',
+                          style: GoogleFonts.dmSans(fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuleren')),
+          if (hasClientId && hasClientSecret)
+            OutlinedButton.icon(
+              onPressed: () async {
+                final label = labelCtrl.text.trim().isEmpty ? null : labelCtrl.text.trim();
+                final cId = clientIdCtrl.text.trim().isNotEmpty
+                    ? clientIdCtrl.text.trim()
+                    : existingValues['client_id'] ?? '';
+                if (cId.isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('Vul eerst een Client ID in'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                final scopes = Uri.encodeComponent(
+                  'https://api.ebay.com/oauth/api_scope/sell.inventory '
+                  'https://api.ebay.com/oauth/api_scope/sell.fulfillment '
+                  'https://api.ebay.com/oauth/api_scope/sell.account',
+                );
+                final callbackUrl = Uri.encodeComponent(
+                  'https://xfskhdirwocfsfmcahkf.supabase.co/functions/v1/ebay-oauth-callback',
+                );
+                final state = Uri.encodeComponent(label ?? '');
+                final authUrl = 'https://auth.ebay.com/oauth2/authorize'
+                    '?client_id=$cId'
+                    '&response_type=code'
+                    '&redirect_uri=$callbackUrl'
+                    '&scope=$scopes'
+                    '&state=$state';
+                final uri = Uri.parse(authUrl);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+              icon: const Icon(Icons.login, size: 18),
+              label: const Text('Koppel met eBay'),
+              style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFE53238)),
+            ),
           ElevatedButton(
             onPressed: () async {
               try {
                 final label = labelCtrl.text.trim().isEmpty ? null : labelCtrl.text.trim();
-                for (final field in fields) {
-                  final value = controllers[field['key']]!.text.trim();
-                  if (value.isNotEmpty) {
-                    await _service.saveCredentialWithAccount(
-                      platform: MarketplacePlatform.ebay,
-                      type: field['key']!,
-                      value: value,
-                      accountLabel: label,
-                    );
-                  }
+                final cId = clientIdCtrl.text.trim();
+                final cSecret = clientSecretCtrl.text.trim();
+                if (cId.isNotEmpty) {
+                  await _service.saveCredentialWithAccount(
+                    platform: MarketplacePlatform.ebay,
+                    type: 'client_id',
+                    value: cId,
+                    accountLabel: label,
+                  );
+                }
+                if (cSecret.isNotEmpty) {
+                  await _service.saveCredentialWithAccount(
+                    platform: MarketplacePlatform.ebay,
+                    type: 'client_secret',
+                    value: cSecret,
+                    accountLabel: label,
+                  );
+                }
+                if (cId.isEmpty && cSecret.isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('Vul minimaal een veld in'), backgroundColor: Colors.orange),
+                  );
+                  return;
                 }
                 if (!ctx.mounted) return;
                 Navigator.pop(ctx);
@@ -1873,8 +1955,6 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
     MarketplacePlatform.ebay => [
       {'key': 'client_id', 'label': 'App ID (Client ID)', 'hint': 'Van developer.ebay.com', 'secret': 'false'},
       {'key': 'client_secret', 'label': 'Cert ID (Client Secret)', 'hint': 'Geheim, bewaar veilig', 'secret': 'true'},
-      {'key': 'refresh_token', 'label': 'Refresh Token', 'hint': 'Langlevende OAuth token (optioneel als access token is ingevuld)', 'secret': 'true'},
-      {'key': 'access_token', 'label': 'User Access Token', 'hint': 'Van "User Tokens" pagina — geldig ~2 uur', 'secret': 'true'},
     ],
     MarketplacePlatform.amazon => [
       {'key': 'client_id', 'label': 'Client ID', 'hint': 'SP-API App Client ID', 'secret': 'false'},
