@@ -72,14 +72,15 @@ class _MfaEnrollScreenState extends State<MfaEnrollScreen> {
         _loading = false;
       });
     } on AuthException catch (e) {
+      debugPrint('MFA enroll AuthException: ${e.statusCode} ${e.message}');
       setState(() {
-        _error = e.message;
+        _error = 'MFA-fout: ${e.message}';
         _loading = false;
       });
     } catch (e) {
-      if (kDebugMode) debugPrint('Error enrolling MFA: $e');
+      debugPrint('MFA enroll error: $e');
       setState(() {
-        _error = 'Fout bij MFA-registratie. Probeer het opnieuw.';
+        _error = 'Fout bij MFA-registratie: $e';
         _loading = false;
       });
     }
@@ -185,7 +186,63 @@ class _MfaEnrollScreenState extends State<MfaEnrollScreen> {
     );
   }
 
+  Widget _buildErrorState() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Color(0xFFE53935)),
+            const SizedBox(height: 16),
+            const Text(
+              'MFA instellen mislukt',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF37474F)),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Text(
+                _error!,
+                style: TextStyle(color: Colors.red[700], fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Controleer je internetverbinding en probeer het opnieuw.\n'
+              'Als het probleem aanhoudt, neem contact op met de beheerder.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.blueGrey[400]),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: _enroll,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Opnieuw proberen', style: TextStyle(fontSize: 16)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Terug'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent() {
+    if (_qrUri == null && _error != null) return _buildErrorState();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(28),

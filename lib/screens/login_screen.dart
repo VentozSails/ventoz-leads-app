@@ -387,11 +387,10 @@ class _InvitedRegisterFormState extends State<_InvitedRegisterForm> {
       }
 
       final client = Supabase.instance.client;
-      final supabaseUrl = client.rest.url.replaceAll('/rest/v1', '');
       final response = await client.auth.signUp(
         email: email,
         password: password,
-        emailRedirectTo: supabaseUrl,
+        emailRedirectTo: 'https://ventozsails.github.io/ventoz-leads-app/inloggen',
       );
 
       if (response.user == null) {
@@ -644,11 +643,10 @@ class _SelfRegisterFormState extends State<_SelfRegisterForm> {
 
     try {
       final client = Supabase.instance.client;
-      final supabaseUrl = client.rest.url.replaceAll('/rest/v1', '');
       final response = await client.auth.signUp(
         email: email,
         password: password,
-        emailRedirectTo: supabaseUrl,
+        emailRedirectTo: 'https://ventozsails.github.io/ventoz-leads-app/inloggen',
       );
 
       if (response.user == null) {

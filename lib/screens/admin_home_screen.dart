@@ -37,6 +37,7 @@ import 'legal_text_screen.dart';
 import 'imap_settings_screen.dart';
 import '../services/login_security_service.dart';
 import '../services/customer_service.dart';
+import 'mfa_enroll_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -86,6 +87,53 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       _permissions = perms;
       _userRole = effectiveRole.label;
     });
+    await _enforceMfaIfRequired(user, realOwner, effectiveRole);
+  }
+
+  Future<void> _enforceMfaIfRequired(AppUser? user, bool isOwner, UserType effectiveRole) async {
+    final needsMfa = isOwner || effectiveRole.mfaRequired;
+    if (!needsMfa) return;
+    try {
+      final factors = await Supabase.instance.client.auth.mfa.listFactors();
+      final hasMfa = factors.totp.any((f) => f.status == FactorStatus.verified);
+      if (!hasMfa && mounted) {
+        final enrolled = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(builder: (_) => const MfaEnrollScreen()),
+        );
+        if (enrolled != true && mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              icon: const Icon(Icons.security, color: Color(0xFFE53935), size: 40),
+              title: const Text('MFA Verplicht'),
+              content: const Text(
+                'Als medewerker, beheerder of eigenaar is tweestapsverificatie (MFA) verplicht.\n\n'
+                'Je moet MFA instellen om de app te kunnen gebruiken.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await Supabase.instance.client.auth.signOut();
+                    if (mounted) context.go('/inloggen');
+                  },
+                  child: const Text('Uitloggen'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const MfaEnrollScreen()));
+                  },
+                  child: const Text('MFA Instellen'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadStats() async {
