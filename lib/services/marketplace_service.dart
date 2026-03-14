@@ -531,12 +531,29 @@ class MarketplaceService {
     required String type,
     required String value,
   }) async {
-    await _client.from(_credentialsTable).upsert({
-      'platform': platform.code,
-      'credential_type': type,
-      'encrypted_value': value,
-      'actief': true,
-    }, onConflict: 'platform,credential_type');
+    // Check for existing credential (with or without account_label)
+    final existing = await _client
+        .from(_credentialsTable)
+        .select('id')
+        .eq('platform', platform.code)
+        .eq('credential_type', type)
+        .isFilter('account_label', null)
+        .limit(1);
+
+    if ((existing as List).isNotEmpty) {
+      await _client.from(_credentialsTable).update({
+        'encrypted_value': value,
+        'actief': true,
+      }).eq('id', existing[0]['id']);
+    } else {
+      await _client.from(_credentialsTable).insert({
+        'platform': platform.code,
+        'credential_type': type,
+        'encrypted_value': value,
+        'actief': true,
+        'account_label': null,
+      });
+    }
   }
 
   Future<Map<String, String>> getCredentialValues(MarketplacePlatform platform) async {
