@@ -42,7 +42,7 @@ class SalesChannel {
 
   static const eigenSite = SalesChannel(code: 'eigen_site', label: 'Eigen site', shortLabel: 'Site', platform: MarketplacePlatform.marktplaats, country: 'nl');
 
-  static const ebayUk  = SalesChannel(code: 'ebay_uk',  label: 'eBay UK',  shortLabel: 'UK',  platform: MarketplacePlatform.ebay, country: 'en', currency: 'GBP');
+  static const ebayUk  = SalesChannel(code: 'ebay_uk',  label: 'eBay UK',  shortLabel: 'UK',  platform: MarketplacePlatform.ebay, country: 'uk', currency: 'GBP');
   static const ebayDe  = SalesChannel(code: 'ebay_de',  label: 'eBay DE',  shortLabel: 'DE',  platform: MarketplacePlatform.ebay, country: 'de');
   static const ebayIt  = SalesChannel(code: 'ebay_it',  label: 'eBay IT',  shortLabel: 'IT',  platform: MarketplacePlatform.ebay, country: 'it');
   static const ebayFr  = SalesChannel(code: 'ebay_fr',  label: 'eBay FR',  shortLabel: 'FR',  platform: MarketplacePlatform.ebay, country: 'fr');
@@ -60,7 +60,7 @@ class SalesChannel {
   static const amazonIt = SalesChannel(code: 'amazon_it', label: 'Amazon IT', shortLabel: 'IT', platform: MarketplacePlatform.amazon, country: 'it');
   static const amazonNl = SalesChannel(code: 'amazon_nl', label: 'Amazon NL', shortLabel: 'NL', platform: MarketplacePlatform.amazon, country: 'nl');
   static const amazonSe = SalesChannel(code: 'amazon_se', label: 'Amazon SE', shortLabel: 'SE', platform: MarketplacePlatform.amazon, country: 'se');
-  static const amazonUk = SalesChannel(code: 'amazon_uk', label: 'Amazon UK', shortLabel: 'UK', platform: MarketplacePlatform.amazon, country: 'en', currency: 'GBP');
+  static const amazonUk = SalesChannel(code: 'amazon_uk', label: 'Amazon UK', shortLabel: 'UK', platform: MarketplacePlatform.amazon, country: 'uk', currency: 'GBP');
 
   static const admarkNl = SalesChannel(code: 'admark_nl', label: 'Admark', shortLabel: 'Admark', platform: MarketplacePlatform.admark, country: 'nl');
 

@@ -1814,29 +1814,31 @@ function extractXml(xml: string, tag: string): string | null {
 }
 
 function detectEbaySite(url: string | null): { site: string; lang: string; marketplaceId: string } {
-  if (!url) return { site: "ebay.com", lang: "en", marketplaceId: "EBAY_US" };
-  const siteMap: Record<string, { lang: string; marketplaceId: string }> = {
-    "ebay.nl": { lang: "nl", marketplaceId: "EBAY_NL" },
-    "ebay.be": { lang: "nl", marketplaceId: "EBAY_BE_FR" },
-    "ebay.fr": { lang: "fr", marketplaceId: "EBAY_FR" },
-    "ebay.de": { lang: "de", marketplaceId: "EBAY_DE" },
-    "ebay.co.uk": { lang: "en", marketplaceId: "EBAY_GB" },
-    "ebay.com": { lang: "en", marketplaceId: "EBAY_US" },
-    "ebay.es": { lang: "es", marketplaceId: "EBAY_ES" },
-    "ebay.it": { lang: "it", marketplaceId: "EBAY_IT" },
-    "ebay.at": { lang: "de", marketplaceId: "EBAY_AT" },
-    "ebay.ch": { lang: "de", marketplaceId: "EBAY_CH" },
-    "ebay.com.au": { lang: "en", marketplaceId: "EBAY_AU" },
-    "ebay.pl": { lang: "pl", marketplaceId: "EBAY_PL" },
-    "ebay.ie": { lang: "en", marketplaceId: "EBAY_IE" },
-    "benl.ebay.be": { lang: "nl", marketplaceId: "EBAY_BE_NL" },
-    "befr.ebay.be": { lang: "fr", marketplaceId: "EBAY_BE_FR" },
-  };
+  if (!url) return { site: "ebay.com", lang: "us", marketplaceId: "EBAY_US" };
+  // lang = country code matching SalesChannel.country in Flutter
+  // Order matters: more specific domains (benl.ebay.be) must come before generic (ebay.be)
+  const siteMap: [string, { lang: string; marketplaceId: string }][] = [
+    ["benl.ebay.be", { lang: "be", marketplaceId: "EBAY_BE_NL" }],
+    ["befr.ebay.be", { lang: "be", marketplaceId: "EBAY_BE_FR" }],
+    ["ebay.co.uk",   { lang: "uk", marketplaceId: "EBAY_GB" }],
+    ["ebay.com.au",  { lang: "au", marketplaceId: "EBAY_AU" }],
+    ["ebay.nl",      { lang: "nl", marketplaceId: "EBAY_NL" }],
+    ["ebay.be",      { lang: "be", marketplaceId: "EBAY_BE_FR" }],
+    ["ebay.fr",      { lang: "fr", marketplaceId: "EBAY_FR" }],
+    ["ebay.de",      { lang: "de", marketplaceId: "EBAY_DE" }],
+    ["ebay.es",      { lang: "es", marketplaceId: "EBAY_ES" }],
+    ["ebay.it",      { lang: "it", marketplaceId: "EBAY_IT" }],
+    ["ebay.at",      { lang: "at", marketplaceId: "EBAY_AT" }],
+    ["ebay.ch",      { lang: "ch", marketplaceId: "EBAY_CH" }],
+    ["ebay.pl",      { lang: "pl", marketplaceId: "EBAY_PL" }],
+    ["ebay.ie",      { lang: "ie", marketplaceId: "EBAY_IE" }],
+    ["ebay.com",     { lang: "us", marketplaceId: "EBAY_US" }],
+  ];
   const lower = url.toLowerCase();
-  for (const [domain, info] of Object.entries(siteMap)) {
+  for (const [domain, info] of siteMap) {
     if (lower.includes(domain)) return { site: domain, ...info };
   }
-  return { site: "ebay.com", lang: "en", marketplaceId: "EBAY_US" };
+  return { site: "ebay.com", lang: "us", marketplaceId: "EBAY_US" };
 }
 
 // Utilities
