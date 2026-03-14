@@ -464,6 +464,7 @@ class _InviteDialogState extends State<_InviteDialog> {
   bool _isParticulier = true;
   String _landCode = 'NL';
   var _perms = UserPermissions.klantPreset;
+  double _kortingPermanent = 0;
 
   @override
   void dispose() { _emailCtrl.dispose(); super.dispose(); }
@@ -531,6 +532,32 @@ class _InviteDialogState extends State<_InviteDialog> {
                     ),
                   ],
                 ]),
+                if (_userType == UserType.wederverkoper) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: const Color(0xFFF3E5F5), borderRadius: BorderRadius.circular(8)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          const Icon(Icons.percent, size: 16, color: Color(0xFF7B1FA2)),
+                          const SizedBox(width: 8),
+                          Text('Permanente korting: ${_kortingPermanent.toStringAsFixed(0)}%',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF7B1FA2))),
+                        ]),
+                        const SizedBox(height: 8),
+                        Slider(
+                          value: _kortingPermanent,
+                          min: 0, max: 50, divisions: 10,
+                          label: '${_kortingPermanent.toStringAsFixed(0)}%',
+                          activeColor: const Color(0xFF7B1FA2),
+                          onChanged: (v) => setState(() => _kortingPermanent = v),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(10),
@@ -574,6 +601,7 @@ class _InviteDialogState extends State<_InviteDialog> {
                 permissions: _perms,
                 landCode: _landCode,
                 isParticulier: _isParticulier,
+                kortingPermanent: _userType == UserType.wederverkoper ? _kortingPermanent : 0,
               ));
             }
           },
