@@ -322,13 +322,14 @@ class CustomerService {
     if (ids.isEmpty) return customers;
 
     try {
-      // Fetch invoice numbers by klant_id
+      // Fetch invoice numbers by klant_id (raise limit for large customer sets)
       final List<dynamic> byIdRows = await _client
           .from('orders')
           .select('klant_id, factuur_nummer')
           .inFilter('klant_id', ids)
           .not('factuur_nummer', 'is', null)
-          .order('factuur_nummer', ascending: false);
+          .order('factuur_nummer', ascending: false)
+          .limit(5000);
 
       final byKlant = <String, List<String>>{};
       for (final row in byIdRows.cast<Map<String, dynamic>>()) {
