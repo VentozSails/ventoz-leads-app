@@ -887,11 +887,17 @@ class UserService {
     final isOwner = await UserService().isRealOwner();
     if (!isOwner) throw Exception('Alleen de eigenaar mag impersonation gebruiken.');
     _impersonation = profile;
+    onPermissionsChanged?.call();
   }
 
   static void stopImpersonation() {
     _impersonation = null;
+    onPermissionsChanged?.call();
   }
+
+  /// Hook called when permissions change (impersonation, role update, etc.).
+  /// Set by the router to invalidate its permission cache.
+  static void Function()? onPermissionsChanged;
 
   String? get currentUserId => _client.auth.currentUser?.id;
   String? get currentUserEmail => _client.auth.currentUser?.email;

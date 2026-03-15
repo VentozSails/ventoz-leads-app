@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'router/app_router.dart' show appRouter, authNotifier;
+import 'router/app_router.dart' show appRouter, authNotifier, initRouterPermissionHook;
 import 'services/user_service.dart';
 import 'theme/app_theme.dart';
 import 'l10n/locale_provider.dart';
@@ -59,6 +59,7 @@ class _BootstrapAppState extends State<_BootstrapApp> {
     } catch (_) {}
 
     authNotifier.init();
+    initRouterPermissionHook();
 
     if (kDebugMode) {
       final schemaErrors = UserPermissions.validateSchema();
