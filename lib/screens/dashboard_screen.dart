@@ -503,6 +503,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 _buildAppBar(),
                 if (UserService.isImpersonating) _buildImpersonationBanner(),
+                if (_permissions.alleBestellingenBeheren) _buildQuickAccessBar(),
                 Expanded(
                   child: _showingLeads
                       ? Stack(
@@ -523,6 +524,91 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ─── Quick Access Bar ───
+
+  Widget _buildQuickAccessBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+      ),
+      child: Row(
+        children: [
+          _quickAccessCard(
+            icon: Icons.inventory_2_outlined,
+            label: 'Productcatalogus',
+            color: const Color(0xFF1565C0),
+            onTap: () => setState(() => _currentView = 'catalogus'),
+          ),
+          const SizedBox(width: 10),
+          _quickAccessCard(
+            icon: Icons.warehouse_outlined,
+            label: 'Voorraad',
+            color: const Color(0xFF2E7D32),
+            onTap: () => context.push('/dashboard/voorraad'),
+          ),
+          const SizedBox(width: 10),
+          _quickAccessCard(
+            icon: Icons.grid_view_rounded,
+            label: 'Advertenties',
+            color: const Color(0xFFE53238),
+            onTap: () => context.push('/dashboard/kanaaloverzicht'),
+          ),
+          const SizedBox(width: 10),
+          _quickAccessCard(
+            icon: Icons.people_outline_rounded,
+            label: 'Klanten',
+            color: const Color(0xFF6366F1),
+            onTap: () => context.push('/dashboard/klanten'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickAccessCard({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    return Expanded(
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          hoverColor: color.withValues(alpha: 0.04),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color.withValues(alpha: 0.15)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, size: 18, color: color),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(Icons.chevron_right, size: 16, color: color.withValues(alpha: 0.4)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

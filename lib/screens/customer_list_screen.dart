@@ -34,6 +34,10 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   int _zakelijkCount = 0;
   int _particulierCount = 0;
 
+  String? _kpiFilter; // null = all, 'zakelijk', 'particulier'
+
+  final Map<String, double> _colWidths = {};
+
   final Set<String> _visibleCols = {
     'klantnr', 'naam', 'email', 'adres', 'postcode', 'plaats', 'land', 'telefoon', 'omzet', 'facturen', 'laatste_factuur', 'type',
   };
@@ -58,19 +62,26 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final results = await _service.getAll(
-      landFilter: _landFilter,
-      zakelijkFilter: _zakelijkFilter,
-      sortBy: _sortBy,
-      sortAsc: _sortAsc,
-      limit: 5000,
-    );
+
+    final effectiveZakelijk = _kpiFilter == 'zakelijk' ? true : _kpiFilter == 'particulier' ? false : _zakelijkFilter;
+
+    final futures = await Future.wait([
+      _service.getAll(
+        landFilter: _landFilter,
+        zakelijkFilter: effectiveZakelijk,
+        sortBy: _sortBy,
+        sortAsc: _sortAsc,
+        limit: 10000,
+      ),
+      _service.getCounts(),
+    ]);
     if (!mounted) return;
-    _all = results;
+    _all = futures[0] as List<Customer>;
+    final counts = futures[1] as ({int total, int zakelijk, int particulier});
+    _totalCount = counts.total;
+    _zakelijkCount = counts.zakelijk;
+    _particulierCount = counts.particulier;
     _applySearch();
-    _totalCount = results.length;
-    _zakelijkCount = results.where((c) => c.isZakelijk).length;
-    _particulierCount = _totalCount - _zakelijkCount;
     setState(() => _loading = false);
   }
 
@@ -187,33 +198,51 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
       child: Row(
         children: [
-          _kpiChip(Icons.people_rounded, '$_totalCount', 'Totaal', _accent),
+          _kpiChip(Icons.people_rounded, '$_totalCount', 'Totaal', _accent, filterKey: null),
           const SizedBox(width: 10),
-          _kpiChip(Icons.business_rounded, '$_zakelijkCount', 'Zakelijk', const Color(0xFF6366F1)),
+          _kpiChip(Icons.business_rounded, '$_zakelijkCount', 'Zakelijk', const Color(0xFF6366F1), filterKey: 'zakelijk'),
           const SizedBox(width: 10),
-          _kpiChip(Icons.person_rounded, '$_particulierCount', 'Particulier', const Color(0xFF0EA5E9)),
+          _kpiChip(Icons.person_rounded, '$_particulierCount', 'Particulier', const Color(0xFF0EA5E9), filterKey: 'particulier'),
+          const Spacer(),
+          Text(
+            '${_customers.length} getoond',
+            style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF94A3B8)),
+          ),
         ],
       ),
     );
   }
 
-  Widget _kpiChip(IconData icon, String value, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 7),
-          Text(value, style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w700, color: color)),
-          const SizedBox(width: 5),
-          Text(label, style: GoogleFonts.dmSans(fontSize: 11, color: color.withValues(alpha: 0.7))),
-        ],
+  Widget _kpiChip(IconData icon, String value, String label, Color color, {required String? filterKey}) {
+    final isActive = _kpiFilter == filterKey;
+    return InkWell(
+      onTap: () {
+        setState(() => _kpiFilter = isActive ? null : filterKey);
+        _load();
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? color.withValues(alpha: 0.15) : color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isActive ? color : color.withValues(alpha: 0.15), width: isActive ? 1.5 : 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 7),
+            Text(value, style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w700, color: color)),
+            const SizedBox(width: 5),
+            Text(label, style: GoogleFonts.dmSans(fontSize: 11, color: color.withValues(alpha: 0.7))),
+            if (isActive) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.close, size: 12, color: color.withValues(alpha: 0.5)),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -428,10 +457,12 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   };
 
   List<_Col> _buildCols() {
-    final cols = <_Col>[const _Col('', 36)];
+    final cols = <_Col>[const _Col('', 36, key: '_avatar')];
     for (final key in _colOrder) {
       if (_visibleCols.contains(key) && _colDefs.containsKey(key)) {
-        cols.add(_colDefs[key]!);
+        final def = _colDefs[key]!;
+        final w = _colWidths[key] ?? def.width;
+        cols.add(_Col(def.label, w, sortKey: def.sortKey, key: key));
       }
     }
     return cols;
@@ -443,6 +474,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     return Scrollbar(
       controller: _hScrollCtrl,
       thumbVisibility: true,
+      trackVisibility: true,
       child: SingleChildScrollView(
         controller: _hScrollCtrl,
         scrollDirection: Axis.horizontal,
@@ -457,10 +489,15 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
               ),
               const Divider(height: 1, color: _border),
               Expanded(
-                child: ListView.builder(
+                child: Scrollbar(
                   controller: _scrollCtrl,
-                  itemCount: _customers.length,
-                  itemBuilder: (ctx, i) => _tableRow(_customers[i], i, cols),
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  child: ListView.builder(
+                    controller: _scrollCtrl,
+                    itemCount: _customers.length,
+                    itemBuilder: (ctx, i) => _tableRow(_customers[i], i, cols),
+                  ),
                 ),
               ),
             ],
@@ -472,25 +509,39 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
 
   Widget _headerCell(_Col col) {
     final isSorted = col.sortKey != null && _sortBy == col.sortKey;
-    return InkWell(
-      onTap: col.sortKey != null ? () => _setSort(col.sortKey!) : null,
-      child: SizedBox(
-        width: col.width,
-        height: 36,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  col.label,
-                  style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: _navy.withValues(alpha: 0.7)),
-                  overflow: TextOverflow.ellipsis,
-                ),
+    final resizable = col.key != null && col.key != '_avatar';
+    return GestureDetector(
+      onHorizontalDragUpdate: resizable
+          ? (d) => setState(() {
+              final key = col.key!;
+              final def = _colDefs[key];
+              final current = _colWidths[key] ?? def?.width ?? col.width;
+              _colWidths[key] = (current + d.delta.dx).clamp(50, 400);
+            })
+          : null,
+      child: MouseRegion(
+        cursor: resizable ? SystemMouseCursors.resizeColumn : SystemMouseCursors.basic,
+        child: InkWell(
+          onTap: col.sortKey != null ? () => _setSort(col.sortKey!) : null,
+          child: SizedBox(
+            width: col.width,
+            height: 36,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      col.label,
+                      style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: _navy.withValues(alpha: 0.7)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (isSorted)
+                    Icon(_sortAsc ? Icons.arrow_upward : Icons.arrow_downward, size: 12, color: _accent),
+                ],
               ),
-              if (isSorted)
-                Icon(_sortAsc ? Icons.arrow_upward : Icons.arrow_downward, size: 12, color: _accent),
-            ],
+            ),
           ),
         ),
       ),
@@ -723,6 +774,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   }
 
   Widget _buildFooter() {
+    final hasFilter = _searchCtrl.text.isNotEmpty || _landFilter != null || _zakelijkFilter != null || _kpiFilter != null;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       color: Colors.white,
@@ -732,7 +784,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
             '${_customers.length} van $_totalCount klanten',
             style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF64748B)),
           ),
-          if (_searchCtrl.text.isNotEmpty || _landFilter != null || _zakelijkFilter != null) ...[
+          if (hasFilter) ...[
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -755,7 +807,8 @@ class _Col {
   final String label;
   final double width;
   final String? sortKey;
-  const _Col(this.label, this.width, {this.sortKey});
+  final String? key;
+  const _Col(this.label, this.width, {this.sortKey, this.key});
 }
 
 class _ColDef {

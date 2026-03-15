@@ -294,22 +294,59 @@ class CustomerService {
     return input.replaceAll(RegExp(r'[,\(\)\.\\\"]'), '');
   }
 
-  Future<List<Customer>> getAll({String? search, String? landFilter, bool? zakelijkFilter, String? sortBy, bool sortAsc = true, int limit = 500}) async {
+  Future<({int total, int zakelijk, int particulier})> getCounts() async {
     try {
-      var query = _client.from(_table).select();
-      if (search != null && search.trim().isNotEmpty) {
-        final s = '%${_sanitizeFilter(search.trim())}%';
-        query = query.or('email.ilike.$s,naam.ilike.$s,klantnummer.ilike.$s,bedrijfsnaam.ilike.$s,woonplaats.ilike.$s,snelstart_klantcode.ilike.$s,contactpersoon.ilike.$s');
+      final allRows = <Map<String, dynamic>>[];
+      int offset = 0;
+      const batchSize = 1000;
+      while (true) {
+        final List<dynamic> batch = await _client
+            .from(_table)
+            .select('id, is_zakelijk')
+            .range(offset, offset + batchSize - 1);
+        allRows.addAll(batch.cast<Map<String, dynamic>>());
+        if (batch.length < batchSize) break;
+        offset += batchSize;
       }
-      if (landFilter != null && landFilter.isNotEmpty) {
-        query = query.eq('land_code', landFilter);
-      }
-      if (zakelijkFilter != null) {
-        query = query.eq('is_zakelijk', zakelijkFilter);
-      }
+      final total = allRows.length;
+      final zakelijk = allRows.where((r) => r['is_zakelijk'] == true).length;
+      return (total: total, zakelijk: zakelijk, particulier: total - zakelijk);
+    } catch (e) {
+      if (kDebugMode) debugPrint('CustomerService.getCounts error: $e');
+      return (total: 0, zakelijk: 0, particulier: 0);
+    }
+  }
+
+  Future<List<Customer>> getAll({String? search, String? landFilter, bool? zakelijkFilter, String? sortBy, bool sortAsc = true, int limit = 10000}) async {
+    try {
       final orderCol = _allowedSortColumns.contains(sortBy) ? sortBy! : 'naam';
-      final List<dynamic> rows = await query.order(orderCol, ascending: sortAsc).limit(limit);
-      final customers = rows.cast<Map<String, dynamic>>().map(Customer.fromJson).toList();
+      final allRows = <Map<String, dynamic>>[];
+      int offset = 0;
+      const batchSize = 1000;
+
+      while (allRows.length < limit) {
+        var query = _client.from(_table).select();
+        if (search != null && search.trim().isNotEmpty) {
+          final s = '%${_sanitizeFilter(search.trim())}%';
+          query = query.or('email.ilike.$s,naam.ilike.$s,klantnummer.ilike.$s,bedrijfsnaam.ilike.$s,woonplaats.ilike.$s,snelstart_klantcode.ilike.$s,contactpersoon.ilike.$s');
+        }
+        if (landFilter != null && landFilter.isNotEmpty) {
+          query = query.eq('land_code', landFilter);
+        }
+        if (zakelijkFilter != null) {
+          query = query.eq('is_zakelijk', zakelijkFilter);
+        }
+        final remaining = limit - allRows.length;
+        final fetchSize = remaining < batchSize ? remaining : batchSize;
+        final List<dynamic> rows = await query
+            .order(orderCol, ascending: sortAsc)
+            .range(offset, offset + fetchSize - 1);
+        allRows.addAll(rows.cast<Map<String, dynamic>>());
+        if (rows.length < fetchSize) break;
+        offset += fetchSize;
+      }
+
+      final customers = allRows.map(Customer.fromJson).toList();
       return await _enrichWithInvoiceNumbers(customers);
     } catch (e) {
       if (kDebugMode) debugPrint('CustomerService.getAll error: $e');
