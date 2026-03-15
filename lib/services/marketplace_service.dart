@@ -979,6 +979,21 @@ class MarketplaceService {
     });
   }
 
+  Future<int> resetAllMatches({String platform = 'ebay'}) async {
+    final rows = await _client
+        .from(_listingsTable)
+        .select('id')
+        .eq('platform', platform)
+        .neq('match_status', 'unmatched');
+    final ids = (rows as List).map((r) => r['id'] as int).toList();
+    if (ids.isEmpty) return 0;
+    await _client.from(_listingsTable).update({
+      'product_id': null,
+      'match_status': 'unmatched',
+    }).inFilter('id', ids);
+    return ids.length;
+  }
+
   Future<List<MarketplaceListing>> getUnmatchedListings({String? platform}) async {
     var query = _client
         .from(_listingsTable)
@@ -1244,13 +1259,22 @@ class MarketplaceService {
 
   Future<Map<String, dynamic>> _callEdgeFunction(
     String functionName,
-    Map<String, dynamic> body,
-  ) async {
+    Map<String, dynamic> body, {
+    bool retried = false,
+  }) async {
     try {
       final response = await _client.functions.invoke(
         functionName,
         body: body,
       );
+
+      if (response.status == 401 && !retried) {
+        if (kDebugMode) debugPrint('JWT expired, refreshing session...');
+        try {
+          await _client.auth.refreshSession();
+        } catch (_) {}
+        return _callEdgeFunction(functionName, body, retried: true);
+      }
 
       if (response.status >= 200 && response.status < 300) {
         final data = response.data;
@@ -1263,6 +1287,15 @@ class MarketplaceService {
       } else {
         throw Exception('Edge Function error ${response.status}: ${response.data}');
       }
+    } on FunctionException catch (e) {
+      if (!retried && e.status == 401) {
+        if (kDebugMode) debugPrint('JWT expired (FunctionException), refreshing session...');
+        try {
+          await _client.auth.refreshSession();
+        } catch (_) {}
+        return _callEdgeFunction(functionName, body, retried: true);
+      }
+      rethrow;
     } catch (e) {
       if (kDebugMode) debugPrint('Edge Function call error: $e');
       rethrow;

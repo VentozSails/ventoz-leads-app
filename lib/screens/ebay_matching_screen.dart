@@ -113,6 +113,40 @@ class _EbayMatchingScreenState extends State<EbayMatchingScreen> {
     }
   }
 
+  Future<void> _resetAllMatches() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text('Alle koppelingen ontkoppelen?'),
+        content: const Text('Dit zet alle bestaande product-koppelingen terug naar "ontkoppeld". '
+            'Je kunt daarna opnieuw auto-matchen.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuleren')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE53935)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Ontkoppelen'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      final count = await _service.resetAllMatches();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$count koppelingen ontkoppeld'), backgroundColor: const Color(0xFF2E7D32)),
+      );
+      _loadAll();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fout: $e'), backgroundColor: const Color(0xFFE53935)),
+      );
+    }
+  }
+
   Future<void> _autoMatch() async {
     setState(() => _autoMatching = true);
     try {
@@ -155,6 +189,12 @@ class _EbayMatchingScreenState extends State<EbayMatchingScreen> {
               icon: const Icon(Icons.auto_awesome, size: 18, color: Colors.white70),
               label: Text('Auto-match', style: GoogleFonts.dmSans(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
             ),
+          const SizedBox(width: 4),
+          TextButton.icon(
+            onPressed: _resetAllMatches,
+            icon: const Icon(Icons.link_off_rounded, size: 18, color: Colors.white70),
+            label: Text('Ontkoppelen', style: GoogleFonts.dmSans(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+          ),
           const SizedBox(width: 4),
           TextButton.icon(
             onPressed: _showPublishWizard,

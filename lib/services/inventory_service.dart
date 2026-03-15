@@ -472,6 +472,66 @@ class InventoryService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getVeCodeSummaries() async {
+    try {
+      final List<dynamic> rows = await _client
+          .from('inventory_items')
+          .select('leverancier_code, variant_label, kleur, voorraad_actueel, inkoop_prijs, verkoopprijs_incl, is_archived, laatst_bijgewerkt')
+          .not('leverancier_code', 'is', null)
+          .neq('leverancier_code', '')
+          .order('leverancier_code', ascending: false);
+
+      final grouped = <String, Map<String, dynamic>>{};
+      for (final row in rows.cast<Map<String, dynamic>>()) {
+        final code = row['leverancier_code'] as String;
+        final g = grouped.putIfAbsent(code, () => ({
+          'code': code,
+          'items': 0,
+          'active': 0,
+          'archived': 0,
+          'total_stock': 0,
+          'total_cost': 0.0,
+          'total_sale': 0.0,
+          'products': <String>{},
+          'first_date': null as DateTime?,
+          'last_date': null as DateTime?,
+        }));
+        g['items'] = (g['items'] as int) + 1;
+        final isArchived = row['is_archived'] == true;
+        if (isArchived) {
+          g['archived'] = (g['archived'] as int) + 1;
+        } else {
+          g['active'] = (g['active'] as int) + 1;
+        }
+        final stock = (row['voorraad_actueel'] as int?) ?? 0;
+        g['total_stock'] = (g['total_stock'] as int) + stock;
+        final inkoop = (row['inkoop_prijs'] as num?)?.toDouble() ?? 0;
+        g['total_cost'] = (g['total_cost'] as double) + inkoop * stock;
+        final vk = (row['verkoopprijs_incl'] as num?)?.toDouble() ?? 0;
+        g['total_sale'] = (g['total_sale'] as double) + vk * stock;
+        final label = (row['variant_label'] as String?) ?? '';
+        if (label.isNotEmpty) (g['products'] as Set<String>).add(label);
+        final dateStr = row['laatst_bijgewerkt'] as String?;
+        if (dateStr != null) {
+          final d = DateTime.tryParse(dateStr);
+          if (d != null) {
+            final first = g['first_date'] as DateTime?;
+            final last = g['last_date'] as DateTime?;
+            if (first == null || d.isBefore(first)) g['first_date'] = d;
+            if (last == null || d.isAfter(last)) g['last_date'] = d;
+          }
+        }
+      }
+      return grouped.values.map((g) => {
+        ...g,
+        'products': (g['products'] as Set<String>).toList(),
+      }).toList();
+    } catch (e) {
+      if (kDebugMode) debugPrint('InventoryService.getVeCodeSummaries error: $e');
+      return [];
+    }
+  }
+
   Future<List<InventoryItem>> getByLeverancierCode(String code) async {
     try {
       final List<dynamic> rows = await _client

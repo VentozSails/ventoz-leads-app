@@ -450,6 +450,8 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                 ),
                 const SizedBox(width: 4),
                 IconButton(icon: const Icon(Icons.checklist_rounded), tooltip: 'Selecteren voor archief', onPressed: _toggleSelectMode),
+                IconButton(icon: const Icon(Icons.local_shipping_outlined), tooltip: 'VE-ordenoverzicht',
+                  onPressed: _showVeOrderOverview),
                 IconButton(icon: const Icon(Icons.archive_outlined), tooltip: 'Voorraad Archief',
                   onPressed: () async {
                     await Navigator.push(context, MaterialPageRoute(builder: (_) => const InventoryArchiveScreen()));
@@ -860,6 +862,14 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     );
   }
 
+  // ── VE-order overview ──
+  void _showVeOrderOverview() {
+    showDialog(
+      context: context,
+      builder: (_) => _VeOrderOverviewDialog(onOpenDetail: _showVeOrderDetail),
+    );
+  }
+
   // ── Product Group ──
   void _showVeOrderDetail(String veCode) {
     showDialog(
@@ -1204,4 +1214,279 @@ class _VeOrderDetailDialogState extends State<_VeOrderDetailDialog> {
   }
 
   String _fmtDate(DateTime d) => '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
+}
+
+// ── VE-Order Overview Dialog ──
+class _VeOrderOverviewDialog extends StatefulWidget {
+  final void Function(String veCode) onOpenDetail;
+  const _VeOrderOverviewDialog({required this.onOpenDetail});
+  @override
+  State<_VeOrderOverviewDialog> createState() => _VeOrderOverviewDialogState();
+}
+
+class _VeOrderOverviewDialogState extends State<_VeOrderOverviewDialog> {
+  static const _navy = Color(0xFF1E3A5F);
+  List<Map<String, dynamic>>? _summaries;
+  List<Map<String, dynamic>> _filtered = [];
+  bool _loading = true;
+  String? _error;
+  final _searchCtl = TextEditingController();
+  String _sortBy = 'code';
+  bool _sortAsc = false;
+
+  @override
+  void initState() { super.initState(); _load(); _searchCtl.addListener(_applyFilter); }
+  @override
+  void dispose() { _searchCtl.dispose(); super.dispose(); }
+
+  Future<void> _load() async {
+    try {
+      final data = await InventoryService().getVeCodeSummaries();
+      if (mounted) setState(() { _summaries = data; _loading = false; });
+      _applyFilter();
+    } catch (e) {
+      if (mounted) setState(() { _error = '$e'; _loading = false; });
+    }
+  }
+
+  void _applyFilter() {
+    if (_summaries == null) return;
+    final q = _searchCtl.text.toLowerCase().trim();
+    var list = _summaries!.where((s) {
+      if (q.isEmpty) return true;
+      final code = (s['code'] as String).toLowerCase();
+      final prods = (s['products'] as List).join(' ').toLowerCase();
+      return code.contains(q) || prods.contains(q);
+    }).toList();
+    list.sort((a, b) {
+      int c;
+      switch (_sortBy) {
+        case 'items': c = (a['items'] as int).compareTo(b['items'] as int); break;
+        case 'stock': c = (a['total_stock'] as int).compareTo(b['total_stock'] as int); break;
+        case 'cost': c = (a['total_cost'] as double).compareTo(b['total_cost'] as double); break;
+        case 'date':
+          final ad = a['last_date'] as DateTime?;
+          final bd = b['last_date'] as DateTime?;
+          if (ad == null && bd == null) { c = 0; break; }
+          if (ad == null) { c = -1; break; }
+          if (bd == null) { c = 1; break; }
+          c = ad.compareTo(bd);
+          break;
+        default:
+          c = _veNum(a['code'] as String).compareTo(_veNum(b['code'] as String));
+      }
+      return _sortAsc ? c : -c;
+    });
+    if (mounted) setState(() => _filtered = list);
+  }
+
+  int _veNum(String code) {
+    final m = RegExp(r'(\d+)').firstMatch(code);
+    return m != null ? int.tryParse(m.group(1)!) ?? 0 : 0;
+  }
+
+  void _setSort(String col) {
+    setState(() {
+      if (_sortBy == col) { _sortAsc = !_sortAsc; } else { _sortBy = col; _sortAsc = col == 'code'; }
+    });
+    _applyFilter();
+  }
+
+  String _eur(double v) => '€${v.toStringAsFixed(2).replaceAll('.', ',')}';
+  String _fmtDate(DateTime d) => '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year.toString().substring(2)}';
+
+  @override
+  Widget build(BuildContext context) {
+    final totalOrders = _summaries?.length ?? 0;
+    final totalItems = _summaries?.fold(0, (s, g) => s + (g['items'] as int)) ?? 0;
+    final totalStock = _summaries?.fold(0, (s, g) => s + (g['total_stock'] as int)) ?? 0;
+    final totalCost = _summaries?.fold(0.0, (s, g) => s + (g['total_cost'] as double)) ?? 0.0;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 620),
+        child: Column(children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+            decoration: const BoxDecoration(
+              color: _navy,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.local_shipping_outlined, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              const Expanded(child: Text('VE-Ordenoverzicht', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white))),
+              if (!_loading) ...[
+                _topChip('$totalOrders', 'orders', const Color(0xFF90CAF9)),
+                const SizedBox(width: 6),
+                _topChip('$totalItems', 'items', const Color(0xFFA5D6A7)),
+                const SizedBox(width: 6),
+                _topChip('$totalStock', 'voorraad', totalStock > 0 ? const Color(0xFF81C784) : const Color(0xFFEF9A9A)),
+                const SizedBox(width: 6),
+                _topChip(_eur(totalCost), 'inkoop', const Color(0xFF90CAF9)),
+              ],
+              const SizedBox(width: 8),
+              IconButton(icon: const Icon(Icons.close, color: Colors.white70, size: 18), onPressed: () => Navigator.pop(context)),
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: TextField(
+              controller: _searchCtl,
+              decoration: InputDecoration(
+                hintText: 'Zoek op VE-code of productnaam...',
+                prefixIcon: const Icon(Icons.search, size: 18),
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+          _buildHeader(),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(child: Text('Fout: $_error'))
+                    : _filtered.isEmpty
+                        ? const Center(child: Text('Geen VE-orders gevonden'))
+                        : Scrollbar(
+                            thumbVisibility: true,
+                            child: ListView.builder(
+                              itemCount: _filtered.length,
+                              itemBuilder: (_, i) => _buildRow(_filtered[i], i),
+                            ),
+                          ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _topChip(String val, String label, Color c) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: c.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(val, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c)),
+        const SizedBox(width: 3),
+        Text(label, style: TextStyle(fontSize: 9, color: c.withValues(alpha: 0.8))),
+      ]),
+    );
+  }
+
+  Widget _sortableHeader(String label, String col, double w, {TextAlign align = TextAlign.left}) {
+    final active = _sortBy == col;
+    return InkWell(
+      onTap: () => _setSort(col),
+      child: SizedBox(
+        width: w,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: align == TextAlign.right ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: active ? Colors.white : Colors.white70)),
+            if (active) Icon(_sortAsc ? Icons.arrow_upward : Icons.arrow_downward, size: 10, color: Colors.white),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: _navy,
+      child: Row(children: [
+        _sortableHeader('VE-code', 'code', 80),
+        _sortableHeader('Items', 'items', 45, align: TextAlign.right),
+        const SizedBox(width: 8),
+        _sortableHeader('Voorraad', 'stock', 55, align: TextAlign.right),
+        const SizedBox(width: 8),
+        _sortableHeader('Inkoopwaarde', 'cost', 85, align: TextAlign.right),
+        const SizedBox(width: 12),
+        const Expanded(child: Text('Producten', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white70))),
+        _sortableHeader('Laatste', 'date', 60, align: TextAlign.right),
+      ]),
+    );
+  }
+
+  Widget _buildRow(Map<String, dynamic> s, int idx) {
+    final code = s['code'] as String;
+    final active = s['active'] as int;
+    final archived = s['archived'] as int;
+    final stock = s['total_stock'] as int;
+    final cost = s['total_cost'] as double;
+    final products = (s['products'] as List).cast<String>();
+    final lastDate = s['last_date'] as DateTime?;
+
+    final hasStock = stock > 0;
+    final bg = idx.isEven ? Colors.white : const Color(0xFFF8FAFC);
+
+    return InkWell(
+      onTap: () => widget.onOpenDetail(code),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: BoxDecoration(
+          color: bg,
+          border: Border(bottom: BorderSide(color: const Color(0xFFE5E7EB).withValues(alpha: 0.5))),
+        ),
+        child: Row(children: [
+          SizedBox(
+            width: 80,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: _navy.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(4)),
+              child: Text(code, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, fontFamily: 'monospace', color: _navy)),
+            ),
+          ),
+          SizedBox(
+            width: 45,
+            child: RichText(
+              textAlign: TextAlign.right,
+              text: TextSpan(style: const TextStyle(fontSize: 10, color: Color(0xFF374151)), children: [
+                TextSpan(text: '$active', style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2E7D32))),
+                if (archived > 0) ...[
+                  const TextSpan(text: '+'),
+                  TextSpan(text: '$archived', style: TextStyle(color: const Color(0xFF9E9E9E).withValues(alpha: 0.8))),
+                ],
+              ]),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 55,
+            child: Text('$stock', textAlign: TextAlign.right,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: hasStock ? const Color(0xFF2E7D32) : const Color(0xFFEF4444))),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 85,
+            child: Text(cost > 0 ? _eur(cost) : '', textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280))),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              products.take(3).join(', ') + (products.length > 3 ? ' +${products.length - 3}' : ''),
+              style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          SizedBox(
+            width: 60,
+            child: Text(
+              lastDate != null ? _fmtDate(lastDate) : '',
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right, size: 16, color: Color(0xFFBDBDBD)),
+        ]),
+      ),
+    );
+  }
 }
