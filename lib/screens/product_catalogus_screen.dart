@@ -386,69 +386,204 @@ class _ProductCatalogusScreenState extends State<ProductCatalogusScreen> {
   }
 
   Future<void> _startFullTranslation() async {
-    final confirmed = await showDialog<bool>(
+    if (!mounted) return;
+
+    showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.translate, color: Color(0xFF455A64), size: 40),
-        title: const Text('Alle vertalingen genereren'),
-        content: const Text(
-          'Dit vertaalt alle productnamen en -beschrijvingen naar alle 23 EU-talen.\n\n'
-          'Dit kan enkele minuten duren bij ca. 90 producten.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(_l.t('annuleren'))),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.translate, size: 18),
-            label: const Text('Starten'),
-            onPressed: () => Navigator.pop(ctx, true),
-          ),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
     );
-    if (confirmed != true) return;
 
-    setState(() {
-      _syncing = true;
-      _syncProgress = ScrapeProgress(total: 0, current: 0, currentProduct: _l.t('vertalen_bezig'));
-    });
-
+    List<Map<String, dynamic>> products;
     try {
-      final count = await _scraperService.translateAllProducts(
-        onProgress: (current, total) {
-          if (mounted) {
-            setState(() {
-              _syncProgress = ScrapeProgress(
-                total: total, current: current,
-                currentProduct: '${_l.t('vertalen_bezig')} $current/$total',
-              );
-            });
-          }
-        },
-      );
-
-      if (!mounted) return;
-      setState(() { _syncing = false; _syncProgress = null; });
-
-      if (count > 0) {
+      products = await _scraperService.getProductsNeedingTranslation();
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$count ${_l.t('producten_vertaald')}'),
-          backgroundColor: const Color(0xFF43A047),
+          content: Text('Fout bij ophalen producten: $e'),
+          backgroundColor: const Color(0xFFE53935),
         ));
-        _loadDataSilent();
-      } else {
+      }
+      return;
+    }
+
+    if (mounted) Navigator.pop(context);
+
+    if (products.isEmpty) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Alle vertalingen zijn al up-to-date'),
           backgroundColor: Color(0xFF455A64),
         ));
       }
-    } catch (e) {
-      if (kDebugMode) debugPrint('Error translating products: $e');
-      if (!mounted) return;
-      setState(() { _syncing = false; _syncProgress = null; });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Vertalen mislukt. Probeer het opnieuw.'),
-        backgroundColor: Color(0xFFE53935),
-      ));
+      return;
+    }
+
+    if (!mounted) return;
+
+    bool cancelled = false;
+    int completed = 0;
+    int failed = 0;
+    String currentProduct = '';
+    String currentLang = '';
+    int currentLangIdx = 0;
+    int totalLangs = 26;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) {
+          if (completed == 0 && !cancelled && currentProduct.isEmpty) {
+            _runSequentialTranslation(
+              products: products,
+              onProductStart: (name, idx) => setDlg(() { currentProduct = name; }),
+              onLangProgress: (lang, idx, total) => setDlg(() { currentLang = lang; currentLangIdx = idx; totalLangs = total; }),
+              onProductDone: (success) => setDlg(() { if (success) completed++; else failed++; }),
+              isCancelled: () => cancelled,
+            ).then((_) {
+              if (ctx.mounted) Navigator.pop(ctx);
+            });
+          }
+
+          final productIdx = completed + failed;
+          final overallFraction = products.isNotEmpty ? productIdx / products.length : 0.0;
+          final langFraction = totalLangs > 0 ? currentLangIdx / totalLangs : 0.0;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            title: Row(children: [
+              const Icon(Icons.translate, size: 20, color: Color(0xFF455A64)),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('Vertalingen genereren', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
+            ]),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Text('Product ${productIdx + 1} / ${products.length}',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                        ),
+                        const Spacer(),
+                        Text('$completed vertaald${failed > 0 ? ' · $failed mislukt' : ''}',
+                          style: TextStyle(fontSize: 11, color: failed > 0 ? const Color(0xFFE53935) : const Color(0xFF2E7D32)),
+                        ),
+                      ]),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: overallFraction,
+                          minHeight: 6,
+                          backgroundColor: const Color(0xFFE2E8F0),
+                          valueColor: const AlwaysStoppedAnimation(Color(0xFF1565C0)),
+                        ),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(height: 12),
+                  if (currentProduct.isNotEmpty) ...[
+                    Text(currentProduct,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(children: [
+                      Text('Taal: ${currentLang.toUpperCase()}',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: langFraction,
+                            minHeight: 4,
+                            backgroundColor: const Color(0xFFE2E8F0),
+                            valueColor: const AlwaysStoppedAnimation(Color(0xFF43A047)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('$currentLangIdx / $totalLangs',
+                        style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                      ),
+                    ]),
+                  ],
+                  const SizedBox(height: 14),
+                  Text(
+                    'Per product worden naam, beschrijving en specificaties vertaald naar 26 talen. '
+                    'Elk product duurt ca. 5–8 seconden. Je kunt op elk moment stoppen.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton.icon(
+                onPressed: () {
+                  cancelled = true;
+                },
+                icon: const Icon(Icons.stop_circle_outlined, size: 16),
+                label: Text(cancelled ? 'Wordt gestopt...' : 'Stoppen'),
+                style: TextButton.styleFrom(foregroundColor: const Color(0xFFE53935)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (completed > 0) {
+      _loadDataSilent();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$completed product(en) vertaald${cancelled ? ' (gestopt na ${completed + failed} van ${products.length})' : ''}'),
+          backgroundColor: const Color(0xFF43A047),
+        ));
+      }
+    }
+  }
+
+  Future<void> _runSequentialTranslation({
+    required List<Map<String, dynamic>> products,
+    required void Function(String name, int idx) onProductStart,
+    required void Function(String lang, int idx, int total) onLangProgress,
+    required void Function(bool success) onProductDone,
+    required bool Function() isCancelled,
+  }) async {
+    for (var i = 0; i < products.length; i++) {
+      if (isCancelled()) break;
+      final row = products[i];
+      final naam = (row['naam'] as String?) ?? '(naamloos)';
+      onProductStart(naam, i);
+
+      try {
+        final ok = await _scraperService.translateSingleProduct(
+          row,
+          cancelled: isCancelled,
+          onLangProgress: onLangProgress,
+        );
+        onProductDone(ok);
+      } catch (e) {
+        if (kDebugMode) debugPrint('Translation error for $naam: $e');
+        onProductDone(false);
+      }
+
+      if (isCancelled()) break;
+      await Future.delayed(const Duration(milliseconds: 200));
     }
   }
 

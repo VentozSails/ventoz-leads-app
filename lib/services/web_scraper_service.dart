@@ -974,20 +974,11 @@ class WebScraperService {
     }
   }
 
-  // ─── Translation: all 23 EU languages ───
+  // ─── Translation: all 26 target languages ───
 
-  /// Translates products that are missing translations for any of the 23
-  /// target languages. Checks a sample of 3 languages spread across old
-  /// (de, en) and new (sv) to detect which products need work.
-  /// Set [forceAll] to true to retranslate every product regardless.
-  Future<int> translateAllProducts({
-    void Function(int current, int total)? onProgress,
-    bool forceAll = false,
-  }) async {
-    final translator = TranslateService();
+  /// Returns the list of products that need translation work.
+  Future<List<Map<String, dynamic>>> getProductsNeedingTranslation({bool forceAll = false}) async {
     final targets = TranslateService.translationTargets;
-    int translated = 0;
-
     final selectCols = [
       'id', 'naam', 'beschrijving', 'materiaal', 'inclusief', 'translated_specs',
       ...targets.map((l) => 'naam_$l'),
@@ -995,28 +986,22 @@ class WebScraperService {
     final List<dynamic> rows = await _client
         .from('product_catalogus')
         .select(selectCols.join(', '))
-        .order('id', ascending: true);
+        .order('naam', ascending: true);
+
+    if (forceAll) {
+      return rows.cast<Map<String, dynamic>>().where((r) => ((r['naam'] as String?) ?? '').isNotEmpty).toList();
+    }
 
     final needsWork = <Map<String, dynamic>>[];
     for (final row in rows.cast<Map<String, dynamic>>()) {
       final naam = (row['naam'] as String?) ?? '';
       if (naam.isEmpty) continue;
 
-      if (forceAll) {
-        needsWork.add(row);
-        continue;
-      }
-
-      // Check if any target language is missing a translation
       bool missing = false;
       for (final lang in targets) {
         final val = row['naam_$lang'];
-        if (val == null || (val as String).isEmpty) {
-          missing = true;
-          break;
-        }
+        if (val == null || (val as String).isEmpty) { missing = true; break; }
       }
-      // Also check if translatable specs exist but translated_specs is empty
       final mat = row['materiaal'] as String?;
       final incl = row['inclusief'] as String?;
       final existingSpecs = row['translated_specs'];
@@ -1027,77 +1012,100 @@ class WebScraperService {
       }
       if (missing) needsWork.add(row);
     }
+    return needsWork;
+  }
 
+  /// Translates a single product to all target languages.
+  /// Supports cancellation via [cancelled] callback and per-language progress via [onLangProgress].
+  Future<bool> translateSingleProduct(
+    Map<String, dynamic> row, {
+    bool forceAll = false,
+    bool Function()? cancelled,
+    void Function(String lang, int langIdx, int totalLangs)? onLangProgress,
+  }) async {
+    final translator = TranslateService();
+    final targets = TranslateService.translationTargets;
+    final id = row['id'] as int;
+    final naam = row['naam'] as String;
+    final beschrijving = row['beschrijving'] as String?;
+    final materiaal = row['materiaal'] as String?;
+    final inclusief = row['inclusief'] as String?;
+
+    final updates = <String, dynamic>{};
+
+    for (var li = 0; li < targets.length; li++) {
+      if (cancelled?.call() == true) return false;
+      final lang = targets[li];
+      onLangProgress?.call(lang, li + 1, targets.length);
+
+      if (!forceAll) {
+        final existing = row['naam_$lang'];
+        if (existing != null && (existing as String).isNotEmpty) continue;
+      }
+
+      updates['naam_$lang'] = await translator.translate(naam, targetLang: lang);
+      await Future.delayed(const Duration(milliseconds: 80));
+    }
+
+    if (beschrijving != null && beschrijving.isNotEmpty) {
+      final cleanDesc = stripSpecLines(beschrijving);
+      if (cleanDesc.isNotEmpty) {
+        for (final lang in targets) {
+          if (cancelled?.call() == true) return false;
+          if (!forceAll && !updates.containsKey('naam_$lang')) continue;
+          updates['beschrijving_$lang'] = await translator.translate(cleanDesc, targetLang: lang);
+          await Future.delayed(const Duration(milliseconds: 80));
+        }
+      }
+    }
+
+    final hasTranslatableSpecs = (materiaal != null && materiaal.isNotEmpty) ||
+        (inclusief != null && inclusief.isNotEmpty);
+    if (hasTranslatableSpecs) {
+      final existingSpecs = row['translated_specs'];
+      final needsSpecTranslation = forceAll ||
+          existingSpecs == null ||
+          (existingSpecs is Map && existingSpecs.isEmpty);
+      if (needsSpecTranslation) {
+        final specFields = <String, String>{};
+        if (materiaal != null && materiaal.isNotEmpty) specFields['materiaal'] = materiaal;
+        if (inclusief != null && inclusief.isNotEmpty) specFields['inclusief'] = inclusief;
+
+        final translatedSpecs = <String, Map<String, String>>{};
+        for (final lang in targets) {
+          if (cancelled?.call() == true) return false;
+          final langSpecs = <String, String>{};
+          for (final sf in specFields.entries) {
+            langSpecs[sf.key] = await translator.translate(sf.value, targetLang: lang);
+            await Future.delayed(const Duration(milliseconds: 80));
+          }
+          if (langSpecs.isNotEmpty) translatedSpecs[lang] = langSpecs;
+        }
+        if (translatedSpecs.isNotEmpty) updates['translated_specs'] = translatedSpecs;
+      }
+    }
+
+    if (updates.isNotEmpty) {
+      try {
+        await _client.from('product_catalogus').update(updates).eq('id', id);
+        return true;
+      } on PostgrestException catch (_) {}
+    }
+    return false;
+  }
+
+  /// Translates all products sequentially. Kept for backward-compat; the UI now uses
+  /// [getProductsNeedingTranslation] + [translateSingleProduct] for per-product control.
+  Future<int> translateAllProducts({
+    void Function(int current, int total)? onProgress,
+    bool forceAll = false,
+  }) async {
+    final needsWork = await getProductsNeedingTranslation(forceAll: forceAll);
+    int translated = 0;
     for (var i = 0; i < needsWork.length; i++) {
-      final row = needsWork[i];
-      final id = row['id'] as int;
-      final naam = row['naam'] as String;
-      final beschrijving = row['beschrijving'] as String?;
-      final materiaal = row['materiaal'] as String?;
-      final inclusief = row['inclusief'] as String?;
-
       onProgress?.call(i + 1, needsWork.length);
-
-      final updates = <String, dynamic>{};
-
-      for (final lang in targets) {
-        if (!forceAll) {
-          final existing = row['naam_$lang'];
-          if (existing != null && (existing as String).isNotEmpty) continue;
-        }
-
-        final translatedName = await translator.translate(naam, targetLang: lang);
-        updates['naam_$lang'] = translatedName;
-        await Future.delayed(const Duration(milliseconds: 60));
-      }
-
-      if (beschrijving != null && beschrijving.isNotEmpty) {
-        final cleanDesc = stripSpecLines(beschrijving);
-        if (cleanDesc.isNotEmpty) {
-          for (final lang in targets) {
-            if (!forceAll) {
-              if (!updates.containsKey('naam_$lang')) continue;
-            }
-            final translatedDesc = await translator.translate(cleanDesc, targetLang: lang);
-            updates['beschrijving_$lang'] = translatedDesc;
-            await Future.delayed(const Duration(milliseconds: 60));
-          }
-        }
-      }
-
-      final hasTranslatableSpecs = (materiaal != null && materiaal.isNotEmpty) ||
-          (inclusief != null && inclusief.isNotEmpty);
-      if (hasTranslatableSpecs) {
-        final existingSpecs = row['translated_specs'];
-        final needsSpecTranslation = forceAll ||
-            existingSpecs == null ||
-            (existingSpecs is Map && existingSpecs.isEmpty);
-        if (needsSpecTranslation) {
-          final specFields = <String, String>{};
-          if (materiaal != null && materiaal.isNotEmpty) specFields['materiaal'] = materiaal;
-          if (inclusief != null && inclusief.isNotEmpty) specFields['inclusief'] = inclusief;
-
-          final translatedSpecs = <String, Map<String, String>>{};
-          for (final lang in targets) {
-            final langSpecs = <String, String>{};
-            for (final sf in specFields.entries) {
-              langSpecs[sf.key] = await translator.translate(sf.value, targetLang: lang);
-              await Future.delayed(const Duration(milliseconds: 60));
-            }
-            if (langSpecs.isNotEmpty) translatedSpecs[lang] = langSpecs;
-          }
-          if (translatedSpecs.isNotEmpty) {
-            updates['translated_specs'] = translatedSpecs;
-          }
-        }
-      }
-
-      if (updates.isNotEmpty) {
-        try {
-          await _client.from('product_catalogus').update(updates).eq('id', id);
-          translated++;
-        } on PostgrestException catch (_) {}
-      }
+      final ok = await translateSingleProduct(needsWork[i], forceAll: forceAll);
+      if (ok) translated++;
     }
     return translated;
   }
@@ -1113,7 +1121,7 @@ class WebScraperService {
 
     for (final lang in targets) {
       updates['naam_$lang'] = await translator.translate(naam, targetLang: lang);
-      await Future.delayed(const Duration(milliseconds: 60));
+      await Future.delayed(const Duration(milliseconds: 80));
     }
 
     if (beschrijving != null && beschrijving.isNotEmpty) {
@@ -1121,7 +1129,7 @@ class WebScraperService {
       if (cleanDesc.isNotEmpty) {
         for (final lang in targets) {
           updates['beschrijving_$lang'] = await translator.translate(cleanDesc, targetLang: lang);
-          await Future.delayed(const Duration(milliseconds: 60));
+          await Future.delayed(const Duration(milliseconds: 80));
         }
       }
     }
@@ -1138,7 +1146,7 @@ class WebScraperService {
         for (final entry in specFields.entries) {
           if (entry.value != null && entry.value!.isNotEmpty) {
             langSpecs[entry.key] = await translator.translate(entry.value!, targetLang: lang);
-            await Future.delayed(const Duration(milliseconds: 60));
+            await Future.delayed(const Duration(milliseconds: 80));
           }
         }
         if (langSpecs.isNotEmpty) translatedSpecs[lang] = langSpecs;
