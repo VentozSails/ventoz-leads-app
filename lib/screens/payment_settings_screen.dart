@@ -33,6 +33,8 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
   bool _testing = false;
   Map<String, bool> _testResults = {};
   List<_MethodPref> _methodPrefs = [];
+  Map<String, _Availability> _availability = {};
+  bool _syncing = false;
 
   @override
   void initState() {
@@ -676,6 +678,63 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
     'vpay': 'V PAY',
   };
 
+  Future<void> _syncMethods() async {
+    setState(() => _syncing = true);
+    try {
+      final res = await Supabase.instance.client.functions.invoke('payment-test', body: {
+        'action': 'sync',
+      });
+      final data = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : <String, dynamic>{};
+
+      final avail = data['availability'] as Map<String, dynamic>? ?? {};
+      final newAvail = <String, _Availability>{};
+      for (final entry in avail.entries) {
+        final v = entry.value as Map<String, dynamic>;
+        newAvail[entry.key] = _Availability(
+          payNl: v['pay_nl'] as bool? ?? false,
+          buckaroo: v['buckaroo'] as bool? ?? false,
+        );
+      }
+
+      final added = data['added'] as int? ?? 0;
+      final payNlCount = (data['pay_nl'] as Map<String, dynamic>?)?['count'] as int? ?? 0;
+      final buckarooCount = (data['buckaroo'] as Map<String, dynamic>?)?['count'] as int? ?? 0;
+
+      if (added > 0) {
+        final rows = await Supabase.instance.client
+            .from('payment_method_preferences')
+            .select()
+            .order('sort_order');
+        final prefs = (rows as List).map((r) => _MethodPref.fromJson(r as Map<String, dynamic>)).toList();
+        setState(() {
+          _methodPrefs = prefs;
+          _availability = newAvail;
+          _syncing = false;
+        });
+      } else {
+        setState(() {
+          _availability = newAvail;
+          _syncing = false;
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Gesynchroniseerd: Pay.nl $payNlCount, Buckaroo $buckarooCount methoden. $added nieuw toegevoegd.'),
+          backgroundColor: const Color(0xFF43A047),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _syncing = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Synchronisatie mislukt: $e'),
+          backgroundColor: const Color(0xFFE53935),
+        ));
+      }
+    }
+  }
+
   Widget _buildMethodPreferences() {
     return Card(
       color: const Color(0xFFF8FAFC),
@@ -707,14 +766,25 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
             else
               ..._methodPrefs.map(_buildMethodPrefRow),
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Methode toevoegen'),
-                onPressed: _addMethodPref,
+            Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: _syncing
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.sync, size: 16),
+                  label: Text(_syncing ? 'Synchroniseren...' : 'Synchroniseren'),
+                  onPressed: _syncing ? null : _syncMethods,
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Methode toevoegen'),
+                  onPressed: _addMethodPref,
+                ),
+              ),
+            ]),
           ],
         ),
       ),
@@ -723,6 +793,7 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
 
   Widget _buildMethodPrefRow(_MethodPref pref) {
     final gwColor = pref.preferredGateway == 'pay_nl' ? const Color(0xFF2E7D32) : const Color(0xFF1565C0);
+    final avail = _availability[pref.methodId];
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -745,7 +816,7 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
               fontSize: 13, fontWeight: FontWeight.w600,
               color: pref.enabled ? const Color(0xFF263238) : const Color(0xFF9E9E9E),
             )),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             Row(children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -764,6 +835,21 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
               else
                 const Text('Alle landen', style: TextStyle(fontSize: 10, color: Color(0xFF78909C), fontStyle: FontStyle.italic)),
             ]),
+            if (avail != null) ...[
+              const SizedBox(height: 3),
+              Row(children: [
+                _availChip('P', avail.payNl),
+                const SizedBox(width: 4),
+                _availChip('B', avail.buckaroo),
+                if (avail.payNl && avail.buckaroo) ...[
+                  const SizedBox(width: 6),
+                  const Text('beide', style: TextStyle(fontSize: 9, color: Color(0xFF78909C), fontStyle: FontStyle.italic)),
+                ] else if (!avail.payNl && !avail.buckaroo) ...[
+                  const SizedBox(width: 6),
+                  const Text('niet beschikbaar', style: TextStyle(fontSize: 9, color: Color(0xFFE53935), fontStyle: FontStyle.italic)),
+                ],
+              ]),
+            ],
           ],
         )),
         IconButton(
@@ -781,6 +867,22 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
           padding: EdgeInsets.zero,
         ),
       ]),
+    );
+  }
+
+  Widget _availChip(String label, bool available) {
+    return Container(
+      width: 18, height: 16,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: available ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: available ? const Color(0xFF81C784) : const Color(0xFFEF9A9A), width: 0.5),
+      ),
+      child: Text(label, style: TextStyle(
+        fontSize: 8, fontWeight: FontWeight.w700,
+        color: available ? const Color(0xFF2E7D32) : const Color(0xFFE53935),
+      )),
     );
   }
 
@@ -1032,4 +1134,10 @@ class _MethodPref {
     enabled: enabled ?? this.enabled,
     sortOrder: sortOrder ?? this.sortOrder,
   );
+}
+
+class _Availability {
+  final bool payNl;
+  final bool buckaroo;
+  const _Availability({required this.payNl, required this.buckaroo});
 }
