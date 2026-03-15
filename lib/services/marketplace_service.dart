@@ -651,6 +651,9 @@ class MarketplaceService {
 
   Future<List<ChannelMatrixRow>> getChannelMatrix() async {
     try {
+      // Ensure session is fresh — RLS returns empty on expired JWT
+      try { await _client.auth.refreshSession(); } catch (_) {}
+
       final results = await Future.wait([
         _client
             .from('product_catalogus')
@@ -661,7 +664,7 @@ class MarketplaceService {
         _client
             .from(_listingsTable)
             .select()
-            .neq('status', 'verwijderd'),
+            .or('status.neq.verwijderd,status.is.null'),
         _client
             .from('inventory_items')
             .select('product_id, voorraad_actueel, variant_label, ean_code, artikelnummer, kleur')

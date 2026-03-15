@@ -66,6 +66,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _customerCount = 0;
   int _lowStockCount = 0;
   int _syncErrorCount = 0;
+  int _unmatchedListingsCount = 0;
+  int _unmatchedInventoryCount = 0;
   bool _statsLoaded = false;
 
   final Set<String> _collapsedSections = {};
@@ -170,6 +172,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         final log = await Supabase.instance.client.from('marketplace_sync_log').select('id').eq('status', 'fout').limit(100);
         syncErrors = (log as List).length;
       } catch (_) {}
+      int unmatchedListings = 0;
+      int unmatchedInventory = 0;
+      try {
+        final ul = await Supabase.instance.client.from('marketplace_listings').select('id').eq('match_status', 'unmatched');
+        unmatchedListings = (ul as List).length;
+      } catch (_) {}
+      try {
+        final ui = await Supabase.instance.client.from('inventory_items').select('id').isFilter('product_id', null).eq('is_archived', false);
+        unmatchedInventory = (ui as List).length;
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _productCount = productCount;
@@ -179,6 +191,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         _customerCount = customerCount;
         _lowStockCount = lowStock;
         _syncErrorCount = syncErrors;
+        _unmatchedListingsCount = unmatchedListings;
+        _unmatchedInventoryCount = unmatchedInventory;
         _statsLoaded = true;
       });
     } catch (_) {
@@ -312,7 +326,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   SliverToBoxAdapter(child: _buildHeader(dateStr)),
                   SliverToBoxAdapter(child: _buildQuickStats()),
                   SliverToBoxAdapter(child: _buildQuickAccessBar()),
-                  if (_lowStockCount > 0 || _syncErrorCount > 0)
+                  if (_lowStockCount > 0 || _syncErrorCount > 0 || _unmatchedListingsCount > 0 || _unmatchedInventoryCount > 0)
                     SliverToBoxAdapter(child: _buildMeldingenSection()),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
@@ -608,6 +622,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     if (_syncErrorCount > 0 && _permissions.marktplaatsKoppelingen) {
       items.add(_meldingTile('Sync-fouten', '$_syncErrorCount sync-fout(en) op marktplaatsen', Icons.sync_problem_rounded, const Color(0xFFE53935),
           onTap: () => context.push('/dashboard/marktplaatsen')));
+    }
+    if (_unmatchedListingsCount > 0 && _permissions.marktplaatsKoppelingen) {
+      items.add(_meldingTile('Ongematchte advertenties', '$_unmatchedListingsCount advertentie(s) niet gekoppeld', Icons.link_off_rounded, const Color(0xFFE65100),
+          onTap: () => context.push('/dashboard/marktplaatsen')));
+    }
+    if (_unmatchedInventoryCount > 0 && _permissions.voorraadBeheren) {
+      items.add(_meldingTile('Ongematchte voorraad', '$_unmatchedInventoryCount voorraaditem(s) niet gekoppeld', Icons.inventory_2_outlined, const Color(0xFF6D4C41),
+          onTap: () => context.push('/dashboard/voorraad')));
     }
     if (items.isEmpty) return const SizedBox.shrink();
     return Padding(
