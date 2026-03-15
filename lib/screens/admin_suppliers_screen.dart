@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/supplier_service.dart';
+import '../services/user_service.dart';
 
 class AdminSuppliersScreen extends StatefulWidget {
   const AdminSuppliersScreen({super.key});
@@ -24,6 +25,15 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    final perms = await UserService().getCurrentUserPermissions();
+    if (!mounted) return;
+    if (!perms.voorraadBeheren) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geen toegang tot dit scherm.'), backgroundColor: Color(0xFFE53935)),
+      );
+      return;
+    }
     final list = await _service.loadSuppliers();
     if (list.isEmpty) {
       list.add(const SupplierConfig(

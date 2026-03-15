@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import '../models/catalog_product.dart';
 import '../services/web_scraper_service.dart';
 import '../services/product_image_service.dart';
+import '../services/user_service.dart';
 
 class ProductEditorScreen extends StatefulWidget {
   final CatalogProduct? initialProduct;
@@ -122,6 +123,15 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
 
   Future<void> _loadProducts() async {
     setState(() => _loading = true);
+    final perms = await UserService().getCurrentUserPermissions();
+    if (!mounted) return;
+    if (!perms.productenBewerken) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geen toegang tot dit scherm.'), backgroundColor: Color(0xFFE53935)),
+      );
+      return;
+    }
     try {
       final products = await _scraperService.fetchCatalog(includeBlocked: true);
       if (!mounted) return;

@@ -65,6 +65,15 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
+    final perms = await UserService().getCurrentUserPermissions();
+    if (!mounted) return;
+    if (!perms.statistiekenBekijken) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geen toegang tot dit scherm.'), backgroundColor: Color(0xFFE53935)),
+      );
+      return;
+    }
     try {
       final stats = await _service.fetchStats();
       if (mounted) setState(() { _stats = stats; _loading = false; });

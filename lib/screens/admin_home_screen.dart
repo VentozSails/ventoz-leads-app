@@ -311,6 +311,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 return CustomScrollView(slivers: [
                   SliverToBoxAdapter(child: _buildHeader(dateStr)),
                   SliverToBoxAdapter(child: _buildQuickStats()),
+                  SliverToBoxAdapter(child: _buildQuickAccessBar()),
                   if (_lowStockCount > 0 || _syncErrorCount > 0 || _shippingReadyCount > 0 || _pendingOrderCount > 0 || _lockedCount > 0)
                     SliverToBoxAdapter(child: _buildMeldingenSection()),
                   if (_permissions.bestellingenVerzenden || _permissions.alleBestellingenBeheren ||
@@ -514,6 +515,96 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 Text(label, style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
               ])),
               if (onTap != null) Icon(Icons.chevron_right_rounded, size: 16, color: color.withValues(alpha: 0.5)),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────────
+  // QUICK ACCESS BAR
+  // ────────────────────────────────────────────────────
+
+  Widget _buildQuickAccessBar() {
+    final cards = <Widget>[];
+
+    cards.add(_quickAccessCard(
+      icon: Icons.inventory_2_outlined,
+      label: 'Productcatalogus',
+      color: const Color(0xFF1565C0),
+      onTap: () => context.push('/dashboard/beheer'),
+    ));
+
+    if (_permissions.voorraadBeheren || _permissions.alleBestellingenBeheren) {
+      cards.add(_quickAccessCard(
+        icon: Icons.warehouse_outlined,
+        label: 'Voorraad',
+        color: const Color(0xFF2E7D32),
+        onTap: () => context.push('/dashboard/voorraad'),
+      ));
+    }
+
+    if (_permissions.verkoopkanalenBeheren || _permissions.marktplaatsKoppelingen || _permissions.alleBestellingenBeheren) {
+      cards.add(_quickAccessCard(
+        icon: Icons.grid_view_rounded,
+        label: 'Advertenties',
+        color: const Color(0xFFE53238),
+        onTap: () => context.push('/dashboard/kanaaloverzicht'),
+      ));
+    }
+
+    if (_permissions.klantenBeheren || _permissions.alleBestellingenBeheren) {
+      cards.add(_quickAccessCard(
+        icon: Icons.people_outline_rounded,
+        label: 'Klanten',
+        color: const Color(0xFF6366F1),
+        onTap: () => context.push('/dashboard/klanten'),
+      ));
+    }
+
+    if (cards.length <= 1) return const SizedBox.shrink();
+
+    final spaced = <Widget>[];
+    for (var i = 0; i < cards.length; i++) {
+      if (i > 0) spaced.add(const SizedBox(width: 10));
+      spaced.add(cards[i]);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 12, 28, 4),
+      child: Row(children: spaced),
+    );
+  }
+
+  Widget _quickAccessCard({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    return Expanded(
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          hoverColor: color.withValues(alpha: 0.06),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withValues(alpha: 0.2)),
+            ),
+            child: Row(children: [
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(label, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: _navy),
+                  overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 6),
+              Icon(Icons.chevron_right_rounded, size: 16, color: color.withValues(alpha: 0.5)),
             ]),
           ),
         ),

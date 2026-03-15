@@ -40,6 +40,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   Future<void> _loadUsers() async {
     setState(() { _loading = true; _error = null; });
+    final perms = await _service.getCurrentUserPermissions();
+    if (!mounted) return;
+    if (!perms.gebruikersBeheren) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geen toegang tot dit scherm.'), backgroundColor: Color(0xFFE53935)),
+      );
+      return;
+    }
     try {
       _users = await _service.fetchUsers();
     } catch (e) {

@@ -45,6 +45,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   Future<void> _loadOrders() async {
     setState(() => _loading = true);
+    final perms = await UserService().getCurrentUserPermissions();
+    if (!mounted) return;
+    final requiredPerm = widget.adminView ? perms.alleBestellingenBeheren : perms.eigenBestelhistorie;
+    if (!requiredPerm) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geen toegang tot dit scherm.'), backgroundColor: Color(0xFFE53935)),
+      );
+      return;
+    }
     try {
       _orders = await _orderService.fetchOrders(adminView: widget.adminView);
     } catch (_) {}

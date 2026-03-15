@@ -81,6 +81,15 @@ class _EmailOverviewScreenState extends State<EmailOverviewScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    final perms = await UserService().getCurrentUserPermissions();
+    if (!mounted) return;
+    if (!perms.leadEmailsVersturen) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geen toegang tot dit scherm.'), backgroundColor: Color(0xFFE53935)),
+      );
+      return;
+    }
     final results = await Future.wait([
       _service.fetchAll(status: _statusFilter),
       _service.countByStatus(),

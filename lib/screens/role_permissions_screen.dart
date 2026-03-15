@@ -41,6 +41,15 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   }
 
   Future<void> _load() async {
+    final perms = await _userService.getCurrentUserPermissions();
+    if (!mounted) return;
+    if (!perms.rollenRechtenToewijzen) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geen toegang tot dit scherm.'), backgroundColor: Color(0xFFE53935)),
+      );
+      return;
+    }
     final isOwner = await _userService.isCurrentUserOwner();
     final saved = await _userService.loadRolePermissions();
     if (saved != null) {
