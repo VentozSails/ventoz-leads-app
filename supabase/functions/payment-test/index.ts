@@ -26,7 +26,7 @@ async function testPayNl(config: {
   service_id: string;
 }): Promise<{ ok: boolean; error?: string; details?: string }> {
   const auth = btoa(`${config.at_code}:${config.api_token}`);
-  const url = `https://rest.pay.nl/v2/services/${config.service_id}`;
+  const url = `https://rest.pay.nl/v2/services/${config.service_id}/paymentmethods`;
   try {
     const res = await fetch(url, {
       headers: {
@@ -37,10 +37,12 @@ async function testPayNl(config: {
     });
     if (res.ok) {
       const data = await res.json();
-      const opts = data.checkoutOptions?.length ?? 0;
+      const methods = (data.paymentMethods || []).filter(
+        (m: { active: boolean }) => m.active
+      );
       return {
         ok: true,
-        details: `Verbinding OK. ${opts} betaalmethode(n) geconfigureerd.`,
+        details: `Verbinding OK. ${methods.length} actieve betaalmethode(n).`,
       };
     }
     const txt = await res.text();
