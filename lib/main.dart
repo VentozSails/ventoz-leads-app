@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'router/app_router.dart' show appRouter, authNotifier;
+import 'services/user_service.dart';
 import 'theme/app_theme.dart';
 import 'l10n/locale_provider.dart';
 
@@ -57,6 +59,14 @@ class _BootstrapAppState extends State<_BootstrapApp> {
     } catch (_) {}
 
     authNotifier.init();
+
+    if (kDebugMode) {
+      final schemaErrors = UserPermissions.validateSchema();
+      for (final e in schemaErrors) {
+        debugPrint('⚠️ UserPermissions schema drift: $e');
+      }
+      assert(schemaErrors.isEmpty, 'UserPermissions schema is out of sync! See debug console.');
+    }
 
     if (mounted) setState(() => _ready = true);
   }

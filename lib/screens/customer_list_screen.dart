@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/customer_service.dart';
+import '../services/user_service.dart';
 import 'customer_detail_screen.dart';
 
 class CustomerListScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   static const _border = Color(0xFFE2E8F0);
 
   final _service = CustomerService();
+  final _userService = UserService();
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   final _hScrollCtrl = ScrollController();
@@ -62,6 +64,15 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    final perms = await _userService.getCurrentUserPermissions();
+    if (!mounted) return;
+    if (!perms.klantenBeheren) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geen toegang tot dit scherm.'), backgroundColor: Color(0xFFE53935)),
+      );
+      return;
+    }
 
     final effectiveZakelijk = _kpiFilter == 'zakelijk' ? true : _kpiFilter == 'particulier' ? false : _zakelijkFilter;
 

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/inventory_service.dart';
+import '../services/user_service.dart';
 
 class InventoryArchiveScreen extends StatefulWidget {
   const InventoryArchiveScreen({super.key});
@@ -17,6 +18,7 @@ class _InventoryArchiveScreenState extends State<InventoryArchiveScreen> {
   static const double _tableWidth = 16 + 150 + 90 + 30 + 100 + 40 + 36 + 32 + 56 + 56 + 50 + 56 + 56 + 56 + 56 + 56 + 56 + 46 + 20 + 70 + 8;
 
   final InventoryService _svc = InventoryService();
+  final UserService _uSvc = UserService();
   final TextEditingController _searchCtl = TextEditingController();
   final ScrollController _hScroll = ScrollController();
 
@@ -39,6 +41,13 @@ class _InventoryArchiveScreenState extends State<InventoryArchiveScreen> {
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     try {
+      final perms = await _uSvc.getCurrentUserPermissions();
+      if (!mounted) return;
+      if (!perms.voorraadBeheren) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Geen toegang'), backgroundColor: Color(0xFFEF4444)));
+        return;
+      }
       final items = await _svc.getAllArchived();
       final grouped = <String, List<InventoryItem>>{};
       for (final it in items) { (grouped[_gKey(it)] ??= []).add(it); }

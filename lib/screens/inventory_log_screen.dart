@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/inventory_service.dart';
 import '../services/sales_channel_service.dart';
+import '../services/user_service.dart';
 
 class InventoryLogScreen extends StatefulWidget {
   const InventoryLogScreen({super.key});
@@ -17,6 +18,7 @@ class _InventoryLogScreenState extends State<InventoryLogScreen> {
 
   final _inventoryService = InventoryService();
   final _channelService = SalesChannelService();
+  final _userService = UserService();
   final _searchCtrl = TextEditingController();
 
   List<InventoryMutation> _mutations = [];
@@ -52,6 +54,13 @@ class _InventoryLogScreenState extends State<InventoryLogScreen> {
     if (!append) {
       _offset = 0;
       setState(() => _loading = true);
+      final perms = await _userService.getCurrentUserPermissions();
+      if (!mounted) return;
+      if (!perms.voorraadBeheren) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Geen toegang'), backgroundColor: Color(0xFFEF4444)));
+        return;
+      }
     }
     final results = await _inventoryService.getAllMutations(
       limit: _pageSize,

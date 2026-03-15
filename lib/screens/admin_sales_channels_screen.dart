@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/sales_channel_service.dart';
+import '../services/user_service.dart';
 
 class AdminSalesChannelsScreen extends StatefulWidget {
   const AdminSalesChannelsScreen({super.key});
@@ -14,6 +15,7 @@ class _AdminSalesChannelsScreenState extends State<AdminSalesChannelsScreen> {
   static const _accent = Color(0xFF1B4965);
 
   final _service = SalesChannelService();
+  final _userService = UserService();
   List<SalesChannel> _channels = [];
   bool _loading = true;
 
@@ -25,6 +27,15 @@ class _AdminSalesChannelsScreenState extends State<AdminSalesChannelsScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    final perms = await _userService.getCurrentUserPermissions();
+    if (!mounted) return;
+    if (!perms.verkoopkanalenBeheren) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geen toegang tot dit scherm.'), backgroundColor: Color(0xFFE53935)),
+      );
+      return;
+    }
     final channels = await _service.getAll();
     if (mounted) setState(() { _channels = channels; _loading = false; });
   }

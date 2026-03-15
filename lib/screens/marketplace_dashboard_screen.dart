@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/marketplace_listing.dart';
 import '../services/marketplace_service.dart';
+import '../services/user_service.dart';
 import 'channel_matrix_screen.dart';
 import 'ebay_matching_screen.dart';
 
@@ -21,6 +22,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
   static const _accent = Color(0xFF1B4965);
 
   final _service = MarketplaceService();
+  final _userService = UserService();
   late final TabController _tabController;
 
   List<MarketplaceCredentialStatus> _credentials = [];
@@ -49,6 +51,15 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
 
   Future<void> _loadAll() async {
     setState(() => _loading = true);
+    final perms = await _userService.getCurrentUserPermissions();
+    if (!mounted) return;
+    if (!perms.marktplaatsKoppelingen && !perms.verkoopkanalenBeheren) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geen toegang tot dit scherm.'), backgroundColor: Color(0xFFE53935)),
+      );
+      return;
+    }
     final results = await Future.wait([
       _service.getCredentialStatuses(),
       _service.getListings(platform: _filterPlatform),

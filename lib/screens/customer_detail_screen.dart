@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/customer_service.dart';
 import '../services/order_service.dart';
+import '../services/user_service.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   final String? customerId;
@@ -21,6 +22,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
   final _service = CustomerService();
   final _orderService = OrderService();
+  final _userService = UserService();
 
   Customer? _customer;
   List<ExternalCustomerNumber> _externals = [];
@@ -62,6 +64,15 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   }
 
   Future<void> _load() async {
+    final perms = await _userService.getCurrentUserPermissions();
+    if (!mounted) return;
+    if (!perms.klantenBeheren) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geen toegang tot dit scherm.'), backgroundColor: Color(0xFFE53935)),
+      );
+      return;
+    }
     if (_isNew) {
       setState(() => _loading = false);
       return;

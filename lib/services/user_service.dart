@@ -356,55 +356,46 @@ class UserPermissions {
     'Profiel & Account': ['eigen_profiel_bewerken', 'eigen_wachtwoord_wijzigen', 'mfa_schakelen', 'puntensaldo_bekijken'],
   };
 
-  bool getByKey(String key) {
-    switch (key) {
-      case 'producten_bewerken': return productenBewerken;
-      case 'uitgelichte_producten': return uitgelichteProducten;
-      case 'producten_blokkeren': return productenBlokkeren;
-      case 'voorraad_beheren': return voorraadBeheren;
-      case 'voorraad_importeren': return voorraadImporteren;
-      case 'ean_codes_beheren': return eanCodesBeheren;
-      case 'eigen_bestelhistorie': return eigenBestelhistorie;
-      case 'bezorgstatus_volgen': return bezorgstatusVolgen;
-      case 'alle_bestellingen_beheren': return alleBestellingenBeheren;
-      case 'bestellingen_verzenden': return bestellingenVerzenden;
-      case 'leads_inzien': return leadsInzien;
-      case 'leads_wijzigen': return leadsWijzigen;
-      case 'lead_emails_versturen': return leadEmailsVersturen;
-      case 'leads_verwijderen': return leadsVerwijderen;
-      case 'leads_exporteren': return leadsExporteren;
-      case 'statistieken_bekijken': return statistiekenBekijken;
-      case 'kortingscodes_beheren': return kortingscodesBeheren;
-      case 'email_templates_beheren': return emailTemplatesBeheren;
-      case 'smtp_instellingen': return smtpInstellingen;
-      case 'order_templates_bewerken': return orderTemplatesBewerken;
-      case 'about_tekst_bewerken': return aboutTekstBewerken;
-      case 'impressies_beheren': return impressiesBeheren;
-      case 'category_videos_beheren': return categoryVideosBeheren;
-      case 'review_platforms_beheren': return reviewPlatformsBeheren;
-      case 'zendingen_overzicht': return zendingenOverzicht;
-      case 'productgewichten_beheren': return productgewichtenBeheren;
-      case 'verpakkingen_beheren': return verpakkingenBeheren;
-      case 'klanten_beheren': return klantenBeheren;
-      case 'verkoopkanalen_beheren': return verkoopkanalenBeheren;
-      case 'myparcel_instellingen': return myparcelInstellingen;
-      case 'betaalgateway_instellingen': return betaalgatewayInstellingen;
-      case 'marktplaats_koppelingen': return marktplaatsKoppelingen;
-      case 'gebruikers_beheren': return gebruikersBeheren;
-      case 'owners_admins_beheren': return ownersAdminsBeheren;
-      case 'rollen_rechten_toewijzen': return rollenRechtenToewijzen;
-      case 'bedrijfsgegevens_bewerken': return bedrijfsgegevensBewerken;
-      case 'betaalmethoden_overzicht': return betaalmethodenOverzicht;
-      case 'geblokkeerde_accounts_beheren': return geblokkeerdeAccountsBeheren;
-      case 'activiteitenlog_bekijken': return activiteitenlogBekijken;
-      case 'activiteitenlog_wijzigen': return activiteitenlogWijzigen;
-      case 'testmodus': return testmodus;
-      case 'eigen_profiel_bewerken': return eigenProfielBewerken;
-      case 'eigen_wachtwoord_wijzigen': return eigenWachtwoordWijzigen;
-      case 'mfa_schakelen': return mfaSchakelen;
-      case 'puntensaldo_bekijken': return puntensaldoBekijken;
-      default: return false;
+  bool getByKey(String key) => toJson()[key] == true;
+
+  /// Validates that allKeys, keyLabels, keyCategories, toJson, and fromJson
+  /// are all in sync. Call this in debug mode at app startup to catch drift
+  /// early. Returns a list of inconsistency messages (empty = all OK).
+  static List<String> validateSchema() {
+    final errors = <String>[];
+    final inst = const UserPermissions();
+    final jsonKeys = inst.toJson().keys.toSet();
+
+    // allKeys must match toJson keys exactly
+    final allKeysSet = allKeys.toSet();
+    final missingInAllKeys = jsonKeys.difference(allKeysSet);
+    final extraInAllKeys = allKeysSet.difference(jsonKeys);
+    if (missingInAllKeys.isNotEmpty) errors.add('Keys in toJson but missing from allKeys: $missingInAllKeys');
+    if (extraInAllKeys.isNotEmpty) errors.add('Keys in allKeys but missing from toJson: $extraInAllKeys');
+
+    // keyLabels must cover all allKeys
+    final labelKeys = keyLabels.keys.toSet();
+    final missingLabels = allKeysSet.difference(labelKeys);
+    final extraLabels = labelKeys.difference(allKeysSet);
+    if (missingLabels.isNotEmpty) errors.add('Keys missing from keyLabels: $missingLabels');
+    if (extraLabels.isNotEmpty) errors.add('Extra keys in keyLabels not in allKeys: $extraLabels');
+
+    // keyCategories must cover all allKeys exactly once
+    final catKeys = <String>{};
+    for (final keys in keyCategories.values) catKeys.addAll(keys);
+    final missingInCats = allKeysSet.difference(catKeys);
+    final extraInCats = catKeys.difference(allKeysSet);
+    if (missingInCats.isNotEmpty) errors.add('Keys missing from keyCategories: $missingInCats');
+    if (extraInCats.isNotEmpty) errors.add('Extra keys in keyCategories not in allKeys: $extraInCats');
+
+    // fromJson round-trip: ownerPreset → toJson → fromJson should equal ownerPreset
+    final rt = UserPermissions.fromJson(ownerPreset.toJson());
+    for (final key in allKeys) {
+      if (rt.getByKey(key) != ownerPreset.getByKey(key)) {
+        errors.add('fromJson round-trip mismatch for key "$key"');
+      }
     }
+    return errors;
   }
 
   UserPermissions withKey(String key, bool value) {
