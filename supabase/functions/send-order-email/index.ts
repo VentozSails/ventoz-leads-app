@@ -320,7 +320,14 @@ serve(async (req: Request) => {
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
     const token = authHeader.replace("Bearer ", "");
-    const isServiceRole = token === SERVICE_ROLE_KEY;
+
+    let isServiceRole = token === SERVICE_ROLE_KEY;
+    if (!isServiceRole) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        if (payload.role === "service_role") isServiceRole = true;
+      } catch { /* not a valid JWT */ }
+    }
 
     if (!isServiceRole) {
       const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? SERVICE_ROLE_KEY;
