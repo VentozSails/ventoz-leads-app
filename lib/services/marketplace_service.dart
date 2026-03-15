@@ -260,15 +260,14 @@ class MarketplaceService {
       for (final listing in managedListings) {
         try {
           if (totalStock <= 0 || (totalStock <= 1 && hasUnshippedOrders)) {
-            // SOLD OUT: close all marketplace listings
-            if (listing.status != ListingStatus.verwijderd) {
+            if (listing.status == ListingStatus.actief) {
               final reden = totalStock <= 0 ? 'uitverkocht' : 'laatste_besteld';
               final pd = Map<String, dynamic>.from(listing.platformData);
-              pd['auto_actie'] = 'auto_close';
+              pd['auto_actie'] = 'auto_pause';
               pd['auto_reden'] = reden;
               pd['auto_datum'] = DateTime.now().toUtc().toIso8601String();
               pd['auto_voorraad'] = totalStock;
-              await updateListing(listing.id!, status: ListingStatus.verwijderd, platformData: pd);
+              await updateListing(listing.id!, status: ListingStatus.gepauzeerd, platformData: pd);
               try { await unpublishListing(listing.id!); } catch (_) {}
               result.closed++;
               await _logSync(
@@ -663,8 +662,7 @@ class MarketplaceService {
             .order('naam', ascending: true),
         _client
             .from(_listingsTable)
-            .select()
-            .or('status.neq.verwijderd,status.is.null'),
+            .select(),
         _client
             .from('inventory_items')
             .select('product_id, voorraad_actueel, variant_label, ean_code, artikelnummer, kleur')
