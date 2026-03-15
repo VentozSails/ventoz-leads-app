@@ -59,13 +59,36 @@ serve(async (req) => {
     if (action === 'create') {
       if (!password) return jsonResponse({ error: 'password is required' }, 400)
 
+      const { data: existingUsers } = await adminClient.auth.admin.listUsers()
+      const existingUser = existingUsers?.users?.find(
+        (u: { email?: string }) => u.email?.toLowerCase() === normalizedEmail
+      )
+
+      if (existingUser) {
+        // Confirm existing user and return success
+        try {
+          await adminClient.auth.admin.updateUserById(existingUser.id, {
+            email_confirm: true,
+            password,
+          })
+        } catch (_) { /* already confirmed is fine */ }
+        return jsonResponse({ ok: true, user_id: existingUser.id, existed: true })
+      }
+
       const { data, error } = await adminClient.auth.admin.createUser({
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         password,
         email_confirm: true,
       })
 
       if (error) {
+        const msg = error.message?.toLowerCase() || ''
+        if (msg.includes('rate limit') || msg.includes('too many')) {
+          return jsonResponse({ error: 'rate_limit', message: error.message }, 429)
+        }
+        if (msg.includes('already') || msg.includes('duplicate') || msg.includes('registered')) {
+          return jsonResponse({ error: 'already_exists', message: error.message }, 409)
+        }
         return jsonResponse({ error: error.message }, 400)
       }
 

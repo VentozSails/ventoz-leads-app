@@ -13,6 +13,7 @@ import '../services/shipping_service.dart';
 import '../services/order_email_service.dart';
 import '../services/pay_nl_service.dart';
 import '../services/buckaroo_service.dart';
+import '../services/vat_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/address_form_fields.dart';
@@ -68,6 +69,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _lang = 'nl';
   late AppLocalizations _l = AppLocalizations(_lang);
 
+  late String _selectedLandCode;
+  late double _shippingCost;
+  late double _total;
+  late double _vatAmount;
+  late double _vatRate;
+  late bool _reverseCharge;
+
   List<PaymentMethod> _availableMethods = [];
   PaymentMethod? _selectedMethod;
 
@@ -90,6 +98,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _fPostcodeCtrl = TextEditingController(text: u.factuurPostcode ?? '');
     _fWoonplaatsCtrl = TextEditingController(text: u.factuurWoonplaats ?? '');
     _factuurGelijk = !u.hasFactuurAdres;
+    _selectedLandCode = u.landCode;
+    _shippingCost = widget.shippingCost;
+    _total = widget.total;
+    _vatAmount = widget.vatAmount;
+    _vatRate = widget.vatRate;
+    _reverseCharge = widget.reverseCharge;
     _init();
   }
 
@@ -102,7 +116,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _loadPaymentMethods() async {
     setState(() => _loadingMethods = true);
     try {
-      final methods = await _gatewayService.getMethodsForCountry(widget.appUser.landCode);
+      final methods = await _gatewayService.getMethodsForCountry(_selectedLandCode);
       if (mounted) {
         setState(() {
           _availableMethods = methods;
@@ -114,6 +128,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (kDebugMode) debugPrint('Payment methods loading error: $e');
       if (mounted) setState(() => _loadingMethods = false);
     }
+  }
+
+  void _onCountryChanged(String newCode) {
+    setState(() {
+      _selectedLandCode = newCode;
+      final shipping = ShippingService.getRate(newCode.toUpperCase());
+      _shippingCost = shipping.cost;
+
+      final isEu = VatService.isEuCountry(newCode.toUpperCase());
+      if (!isEu) {
+        _vatRate = 0;
+        _vatAmount = 0;
+        _reverseCharge = false;
+      } else if (widget.appUser.isBedrijf && widget.appUser.btwGevalideerd && newCode.toUpperCase() != 'NL') {
+        _vatRate = 0;
+        _vatAmount = 0;
+        _reverseCharge = true;
+      } else {
+        _vatRate = VatService.getVatRate(newCode.toUpperCase());
+        _vatAmount = widget.subtotalExcl * (_vatRate / 100);
+        _reverseCharge = false;
+      }
+
+      _total = widget.subtotalExcl + _vatAmount + _shippingCost;
+    });
+
+    _loadPaymentMethods();
   }
 
   static (String, String) _splitAdres(String adres) {
@@ -170,15 +211,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                _buildSectionTitle(_l.t('bezorgadres')),
+                _buildSectionTitle(_l.t('bezorgadres'), icon: Icons.local_shipping_outlined),
                 const SizedBox(height: 12),
                 _buildAddressForm(),
-                const SizedBox(height: 24),
-                _buildSectionTitle(_l.t('orderoverzicht')),
+                const SizedBox(height: 28),
+                _buildSectionTitle(_l.t('orderoverzicht'), icon: Icons.receipt_long_outlined),
                 const SizedBox(height: 12),
                 _buildOrderSummary(),
-                const SizedBox(height: 24),
-                _buildSectionTitle(_l.t('kies_betaalmethode')),
+                const SizedBox(height: 28),
+                _buildSectionTitle(_l.t('kies_betaalmethode'), icon: Icons.payment_outlined),
                 const SizedBox(height: 12),
                 _buildPaymentMethodPicker(),
                 if (_error != null) ...[
@@ -220,83 +261,196 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)));
+  Widget _buildSectionTitle(String title, {IconData? icon}) {
+    return Row(children: [
+      if (icon != null) ...[
+        Icon(icon, size: 22, color: const Color(0xFF455A64)),
+        const SizedBox(width: 10),
+      ],
+      Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
+    ]);
   }
 
+  static const _countryOptions = <String, String>{
+    'NL': 'Nederland', 'BE': 'België', 'DE': 'Deutschland', 'FR': 'France',
+    'GB': 'United Kingdom', 'ES': 'España', 'IT': 'Italia', 'AT': 'Österreich',
+    'CH': 'Schweiz', 'DK': 'Danmark', 'SE': 'Sverige', 'FI': 'Suomi',
+    'PL': 'Polska', 'CZ': 'Česko', 'PT': 'Portugal', 'IE': 'Ireland',
+    'LU': 'Luxembourg', 'HU': 'Magyarország', 'GR': 'Ελλάδα', 'HR': 'Hrvatska',
+    'SK': 'Slovensko', 'SI': 'Slovenija', 'RO': 'România', 'BG': 'България',
+    'EE': 'Eesti', 'LV': 'Latvija', 'LT': 'Lietuva', 'MT': 'Malta', 'CY': 'Κύπρος',
+  };
+
   Widget _buildAddressForm() {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECF1)),
+        boxShadow: [BoxShadow(color: const Color(0xFF455A64).withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: [
+        padding: const EdgeInsets.all(24),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0xFF455A64).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.person_outline, size: 20, color: Color(0xFF455A64)),
+            ),
+            const SizedBox(width: 12),
+            Text(_l.t('naam'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+          ]),
+          const SizedBox(height: 10),
           TextFormField(
             controller: _naamCtrl,
-            decoration: InputDecoration(labelText: _l.t('naam'), isDense: true),
+            decoration: InputDecoration(
+              hintText: _l.t('naam'),
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF455A64), width: 1.5)),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            ),
             validator: (v) => v == null || v.isEmpty ? _l.t('verplicht') : null,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0xFF455A64).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.location_on_outlined, size: 20, color: Color(0xFF455A64)),
+            ),
+            const SizedBox(width: 12),
+            Text(_l.t('bezorgadres'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+          ]),
+          const SizedBox(height: 10),
           AddressFormFields(
             postcodeCtrl: _postcodeCtrl,
             huisnummerCtrl: _huisnummerCtrl,
             straatCtrl: _straatCtrl,
             woonplaatsCtrl: _woonplaatsCtrl,
-            landCode: widget.appUser.landCode,
+            landCode: _selectedLandCode,
             t: _l.t,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(children: [
-            const Icon(Icons.flag, size: 16, color: Color(0xFF64748B)),
-            const SizedBox(width: 8),
-            Text('${_l.t('land')}: ${widget.appUser.landCode.toUpperCase()}', style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-            if (widget.appUser.isBedrijf && widget.appUser.bedrijfsnaam != null) ...[
-              const SizedBox(width: 16),
-              const Icon(Icons.business, size: 16, color: Color(0xFF64748B)),
-              const SizedBox(width: 8),
-              Expanded(child: Text(widget.appUser.bedrijfsnaam!, style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)), overflow: TextOverflow.ellipsis)),
-            ],
-          ]),
-          if (widget.appUser.btwNummer != null) ...[
-            const SizedBox(height: 8),
-            Row(children: [
-              const Icon(Icons.receipt_long, size: 16, color: Color(0xFF64748B)),
-              const SizedBox(width: 8),
-              Text('${_l.t('btw')}: ${widget.appUser.btwNummer}', style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-              if (widget.reverseCharge) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: const Color(0xFFE3F2FD), borderRadius: BorderRadius.circular(4)),
-                  child: Text(_l.t('btw_verlegd'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF1565C0))),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0xFF455A64).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.public, size: 20, color: Color(0xFF455A64)),
+            ),
+            const SizedBox(width: 12),
+            Text(_l.t('land'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: _countryOptions.containsKey(_selectedLandCode.toUpperCase()) ? _selectedLandCode.toUpperCase() : 'NL',
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF455A64), width: 1.5)),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
-              ],
-            ]),
+                isExpanded: true,
+                items: _countryOptions.entries.map((e) => DropdownMenuItem(
+                  value: e.key,
+                  child: Text('${_countryFlag(e.key)}  ${e.value}', style: const TextStyle(fontSize: 14)),
+                )).toList(),
+                onChanged: (v) { if (v != null) _onCountryChanged(v); },
+              ),
+            ),
+          ]),
+          if (widget.appUser.isBedrijf && widget.appUser.bedrijfsnaam != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F4FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFDCE5F5)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.business, size: 18, color: Color(0xFF455A64)),
+                const SizedBox(width: 10),
+                Expanded(child: Text(widget.appUser.bedrijfsnaam!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF1E293B)), overflow: TextOverflow.ellipsis)),
+              ]),
+            ),
           ],
-          const SizedBox(height: 16),
+          if (widget.appUser.btwNummer != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F4FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFDCE5F5)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.receipt_long, size: 18, color: Color(0xFF455A64)),
+                const SizedBox(width: 10),
+                Text('${_l.t('btw')}: ${widget.appUser.btwNummer}', style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B))),
+                if (_reverseCharge) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: const Color(0xFFE3F2FD), borderRadius: BorderRadius.circular(6)),
+                    child: Text(_l.t('btw_verlegd'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1565C0))),
+                  ),
+                ],
+              ]),
+            ),
+          ],
+          const SizedBox(height: 20),
           CheckboxListTile(
             value: _factuurGelijk,
             onChanged: (v) => setState(() => _factuurGelijk = v ?? true),
-            title: Text(_l.t('factuuradres_gelijk'), style: const TextStyle(fontSize: 13)),
+            title: Text(_l.t('factuuradres_gelijk'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
             controlAffinity: ListTileControlAffinity.leading,
             contentPadding: EdgeInsets.zero,
             dense: true,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
           if (!_factuurGelijk) ...[
-            const SizedBox(height: 8),
-            Text(_l.t('factuuradres'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: const Color(0xFFFFF8E1), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.receipt_outlined, size: 20, color: Color(0xFFF57F17)),
+              ),
+              const SizedBox(width: 12),
+              Text(_l.t('factuuradres'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+            ]),
+            const SizedBox(height: 10),
             AddressFormFields(
               postcodeCtrl: _fPostcodeCtrl,
               huisnummerCtrl: _fHuisnummerCtrl,
               straatCtrl: _fStraatCtrl,
               woonplaatsCtrl: _fWoonplaatsCtrl,
-              landCode: widget.appUser.landCode,
+              landCode: _selectedLandCode,
               t: _l.t,
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _opmerkingenCtrl,
-            decoration: InputDecoration(labelText: _l.t('opmerkingen_optioneel'), isDense: true),
+            decoration: InputDecoration(
+              hintText: _l.t('opmerkingen_optioneel'),
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF455A64), width: 1.5)),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              prefixIcon: const Padding(padding: EdgeInsets.only(left: 12, right: 8), child: Icon(Icons.note_outlined, size: 18, color: Color(0xFF78909C))),
+            ),
             maxLines: 2,
           ),
         ]),
@@ -304,58 +458,77 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  static String _countryFlag(String code) {
+    final c = code.toUpperCase();
+    if (c.length != 2) return '';
+    return String.fromCharCodes([c.codeUnitAt(0) + 0x1F1A5, c.codeUnitAt(1) + 0x1F1A5]);
+  }
+
   Widget _buildOrderSummary() {
-    final shipping = ShippingService.getRate(widget.appUser.landCode.toUpperCase());
-    return Card(
+    final shipping = ShippingService.getRate(_selectedLandCode.toUpperCase());
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECF1)),
+        boxShadow: [BoxShadow(color: const Color(0xFF455A64).withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(children: [
           ...widget.cartItems.map((item) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.only(bottom: 12),
             child: Row(children: [
-              if (item.product.displayAfbeeldingUrl != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: Image.network(item.product.displayAfbeeldingUrl!, width: 40, height: 40, fit: BoxFit.contain,
-                    errorBuilder: (_, e, s) => const SizedBox(width: 40, height: 40)),
-                )
-              else
-                const SizedBox(width: 40, height: 40, child: Icon(Icons.sailing, size: 20, color: Color(0xFFB0BEC5))),
-              const SizedBox(width: 12),
+              Container(
+                width: 50, height: 50,
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: const Color(0xFFF8FAFC), border: Border.all(color: const Color(0xFFE2E8F0))),
+                clipBehavior: Clip.antiAlias,
+                child: item.product.displayAfbeeldingUrl != null
+                    ? Image.network(item.product.displayAfbeeldingUrl!, fit: BoxFit.contain, errorBuilder: (_, _, _) => const Icon(Icons.sailing, size: 22, color: Color(0xFFB0C4DE)))
+                    : const Icon(Icons.sailing, size: 22, color: Color(0xFFB0C4DE)),
+              ),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(item.product.naam, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text('${item.quantity}x ${item.unitPriceFormattedExcl}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                  Text(item.product.naamForLang(_lang), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 2),
+                  Text('${item.quantity} × ${item.unitPriceFormattedExcl}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                 ]),
               ),
-              Text(PricingService.formatEuro(item.lineTotalExclVat), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              Text(PricingService.formatEuro(item.lineTotalExclVat), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
             ]),
           )),
-          const Divider(),
+          const Divider(height: 24),
           _row(_l.t('subtotaal_excl_btw'), PricingService.formatEuro(widget.subtotalExcl)),
-          const SizedBox(height: 4),
-          if (widget.reverseCharge)
+          const SizedBox(height: 6),
+          if (_reverseCharge)
             _row(_l.t('btw'), _l.t('verlegd_icp'), subtle: true)
-          else if (widget.vatRate == 0)
+          else if (_vatRate == 0)
             _row(_l.t('btw'), _l.t('geen_btw_buiten_eu'), subtle: true)
           else
-            _row('${_l.t('btw')} ${widget.vatRate.toStringAsFixed(widget.vatRate == widget.vatRate.roundToDouble() ? 0 : 1)}%',
-              PricingService.formatEuro(widget.vatAmount), subtle: true),
-          const SizedBox(height: 4),
+            _row('${_l.t('btw')} ${_vatRate.toStringAsFixed(_vatRate == _vatRate.roundToDouble() ? 0 : 1)}%',
+              PricingService.formatEuro(_vatAmount), subtle: true),
+          const SizedBox(height: 6),
           _row(
             '${_l.t('verzendkosten')} (${shipping.localizedName(_lang)})',
-            shipping.cost == 0 ? _l.t('gratis') : PricingService.formatEuro(shipping.cost),
+            _shippingCost == 0 ? _l.t('gratis') : PricingService.formatEuro(_shippingCost),
             subtle: true,
-            green: shipping.cost == 0,
+            green: _shippingCost == 0,
           ),
           if (shipping.deliveryTime.isNotEmpty)
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text('${_l.t('levertijd')}: ${shipping.deliveryTime}',
-                style: const TextStyle(fontSize: 10, color: Color(0xFF78909C))),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.local_shipping_outlined, size: 13, color: Color(0xFF78909C)),
+                  const SizedBox(width: 4),
+                  Text('${_l.t('levertijd')}: ${shipping.deliveryTime}', style: const TextStyle(fontSize: 11, color: Color(0xFF78909C))),
+                ]),
+              ),
             ),
-          const Divider(),
-          _row(_l.t('totaal'), PricingService.formatEuro(widget.total), bold: true),
+          const Divider(height: 24),
+          _row(_l.t('totaal'), PricingService.formatEuro(_total), bold: true),
         ]),
       ),
     );
@@ -385,23 +558,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     if (_availableMethods.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              const Icon(Icons.info_outline, size: 20, color: Color(0xFF78909C)),
-              const SizedBox(width: 8),
-              Expanded(child: Text(_l.t('geen_betaalmethoden'), style: const TextStyle(fontSize: 13, color: Color(0xFF78909C)))),
-            ]),
-          ]),
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE8ECF1)),
         ),
+        padding: const EdgeInsets.all(20),
+        child: Row(children: [
+          const Icon(Icons.info_outline, size: 20, color: Color(0xFF78909C)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(_l.t('geen_betaalmethoden'), style: const TextStyle(fontSize: 13, color: Color(0xFF78909C)))),
+        ]),
       );
     }
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white, borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECF1)),
+        boxShadow: [BoxShadow(color: const Color(0xFF455A64).withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(
             _l.t('kies_betaalmethode_beschrijving'),
@@ -582,11 +760,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         items: widget.cartItems,
         user: updatedUser,
         subtotaal: widget.subtotalExcl,
-        btwBedrag: widget.vatAmount,
-        btwPercentage: widget.vatRate,
-        btwVerlegd: widget.reverseCharge,
-        verzendkosten: widget.shippingCost,
-        totaal: widget.total,
+        btwBedrag: _vatAmount,
+        btwPercentage: _vatRate,
+        btwVerlegd: _reverseCharge,
+        verzendkosten: _shippingCost,
+        totaal: _total,
         opmerkingen: _opmerkingenCtrl.text.isNotEmpty ? _opmerkingenCtrl.text : null,
       );
 

@@ -395,21 +395,38 @@ class _InvitedRegisterFormState extends State<_InvitedRegisterForm> {
 
       final client = Supabase.instance.client;
 
-      // Create user via admin API (pre-confirmed, no confirmation email)
-      final res = await client.functions.invoke('confirm-user', body: {
-        'action': 'create',
-        'email': email,
-        'password': password,
-      });
+      Map<String, dynamic>? body;
+      try {
+        final res = await client.functions.invoke('confirm-user', body: {
+          'action': 'create',
+          'email': email,
+          'password': password,
+        });
+        body = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : null;
+      } catch (e) {
+        final errStr = e.toString().toLowerCase();
+        if (errStr.contains('rate limit') || errStr.contains('429') || errStr.contains('too many')) {
+          setState(() => _error = 'Te veel pogingen. Wacht een paar minuten en probeer het opnieuw.');
+          return;
+        }
+        if (errStr.contains('already') || errStr.contains('duplicate') || errStr.contains('409')) {
+          body = {'error': 'already_exists'};
+        } else {
+          setState(() => _error = _translateCreateError(e.toString().replaceFirst('Exception: ', '')));
+          return;
+        }
+      }
 
-      final body = res.data;
-      if (body is Map && body['error'] != null) {
+      if (body != null && body['error'] != null) {
         final err = body['error'].toString().toLowerCase();
-        if (err.contains('already been registered') || err.contains('already exists') || err.contains('duplicate')) {
-          // Account exists — confirm it and tell user to log in
-          try {
-            await client.functions.invoke('confirm-user', body: {'email': email});
-          } catch (_) {}
+
+        if (err.contains('rate_limit') || err.contains('rate limit') || err.contains('too many')) {
+          setState(() => _error = 'Te veel pogingen. Wacht een paar minuten en probeer het opnieuw.');
+          return;
+        }
+
+        if (err.contains('already') || err.contains('duplicate') || err.contains('registered')) {
+          try { await client.functions.invoke('confirm-user', body: {'email': email}); } catch (_) {}
           try { await widget.userService.markAsRegistered(email); } catch (_) {}
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -420,17 +437,33 @@ class _InvitedRegisterFormState extends State<_InvitedRegisterForm> {
           }
           return;
         }
-        setState(() => _error = _translateCreateError(body['error'].toString()));
+
+        if (err.contains('not invited')) {
+          setState(() => _error = 'Dit e-mailadres is niet uitgenodigd. Vraag de beheerder om een uitnodiging.');
+          return;
+        }
+
+        setState(() => _error = _translateCreateError(body!['message']?.toString() ?? body['error'].toString()));
         return;
       }
 
-      try {
-        await widget.userService.markAsRegistered(email);
-      } catch (e) {
+      try { await widget.userService.markAsRegistered(email); } catch (e) {
         if (kDebugMode) debugPrint('markAsRegistered failed (non-fatal): $e');
       }
 
+      // Auto-login after successful registration
+      try {
+        await client.auth.signInWithPassword(email: email, password: password);
+      } catch (_) {}
+
       if (mounted) {
+        final existed = body?['existed'] == true;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(existed
+              ? 'Je account is geactiveerd. Je bent nu ingelogd.'
+              : 'Account succesvol aangemaakt! Je bent nu ingelogd.'),
+          backgroundColor: const Color(0xFF43A047),
+        ));
         widget.onRegistered();
       }
     } on AuthException catch (e) {
@@ -438,12 +471,12 @@ class _InvitedRegisterFormState extends State<_InvitedRegisterForm> {
     } catch (e) {
       if (kDebugMode) debugPrint('Register error: $e');
       final errStr = e.toString().toLowerCase();
-      if (errStr.contains('duplicate') || errStr.contains('already')) {
-        setState(() => _error = 'Er bestaat al een account met dit e-mailadres. Probeer in te loggen.');
-      } else if (errStr.contains('rate limit')) {
+      if (errStr.contains('rate limit') || errStr.contains('429') || errStr.contains('too many')) {
         setState(() => _error = 'Te veel pogingen. Wacht een paar minuten en probeer het opnieuw.');
+      } else if (errStr.contains('duplicate') || errStr.contains('already')) {
+        setState(() => _error = 'Er bestaat al een account met dit e-mailadres. Probeer in te loggen.');
       } else {
-        setState(() => _error = 'Fout bij registratie: $e');
+        setState(() => _error = 'Fout bij registratie. Probeer het later opnieuw.');
       }
     } finally {
       if (mounted) setState(() => _loading = false);

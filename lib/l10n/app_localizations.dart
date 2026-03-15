@@ -1574,8 +1574,23 @@ class AppLocalizations {
     },
     'voorlijk': {
       'nl': 'Voorlijk', 'en': 'Luff', 'de': 'Vorliek', 'fr': 'Guindant',
-      'es': 'Gratil',       'it': 'Inferitura',
+      'es': 'Gratil', 'it': 'Inferitura',
       'zh': '前缘', 'ar': 'الحافة الأمامية', 'tr': 'Ön kenar',
+    },
+    'achterlijk': {
+      'nl': 'Achterlijk', 'en': 'Leech', 'de': 'Achterliek', 'fr': 'Chute',
+      'es': 'Baluma', 'it': 'Balumina',
+      'zh': '后缘', 'ar': 'الحافة الخلفية', 'tr': 'Arka kenar',
+    },
+    'bovenlijk': {
+      'nl': 'Bovenlijk', 'en': 'Head', 'de': 'Oberliek', 'fr': 'Têtière',
+      'es': 'Gratil superior', 'it': 'Testa',
+      'zh': '上缘', 'ar': 'الحافة العلوية', 'tr': 'Üst kenar',
+    },
+    'oppervlakte': {
+      'nl': 'Zeiloppervlak', 'en': 'Sail Area', 'de': 'Segelfläche', 'fr': 'Surface de voile',
+      'es': 'Superficie vélica', 'it': 'Superficie velica',
+      'zh': '帆面积', 'ar': 'مساحة الشراع', 'tr': 'Yelken alanı',
     },
     'onderlijk': {
       'nl': 'Onderlijk', 'en': 'Foot', 'de': 'Unterliek', 'fr': 'Bordure',

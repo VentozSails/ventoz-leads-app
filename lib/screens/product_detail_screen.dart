@@ -273,11 +273,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         )),
       ],
 
-      // ── Beschrijving (inclusief specs, materiaal, inclusief als doorlopende tekst) ──
+      // ── Beschrijving ──
       if ((p.beschrijvingForLang(_lang) ?? '').isNotEmpty) ...[
         const SizedBox(height: 20),
         ..._buildFormattedDescription(p.beschrijvingForLang(_lang)!),
       ],
+
+      // ── Specificaties tabel (uit specsTabel of losse velden) ──
+      ..._buildSpecsTable(p),
 
       const SizedBox(height: 24),
       if (p.inStock) ...[
@@ -315,7 +318,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     ]);
   }
 
-  static final _specLinePattern = RegExp(r'^(Voorlijk|Achterlijk|Onderlijk|Bovenlijk|Oppervlakte|Luff|Foot|Sail Area)\s*:\s*(.+)$', caseSensitive: false);
+  static final _specLinePattern = RegExp(
+    r'^(Voorlijk|Achterlijk|Onderlijk|Bovenlijk|Oppervlakte|Luff|Foot|Sail Area|Vorliek|Unterliek|Guindant|Bordure|Materiaal|Material|Matériau|Inclusief|Includes|Inklusive|Inclus|Gewicht|Weight|Poids)\s*:\s*(.+)$',
+    caseSensitive: false,
+  );
+
+  static const _specLabelKeys = <String, String>{
+    'voorlijk': 'voorlijk', 'luff': 'voorlijk', 'vorliek': 'voorlijk', 'guindant': 'voorlijk',
+    'achterlijk': 'achterlijk', 'leech': 'achterlijk',
+    'onderlijk': 'onderlijk', 'foot': 'onderlijk', 'unterliek': 'onderlijk', 'bordure': 'onderlijk',
+    'bovenlijk': 'bovenlijk',
+    'oppervlakte': 'oppervlakte', 'sail area': 'oppervlakte', 'zeiloppervlak': 'oppervlakte',
+    'materiaal': 'materiaal', 'material': 'materiaal', 'matériau': 'materiaal',
+    'inclusief': 'inclusief', 'includes': 'inclusief', 'inklusive': 'inclusief', 'inclus': 'inclusief',
+    'gewicht': 'gewicht', 'weight': 'gewicht', 'poids': 'gewicht',
+  };
+
+  String _translateSpecLabel(String rawLabel) {
+    final key = _specLabelKeys[rawLabel.toLowerCase()];
+    if (key != null) return _l.t(key);
+    return rawLabel;
+  }
 
   List<Widget> _buildFormattedDescription(String text) {
     final paragraphs = text.split('\n\n').where((p) => p.trim().isNotEmpty).toList();
@@ -343,8 +366,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ));
       } else if (_specLinePattern.hasMatch(para)) {
         final m = _specLinePattern.firstMatch(para)!;
+        final label = _translateSpecLabel(m.group(1)!);
         widgets.add(Row(children: [
-          Text('${m.group(1)}: ', style: GoogleFonts.dmSans(fontSize: 14, color: _slate)),
+          Text('$label: ', style: GoogleFonts.dmSans(fontSize: 14, color: _slate)),
           Text(m.group(2)!, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: _navy)),
         ]));
       } else {
@@ -352,6 +376,72 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     }
     return widgets;
+  }
+
+  List<Widget> _buildSpecsTable(CatalogProduct p) {
+    final specs = <String, String>{};
+
+    if (p.luff != null && p.luff!.isNotEmpty) specs[_l.t('voorlijk')] = p.luff!;
+    if (p.foot != null && p.foot!.isNotEmpty) specs[_l.t('onderlijk')] = p.foot!;
+    if (p.sailArea != null && p.sailArea!.isNotEmpty) specs[_l.t('oppervlakte')] = p.sailArea!;
+    if (p.materiaal != null && p.materiaal!.isNotEmpty) specs[_l.t('materiaal')] = p.materiaal!;
+    if (p.gewicht != null) specs[_l.t('gewicht')] = '${p.gewicht} kg';
+    if (p.inclusief != null && p.inclusief!.isNotEmpty) specs[_l.t('inclusief')] = p.inclusief!;
+
+    if (p.specsTabel != null) {
+      for (final entry in p.specsTabel!.entries) {
+        final label = _translateSpecLabel(entry.key);
+        if (!specs.containsKey(label)) {
+          specs[label] = entry.value;
+        }
+      }
+    }
+
+    if (specs.isEmpty) return [];
+
+    final descText = p.beschrijvingForLang(_lang) ?? '';
+    final alreadyInDescription = specs.keys.where((label) =>
+        descText.contains('$label:') || descText.contains('$label :'));
+    for (final dup in alreadyInDescription.toList()) {
+      specs.remove(dup);
+    }
+    if (specs.isEmpty) return [];
+
+    return [
+      const SizedBox(height: 20),
+      Text(_l.t('specificaties'), style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700, color: _navy)),
+      const SizedBox(height: 10),
+      Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          children: specs.entries.toList().asMap().entries.map((indexed) {
+            final entry = indexed.value;
+            final isEven = indexed.key.isEven;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: isEven ? const Color(0xFFF8FAFC) : Colors.white,
+                borderRadius: indexed.key == 0
+                    ? const BorderRadius.vertical(top: Radius.circular(10))
+                    : indexed.key == specs.length - 1
+                        ? const BorderRadius.vertical(bottom: Radius.circular(10))
+                        : BorderRadius.zero,
+              ),
+              child: Row(children: [
+                SizedBox(
+                  width: 130,
+                  child: Text(entry.key, style: GoogleFonts.dmSans(fontSize: 13, color: _slate, fontWeight: FontWeight.w500)),
+                ),
+                Expanded(child: Text(entry.value, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: _navy))),
+              ]),
+            );
+          }).toList(),
+        ),
+      ),
+    ];
   }
 
   Widget _placeholder() {
