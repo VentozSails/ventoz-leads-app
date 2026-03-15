@@ -129,8 +129,16 @@ class PayNlService {
 
   Future<bool> testConnection() async {
     final config = await getConfig();
-    if (config == null || !config.isConfigured) {
-      lastTestError = 'Configuratie onvolledig. Vul alle verplichte velden in.';
+    if (config == null) {
+      lastTestError = 'Geen Pay.nl configuratie gevonden. Sla eerst je instellingen op.';
+      return false;
+    }
+    if (!config.isConfigured) {
+      final missing = <String>[];
+      if (config.serviceId.isEmpty) missing.add('Service ID');
+      if (config.atCode.isEmpty) missing.add('AT-code');
+      if (config.apiToken.isEmpty) missing.add('API token');
+      lastTestError = 'Configuratie onvolledig: ${missing.join(', ')} ontbreekt.';
       return false;
     }
 
@@ -140,10 +148,17 @@ class PayNlService {
         headers: _merchantHeaders(config),
       ).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) return true;
-      lastTestError = 'HTTP ${response.statusCode}: ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}';
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        lastTestError = 'Authenticatie mislukt (HTTP ${response.statusCode}). Controleer AT-code en API token.';
+      } else {
+        lastTestError = 'HTTP ${response.statusCode}: ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}';
+      }
+      return false;
+    } on TimeoutException {
+      lastTestError = 'Verbinding time-out na 15 seconden. Controleer je internetverbinding.';
       return false;
     } catch (e) {
-      lastTestError = e.toString();
+      lastTestError = 'Verbindingsfout: $e';
       return false;
     }
   }
