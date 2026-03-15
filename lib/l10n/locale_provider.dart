@@ -82,11 +82,11 @@ class LocaleProvider extends ChangeNotifier {
     if (_userChoseLang) return;
     try {
       final response = await http.get(
-        Uri.parse('http://ip-api.com/json/?fields=countryCode'),
+        Uri.parse('https://ipapi.co/json/'),
       ).timeout(const Duration(seconds: 3));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final countryCode = data['countryCode'] as String?;
+        final countryCode = (data['country_code'] ?? data['countryCode']) as String?;
         if (countryCode != null && !_userChoseLang) {
           final detectedLang = _countryToLang[countryCode];
           if (detectedLang != null && supportedLangs.contains(detectedLang)) {

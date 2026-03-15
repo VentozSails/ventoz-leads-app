@@ -72,13 +72,13 @@ class _MfaEnrollScreenState extends State<MfaEnrollScreen> {
         _loading = false;
       });
     } on AuthException catch (e) {
-      debugPrint('MFA enroll AuthException: ${e.statusCode} ${e.message}');
+      if (kDebugMode) debugPrint('MFA enroll AuthException: ${e.statusCode} ${e.message}');
       setState(() {
         _error = 'MFA-fout: ${e.message}';
         _loading = false;
       });
     } catch (e) {
-      debugPrint('MFA enroll error: $e');
+      if (kDebugMode) debugPrint('MFA enroll error: $e');
       setState(() {
         _error = 'Fout bij MFA-registratie: $e';
         _loading = false;

@@ -132,7 +132,7 @@ class _AdminShippingScreenState extends State<AdminShippingScreen> {
             const SizedBox(width: 10),
             Text(order.orderNummer, style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w800, color: _navy)),
             const Spacer(),
-            Text(_fmt.format(order.totaal), style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w800, color: _teal)),
+            Text(order.formatTotaal(), style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w800, color: _teal)),
           ]),
           const SizedBox(height: 8),
 
@@ -318,7 +318,7 @@ class _AdminShippingScreenState extends State<AdminShippingScreen> {
                     const SizedBox(width: 10),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       const Text('Concept klaarzetten', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white)),
-                      Text('${order.orderNummer}  \u00B7  ${_fmt.format(order.totaal)}',
+                      Text('${order.orderNummer}  \u00B7  ${order.formatTotaal()}',
                         style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
                     ])),
                     IconButton(icon: const Icon(Icons.close, color: Colors.white54, size: 20), onPressed: () => Navigator.pop(ctx)),
@@ -732,7 +732,7 @@ class _AdminShippingScreenState extends State<AdminShippingScreen> {
                   Text('${order.adres ?? ''}\n${order.postcode ?? ''} ${order.woonplaats ?? ''} (${order.landCode.toUpperCase()})',
                     style: const TextStyle(fontSize: 12, height: 1.5, color: Color(0xFF64748B))),
                   const SizedBox(height: 6),
-                  Text('${order.regels.length} artikel${order.regels.length == 1 ? '' : 'en'} · ${_fmt.format(order.totaal)}',
+                  Text('${order.regels.length} artikel${order.regels.length == 1 ? '' : 'en'} · ${order.formatTotaal()}',
                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _teal)),
                 ]),
               ),

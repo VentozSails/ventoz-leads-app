@@ -376,11 +376,19 @@ class InvoiceService {
   static pw.Widget _buildTotalsSection(Order order, String Function(String) t,
       {PdfColor? accent}) {
     final a = accent ?? _defaultAccentColor;
+    final isMultiValuta = order.effectiveValuta != 'EUR' && (order.orderBedragEur != null || order.wisselkoers != null);
+    final localSym = switch (order.effectiveValuta) {
+      'GBP' => '£',
+      'USD' => '\$',
+      'PLN' => 'zł ',
+      _ => '€',
+    };
     return pw.Container(
       alignment: pw.Alignment.centerRight,
       child: pw.SizedBox(
         width: 260,
         child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.end,
           children: [
             _totalLine(t('totaal_excl_btw'), _fmtEuro(order.subtotaal)),
             if (order.btwVerlegd)
@@ -394,11 +402,24 @@ class InvoiceService {
                 color: a,
                 borderRadius: pw.BorderRadius.circular(3),
               ),
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  pw.Text(t('te_betalen'), style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
-                  pw.Text(_fmtEuro(order.totaal), style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    mainAxisSize: pw.MainAxisSize.max,
+                    children: [
+                      pw.Text(t('te_betalen'), style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                      pw.Text(_fmtEuro(order.effectiveBedragEur), style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                    ],
+                  ),
+                  if (isMultiValuta) ...[
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      '$localSym ${order.effectiveBedrag.toStringAsFixed(2).replaceAll('.', ',')} (1 ${order.effectiveValuta} = ${(order.wisselkoers ?? 0).toStringAsFixed(4)} EUR)',
+                      style: pw.TextStyle(fontSize: 8, color: PdfColors.white),
+                    ),
+                  ],
                 ],
               ),
             ),

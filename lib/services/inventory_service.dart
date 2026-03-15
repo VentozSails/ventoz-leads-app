@@ -633,7 +633,8 @@ class InventoryService {
         query = query.lte('created_at', to.toIso8601String());
       }
       if (search != null && search.trim().isNotEmpty) {
-        final s = '%${search.trim()}%';
+        final sanitized = search.trim().replaceAll(RegExp(r'[,\(\)\.\\\"]'), '');
+        final s = '%$sanitized%';
         query = query.or('reden.ilike.$s,order_nummer.ilike.$s,klant_naam.ilike.$s');
       }
 

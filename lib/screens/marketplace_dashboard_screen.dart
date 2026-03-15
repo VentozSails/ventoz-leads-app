@@ -9,7 +9,8 @@ import 'channel_matrix_screen.dart';
 import 'ebay_matching_screen.dart';
 
 class MarketplaceDashboardScreen extends StatefulWidget {
-  const MarketplaceDashboardScreen({super.key});
+  final int initialTabIndex;
+  const MarketplaceDashboardScreen({super.key, this.initialTabIndex = 0});
 
   @override
   State<MarketplaceDashboardScreen> createState() => _MarketplaceDashboardScreenState();
@@ -36,7 +37,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 7, vsync: this, initialIndex: widget.initialTabIndex);
     _loadAll();
   }
 

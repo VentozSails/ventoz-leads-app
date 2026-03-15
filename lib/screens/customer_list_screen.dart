@@ -13,12 +13,30 @@ class CustomerListScreen extends StatefulWidget {
 class _CustomerListScreenState extends State<CustomerListScreen> {
   static const _navy = Color(0xFF0D1B2A);
   static const _accent = Color(0xFF1B4965);
+  static const _green = Color(0xFF2E7D32);
+  static const _border = Color(0xFFE2E8F0);
 
   final _service = CustomerService();
   final _searchCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
+  final _hScrollCtrl = ScrollController();
 
   List<Customer> _customers = [];
+  List<Customer> _all = [];
   bool _loading = true;
+
+  String? _landFilter;
+  bool? _zakelijkFilter;
+  String _sortBy = 'naam';
+  bool _sortAsc = true;
+
+  int _totalCount = 0;
+  int _zakelijkCount = 0;
+  int _particulierCount = 0;
+
+  final Set<String> _visibleCols = {
+    'naam', 'type', 'klantnr', 'email', 'adres', 'postcode', 'plaats', 'land', 'omzet', 'facturen', 'laatste_factuur',
+  };
 
   @override
   void initState() {
@@ -29,13 +47,51 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _scrollCtrl.dispose();
+    _hScrollCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final results = await _service.getAll(search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim());
-    if (mounted) setState(() { _customers = results; _loading = false; });
+    final results = await _service.getAll(
+      landFilter: _landFilter,
+      zakelijkFilter: _zakelijkFilter,
+      sortBy: _sortBy,
+      sortAsc: _sortAsc,
+      limit: 5000,
+    );
+    if (!mounted) return;
+    _all = results;
+    _applySearch();
+    _totalCount = results.length;
+    _zakelijkCount = results.where((c) => c.isZakelijk).length;
+    _particulierCount = _totalCount - _zakelijkCount;
+    setState(() => _loading = false);
+  }
+
+  void _applySearch() {
+    final q = _searchCtrl.text.toLowerCase().trim();
+    if (q.isEmpty) {
+      _customers = List.from(_all);
+    } else {
+      _customers = _all.where((c) {
+        return c.displayNaam.toLowerCase().contains(q) ||
+            c.email.toLowerCase().contains(q) ||
+            c.klantnummer.toLowerCase().contains(q) ||
+            (c.bedrijfsnaam ?? '').toLowerCase().contains(q) ||
+            (c.woonplaats ?? '').toLowerCase().contains(q) ||
+            (c.snelstartKlantcode ?? '').toLowerCase().contains(q) ||
+            (c.contactpersoon ?? '').toLowerCase().contains(q) ||
+            (c.telefoon ?? '').toLowerCase().contains(q) ||
+            (c.adres ?? '').toLowerCase().contains(q) ||
+            (c.postcode ?? '').toLowerCase().contains(q) ||
+            c.landCode.toLowerCase().contains(q) ||
+            (c.landLabel).toLowerCase().contains(q) ||
+            c.aantalFacturen.toString().contains(q);
+      }).toList();
+    }
+    if (mounted) setState(() {});
   }
 
   void _openDetail(Customer? customer) async {
@@ -46,8 +102,42 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     if (result == true) _load();
   }
 
+  void _setSort(String col) {
+    setState(() {
+      if (_sortBy == col) {
+        _sortAsc = !_sortAsc;
+      } else {
+        _sortBy = col;
+        _sortAsc = true;
+      }
+    });
+    _load();
+  }
+
+  String _fmtOmzet(double v) {
+    if (v == 0) return '-';
+    final s = v.toStringAsFixed(2);
+    final parts = s.split('.');
+    final whole = parts[0];
+    final dec = parts[1];
+    final buf = StringBuffer();
+    for (int i = 0; i < whole.length; i++) {
+      if (i > 0 && (whole.length - i) % 3 == 0) buf.write('.');
+      buf.write(whole[i]);
+    }
+    return '€ ${buf.toString()},$dec';
+  }
+
+  String _fmtDate(DateTime? d) {
+    if (d == null) return '-';
+    return '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isWide = width > 900;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -55,141 +145,514 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
         backgroundColor: _navy,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(icon: const Icon(Icons.person_add_rounded), onPressed: () => _openDetail(null)),
+          IconButton(
+            icon: const Icon(Icons.person_add_rounded),
+            tooltip: 'Nieuwe klant',
+            onPressed: () => _openDetail(null),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Vernieuwen',
+            onPressed: _load,
+          ),
           const SizedBox(width: 8),
         ],
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: 'Zoek op naam, email, klantnummer...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchCtrl.text.isNotEmpty
-                    ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _searchCtrl.clear(); _load(); })
-                    : null,
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-              onSubmitted: (_) => _load(),
-              onChanged: (v) {
-                if (v.isEmpty) _load();
-                setState(() {});
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Text('${_customers.length} klanten', style: GoogleFonts.dmSans(fontSize: 13, color: const Color(0xFF64748B))),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Vernieuwen'),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
+          _buildKpiRow(),
+          _buildToolbar(),
+          const Divider(height: 1, color: _border),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _customers.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                    ? _buildEmpty()
+                    : isWide
+                        ? _buildTable()
+                        : _buildCardList(),
+          ),
+          _buildFooter(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKpiRow() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+      child: Row(
+        children: [
+          _kpiChip(Icons.people_rounded, '$_totalCount', 'Totaal', _accent),
+          const SizedBox(width: 10),
+          _kpiChip(Icons.business_rounded, '$_zakelijkCount', 'Zakelijk', const Color(0xFF6366F1)),
+          const SizedBox(width: 10),
+          _kpiChip(Icons.person_rounded, '$_particulierCount', 'Particulier', const Color(0xFF0EA5E9)),
+        ],
+      ),
+    );
+  }
+
+  Widget _kpiChip(IconData icon, String value, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 7),
+          Text(value, style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w700, color: color)),
+          const SizedBox(width: 5),
+          Text(label, style: GoogleFonts.dmSans(fontSize: 11, color: color.withValues(alpha: 0.7))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolbar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (_) => _applySearch(),
+              decoration: InputDecoration(
+                hintText: 'Zoek op naam, email, klantnr, adres, plaats, land...',
+                hintStyle: GoogleFonts.dmSans(fontSize: 13, color: const Color(0xFF94A3B8)),
+                prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF94A3B8)),
+                suffixIcon: _searchCtrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () { _searchCtrl.clear(); _applySearch(); },
+                      )
+                    : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _border)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _border)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _accent, width: 1.5)),
+              ),
+              style: GoogleFonts.dmSans(fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 10),
+          _filterDropdown<String?>(
+            value: _landFilter,
+            hint: 'Alle landen',
+            items: [
+              const DropdownMenuItem(value: null, child: Text('Alle landen')),
+              for (final lc in ['NL', 'DE', 'BE', 'GB', 'IT', 'FR', 'IE', 'ES', 'AT', 'CH', 'PL'])
+                DropdownMenuItem(value: lc, child: Text(lc)),
+            ],
+            onChanged: (v) { _landFilter = v; _load(); },
+          ),
+          const SizedBox(width: 8),
+          _filterDropdown<bool?>(
+            value: _zakelijkFilter,
+            hint: 'Alle typen',
+            items: const [
+              DropdownMenuItem(value: null, child: Text('Alle typen')),
+              DropdownMenuItem(value: true, child: Text('Zakelijk')),
+              DropdownMenuItem(value: false, child: Text('Particulier')),
+            ],
+            onChanged: (v) { _zakelijkFilter = v; _load(); },
+          ),
+          const SizedBox(width: 8),
+          _columnChooserButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _columnChooserButton() {
+    return PopupMenuButton<String>(
+      tooltip: 'Kolommen kiezen',
+      offset: const Offset(0, 40),
+      icon: Icon(Icons.view_column_rounded, size: 20, color: _accent.withValues(alpha: 0.7)),
+      onSelected: (col) => setState(() {
+        if (_visibleCols.contains(col)) {
+          _visibleCols.remove(col);
+        } else {
+          _visibleCols.add(col);
+        }
+      }),
+      itemBuilder: (_) => _allColumns.map((entry) => CheckedPopupMenuItem<String>(
+        value: entry.key,
+        checked: _visibleCols.contains(entry.key),
+        child: Text(entry.label, style: GoogleFonts.dmSans(fontSize: 12)),
+      )).toList(),
+    );
+  }
+
+  static const _allColumns = <_ColDef>[
+    _ColDef('naam', 'Naam'),
+    _ColDef('type', 'Type'),
+    _ColDef('klantnr', 'Klantnr / Snelstart'),
+    _ColDef('email', 'E-mail'),
+    _ColDef('adres', 'Adres'),
+    _ColDef('postcode', 'Postcode'),
+    _ColDef('plaats', 'Plaats'),
+    _ColDef('land', 'Land'),
+    _ColDef('telefoon', 'Telefoon'),
+    _ColDef('omzet', 'Omzet'),
+    _ColDef('facturen', 'Facturen'),
+    _ColDef('laatste_factuur', 'Laatste factuur'),
+  ];
+
+  Widget _filterDropdown<T>({required T value, required String hint, required List<DropdownMenuItem<T>> items, required ValueChanged<T?> onChanged}) {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          items: items,
+          onChanged: onChanged,
+          style: GoogleFonts.dmSans(fontSize: 12, color: _navy),
+          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+          isDense: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmpty() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.people_outline, size: 64, color: Colors.grey.shade300),
+          const SizedBox(height: 12),
+          Text('Geen klanten gevonden', style: GoogleFonts.dmSans(color: Colors.grey)),
+          if (_searchCtrl.text.isNotEmpty || _landFilter != null || _zakelijkFilter != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: TextButton(
+                onPressed: () {
+                  _searchCtrl.clear();
+                  _landFilter = null;
+                  _zakelijkFilter = null;
+                  _load();
+                },
+                child: const Text('Filters wissen'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<_Col> _buildCols() {
+    final cols = <_Col>[const _Col('', 36)];
+    if (_visibleCols.contains('naam'))           cols.add(const _Col('Naam', 180, sortKey: 'naam'));
+    if (_visibleCols.contains('type'))           cols.add(const _Col('Type', 76));
+    if (_visibleCols.contains('klantnr'))        cols.add(const _Col('Klantnr', 110, sortKey: 'klantnummer'));
+    if (_visibleCols.contains('email'))          cols.add(const _Col('E-mail', 190));
+    if (_visibleCols.contains('adres'))          cols.add(const _Col('Adres', 170));
+    if (_visibleCols.contains('postcode'))       cols.add(const _Col('Postcode', 80));
+    if (_visibleCols.contains('plaats'))         cols.add(const _Col('Plaats', 120, sortKey: 'woonplaats'));
+    if (_visibleCols.contains('land'))           cols.add(const _Col('Land', 50, sortKey: 'land_code'));
+    if (_visibleCols.contains('telefoon'))       cols.add(const _Col('Telefoon', 110));
+    if (_visibleCols.contains('omzet'))          cols.add(const _Col('Omzet', 100, sortKey: 'totale_omzet'));
+    if (_visibleCols.contains('facturen'))       cols.add(const _Col('Facturen', 60, sortKey: 'aantal_facturen'));
+    if (_visibleCols.contains('laatste_factuur')) cols.add(const _Col('Laatste factuur', 105, sortKey: 'laatste_factuur_datum'));
+    return cols;
+  }
+
+  Widget _buildTable() {
+    final cols = _buildCols();
+
+    return Scrollbar(
+      controller: _hScrollCtrl,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _hScrollCtrl,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: cols.fold<double>(0, (s, c) => s + c.width + 12),
+          child: Column(
+            children: [
+              Container(
+                color: _navy.withValues(alpha: 0.04),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(children: cols.map((c) => _headerCell(c)).toList()),
+              ),
+              const Divider(height: 1, color: _border),
+              Expanded(
+                child: ListView.builder(
+                  controller: _scrollCtrl,
+                  itemCount: _customers.length,
+                  itemBuilder: (ctx, i) => _tableRow(_customers[i], i, cols),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _headerCell(_Col col) {
+    final isSorted = col.sortKey != null && _sortBy == col.sortKey;
+    return InkWell(
+      onTap: col.sortKey != null ? () => _setSort(col.sortKey!) : null,
+      child: SizedBox(
+        width: col.width,
+        height: 36,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  col.label,
+                  style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: _navy.withValues(alpha: 0.7)),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (isSorted)
+                Icon(_sortAsc ? Icons.arrow_upward : Icons.arrow_downward, size: 12, color: _accent),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget? _cellFor(String colLabel, Customer c) {
+    final s11 = GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF64748B));
+    return switch (colLabel) {
+      'Naam' => Text(c.displayNaam, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: _navy), overflow: TextOverflow.ellipsis),
+      'Type' => _typeBadge(c.isZakelijk),
+      'Klantnr' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(c.snelstartKlantcode ?? c.klantnummer, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF475569)), overflow: TextOverflow.ellipsis),
+          if (c.snelstartKlantcode != null && c.klantnummer.isNotEmpty)
+            Text(c.klantnummer, style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8)), overflow: TextOverflow.ellipsis),
+        ],
+      ),
+      'E-mail' => Text(c.email.startsWith('noemail_') ? '-' : c.email, style: s11, overflow: TextOverflow.ellipsis),
+      'Adres' => Text(c.adres ?? '-', style: s11, overflow: TextOverflow.ellipsis),
+      'Postcode' => Text(c.postcode ?? '-', style: s11, overflow: TextOverflow.ellipsis),
+      'Plaats' => Text(c.woonplaats ?? '-', style: s11, overflow: TextOverflow.ellipsis),
+      'Land' => _landBadge(c.landCode),
+      'Telefoon' => Text(c.telefoon ?? c.mobiel ?? '-', style: s11, overflow: TextOverflow.ellipsis),
+      'Omzet' => Text(_fmtOmzet(c.totaleOmzet), style: GoogleFonts.dmSans(fontSize: 11, fontWeight: c.totaleOmzet > 1000 ? FontWeight.w700 : FontWeight.w400, color: c.totaleOmzet > 1000 ? _green : const Color(0xFF64748B)), textAlign: TextAlign.right, overflow: TextOverflow.ellipsis),
+      'Facturen' => Text(c.aantalFacturen > 0 ? '${c.aantalFacturen}' : '-', style: s11, textAlign: TextAlign.center),
+      'Laatste factuur' => Text(_fmtDate(c.laatsteFactuurDatum), style: s11),
+      _ => null,
+    };
+  }
+
+  Widget _tableRow(Customer c, int index, List<_Col> cols) {
+    final bg = index.isEven ? Colors.white : const Color(0xFFF8FAFC);
+    return InkWell(
+      onTap: () => _openDetail(c),
+      hoverColor: _accent.withValues(alpha: 0.03),
+      child: Container(
+        color: bg,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        height: 42,
+        child: Row(
+          children: [
+            SizedBox(
+              width: cols[0].width,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(
+                    color: c.isZakelijk ? const Color(0xFF6366F1).withValues(alpha: 0.1) : _accent.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Center(
+                    child: Text(
+                      c.displayNaam.isNotEmpty ? c.displayNaam[0].toUpperCase() : '?',
+                      style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: c.isZakelijk ? const Color(0xFF6366F1) : _accent),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            for (int i = 1; i < cols.length; i++)
+              _cell(cols[i].width, _cellFor(cols[i].label, c) ?? const SizedBox.shrink()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cell(double width, Widget child) {
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _landBadge(String code) {
+    const flags = <String, String>{
+      'NL': '🇳🇱', 'DE': '🇩🇪', 'BE': '🇧🇪', 'GB': '🇬🇧', 'FR': '🇫🇷',
+      'IT': '🇮🇹', 'ES': '🇪🇸', 'AT': '🇦🇹', 'CH': '🇨🇭', 'PL': '🇵🇱',
+      'IE': '🇮🇪', 'SE': '🇸🇪', 'DK': '🇩🇰', 'NO': '🇳🇴',
+    };
+    final flag = flags[code];
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      if (flag != null) ...[Text(flag, style: const TextStyle(fontSize: 12)), const SizedBox(width: 3)],
+      Text(code, style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+    ]);
+  }
+
+  Widget _typeBadge(bool zakelijk) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: zakelijk ? const Color(0xFF6366F1).withValues(alpha: 0.08) : const Color(0xFF0EA5E9).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        zakelijk ? 'Zakelijk' : 'Particulier',
+        style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w600, color: zakelijk ? const Color(0xFF6366F1) : const Color(0xFF0EA5E9)),
+      ),
+    );
+  }
+
+  Widget _buildCardList() {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: _customers.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 6),
+      itemBuilder: (ctx, i) {
+        final c = _customers[i];
+        return Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: () => _openDetail(c),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42, height: 42,
+                    decoration: BoxDecoration(
+                      color: c.isZakelijk ? const Color(0xFF6366F1).withValues(alpha: 0.1) : _accent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        c.displayNaam.isNotEmpty ? c.displayNaam[0].toUpperCase() : '?',
+                        style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700, color: c.isZakelijk ? const Color(0xFF6366F1) : _accent),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Icon(Icons.people_outline, size: 64, color: Colors.grey.shade300),
-                            const SizedBox(height: 12),
-                            Text('Geen klanten gevonden', style: GoogleFonts.dmSans(color: Colors.grey)),
+                            Flexible(child: Text(c.displayNaam, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: _navy), overflow: TextOverflow.ellipsis)),
+                            const SizedBox(width: 6),
+                            _typeBadge(c.isZakelijk),
                           ],
                         ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _customers.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 6),
-                        itemBuilder: (ctx, i) {
-                          final c = _customers[i];
-                          return Material(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            child: InkWell(
-                              onTap: () => _openDetail(c),
-                              borderRadius: BorderRadius.circular(12),
-                              child: Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 44, height: 44,
-                                      decoration: BoxDecoration(
-                                        color: _accent.withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          c.volledigeNaam.isNotEmpty ? c.volledigeNaam[0].toUpperCase() : '?',
-                                          style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.w700, color: _accent),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Text(c.volledigeNaam, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: _navy)),
-                                              const SizedBox(width: 8),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: _accent.withValues(alpha: 0.08),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: Text(c.klantnummer, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: _accent)),
-                                              ),
-                                              if (c.authUserId != null) ...[
-                                                const SizedBox(width: 6),
-                                                const Icon(Icons.verified_user, size: 14, color: Color(0xFF2E7D32)),
-                                              ],
-                                            ],
-                                          ),
-                                          const SizedBox(height: 3),
-                                          Text(c.email, style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF64748B))),
-                                          if (c.bedrijfsnaam != null && c.bedrijfsnaam!.isNotEmpty)
-                                            Text(c.bedrijfsnaam!, style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF94A3B8))),
-                                        ],
-                                      ),
-                                    ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        if (c.woonplaats != null)
-                                          Text(c.woonplaats!, style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF94A3B8))),
-                                        Text(c.landCode, style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF94A3B8))),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey.shade300),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                        const SizedBox(height: 2),
+                        Text(
+                          c.email.startsWith('noemail_') ? (c.woonplaats ?? '-') : c.email,
+                          style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF64748B)),
+                        ),
+                        if ((c.snelstartKlantcode ?? c.klantnummer).isNotEmpty)
+                          Text(
+                            c.snelstartKlantcode ?? c.klantnummer,
+                            style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w500),
+                          ),
+                        if (c.totaleOmzet > 0)
+                          Text(
+                            '${_fmtOmzet(c.totaleOmzet)} · ${c.aantalFacturen} facturen',
+                            style: GoogleFonts.dmSans(fontSize: 11, color: _green),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(c.landCode, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8))),
+                      if (c.woonplaats != null)
+                        Text(c.woonplaats!, style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF94A3B8)), overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey.shade300),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFooter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      color: Colors.white,
+      child: Row(
+        children: [
+          Text(
+            '${_customers.length} van $_totalCount klanten',
+            style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF64748B)),
+          ),
+          if (_searchCtrl.text.isNotEmpty || _landFilter != null || _zakelijkFilter != null) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(6)),
+              child: Text('gefilterd', style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF92400E))),
+            ),
+          ],
+          const Spacer(),
+          Text(
+            'Sorteer: $_sortBy ${_sortAsc ? '↑' : '↓'}',
+            style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF94A3B8)),
           ),
         ],
       ),
     );
   }
+}
+
+class _Col {
+  final String label;
+  final double width;
+  final String? sortKey;
+  const _Col(this.label, this.width, {this.sortKey});
+}
+
+class _ColDef {
+  final String key;
+  final String label;
+  const _ColDef(this.key, this.label);
 }

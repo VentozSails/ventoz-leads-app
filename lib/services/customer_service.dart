@@ -6,6 +6,7 @@ class Customer {
   final String klantnummer;
   final String? authUserId;
   final String email;
+  final String? naam;
   final String? voornaam;
   final String? achternaam;
   final String? bedrijfsnaam;
@@ -14,9 +15,21 @@ class Customer {
   final String? woonplaats;
   final String landCode;
   final String? telefoon;
+  final String? mobiel;
   final String? btwNummer;
+  final String? kvkNummer;
+  final String? contactpersoon;
   final String? opmerkingen;
   final String? snelstartId;
+  final String? snelstartKlantcode;
+  final List<String> klantcodeAliases;
+  final bool isZakelijk;
+  final double totaleOmzet;
+  final DateTime? eersteFactuurDatum;
+  final DateTime? laatsteFactuurDatum;
+  final int aantalFacturen;
+  final int? bronProspectId;
+  final String? bronProspectLand;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -25,6 +38,7 @@ class Customer {
     this.klantnummer = '',
     this.authUserId,
     required this.email,
+    this.naam,
     this.voornaam,
     this.achternaam,
     this.bedrijfsnaam,
@@ -33,49 +47,119 @@ class Customer {
     this.woonplaats,
     this.landCode = 'NL',
     this.telefoon,
+    this.mobiel,
     this.btwNummer,
+    this.kvkNummer,
+    this.contactpersoon,
     this.opmerkingen,
     this.snelstartId,
+    this.snelstartKlantcode,
+    this.klantcodeAliases = const [],
+    this.isZakelijk = false,
+    this.totaleOmzet = 0,
+    this.eersteFactuurDatum,
+    this.laatsteFactuurDatum,
+    this.aantalFacturen = 0,
+    this.bronProspectId,
+    this.bronProspectLand,
     this.createdAt,
     this.updatedAt,
   });
 
-  String get volledigeNaam {
+  String get displayNaam {
+    if (naam != null && naam!.isNotEmpty) return naam!;
     final parts = <String>[];
     if (voornaam != null && voornaam!.isNotEmpty) parts.add(voornaam!);
     if (achternaam != null && achternaam!.isNotEmpty) parts.add(achternaam!);
-    if (parts.isEmpty) return email;
-    return parts.join(' ');
+    if (parts.isNotEmpty) return parts.join(' ');
+    if (bedrijfsnaam != null && bedrijfsnaam!.isNotEmpty) return bedrijfsnaam!;
+    return email;
   }
 
-  factory Customer.fromJson(Map<String, dynamic> json) => Customer(
-    id: json['id'] as String?,
-    klantnummer: (json['klantnummer'] as String?) ?? '',
-    authUserId: json['auth_user_id'] as String?,
-    email: (json['email'] as String?) ?? '',
-    voornaam: json['voornaam'] as String?,
-    achternaam: json['achternaam'] as String?,
-    bedrijfsnaam: json['bedrijfsnaam'] as String?,
-    adres: json['adres'] as String?,
-    postcode: json['postcode'] as String?,
-    woonplaats: json['woonplaats'] as String?,
-    landCode: (json['land_code'] as String?) ?? 'NL',
-    telefoon: json['telefoon'] as String?,
-    btwNummer: json['btw_nummer'] as String?,
-    opmerkingen: json['opmerkingen'] as String?,
-    snelstartId: json['snelstart_id'] as String?,
-    createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
-    updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'] as String) : null,
-  );
+  String get typeLabel => isZakelijk ? 'Zakelijk' : 'Particulier';
+
+  String get landLabel => landLabels[landCode] ?? landCode;
+
+  static const landLabels = <String, String>{
+    'NL': 'Nederland', 'DE': 'Duitsland', 'BE': 'België', 'GB': 'Verenigd Koninkrijk',
+    'FR': 'Frankrijk', 'IT': 'Italië', 'ES': 'Spanje', 'AT': 'Oostenrijk',
+    'CH': 'Zwitserland', 'SE': 'Zweden', 'DK': 'Denemarken', 'NO': 'Noorwegen',
+    'FI': 'Finland', 'PT': 'Portugal', 'IE': 'Ierland', 'PL': 'Polen',
+    'CZ': 'Tsjechië', 'HU': 'Hongarije', 'GR': 'Griekenland', 'HR': 'Kroatië',
+    'RO': 'Roemenië', 'SI': 'Slovenië', 'SK': 'Slowakije', 'BG': 'Bulgarije',
+    'LU': 'Luxemburg', 'EE': 'Estland', 'LV': 'Letland', 'LT': 'Litouwen',
+    'MT': 'Malta', 'CY': 'Cyprus', 'IS': 'IJsland', 'TR': 'Turkije',
+    'AU': 'Australië', 'NZ': 'Nieuw-Zeeland', 'CA': 'Canada', 'JP': 'Japan',
+    'BR': 'Brazilië', 'CL': 'Chili',
+  };
+
+  factory Customer.fromJson(Map<String, dynamic> json) {
+    final aliases = json['klantcode_aliases'];
+    List<String> parsedAliases = [];
+    if (aliases is List) {
+      parsedAliases = aliases.cast<String>();
+    } else if (aliases is String && aliases.startsWith('{')) {
+      parsedAliases = aliases.replaceAll(RegExp(r'[{}]'), '').split(',').where((s) => s.trim().isNotEmpty).toList();
+    }
+
+    return Customer(
+      id: json['id'] as String?,
+      klantnummer: (json['klantnummer'] as String?) ?? '',
+      authUserId: json['auth_user_id'] as String?,
+      email: (json['email'] as String?) ?? '',
+      naam: json['naam'] as String?,
+      voornaam: json['voornaam'] as String?,
+      achternaam: json['achternaam'] as String?,
+      bedrijfsnaam: json['bedrijfsnaam'] as String?,
+      adres: json['adres'] as String?,
+      postcode: json['postcode'] as String?,
+      woonplaats: json['woonplaats'] as String?,
+      landCode: (json['land_code'] as String?) ?? 'NL',
+      telefoon: json['telefoon'] as String?,
+      mobiel: json['mobiel'] as String?,
+      btwNummer: json['btw_nummer'] as String?,
+      kvkNummer: json['kvk_nummer'] as String?,
+      contactpersoon: json['contactpersoon'] as String?,
+      opmerkingen: json['opmerkingen'] as String?,
+      snelstartId: json['snelstart_id'] as String?,
+      snelstartKlantcode: json['snelstart_klantcode'] as String?,
+      klantcodeAliases: parsedAliases,
+      isZakelijk: json['is_zakelijk'] as bool? ?? false,
+      totaleOmzet: _parseDouble(json['totale_omzet']),
+      eersteFactuurDatum: _parseDate(json['eerste_factuur_datum']),
+      laatsteFactuurDatum: _parseDate(json['laatste_factuur_datum']),
+      aantalFacturen: (json['aantal_facturen'] as int?) ?? 0,
+      bronProspectId: json['bron_prospect_id'] as int?,
+      bronProspectLand: json['bron_prospect_land'] as String?,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
+      updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'] as String) : null,
+    );
+  }
+
+  static double _parseDouble(dynamic v) {
+    if (v == null) return 0;
+    if (v is double) return v;
+    if (v is int) return v.toDouble();
+    if (v is String) return double.tryParse(v) ?? 0;
+    return 0;
+  }
+
+  static DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    if (v is String) return DateTime.tryParse(v);
+    return null;
+  }
 
   Map<String, dynamic> toJson() {
     final m = <String, dynamic>{
       'email': email,
       'land_code': landCode,
+      'is_zakelijk': isZakelijk,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     if (klantnummer.isNotEmpty) m['klantnummer'] = klantnummer;
     if (authUserId != null) m['auth_user_id'] = authUserId;
+    if (naam != null) m['naam'] = naam;
     if (voornaam != null) m['voornaam'] = voornaam;
     if (achternaam != null) m['achternaam'] = achternaam;
     if (bedrijfsnaam != null) m['bedrijfsnaam'] = bedrijfsnaam;
@@ -83,10 +167,73 @@ class Customer {
     if (postcode != null) m['postcode'] = postcode;
     if (woonplaats != null) m['woonplaats'] = woonplaats;
     if (telefoon != null) m['telefoon'] = telefoon;
+    if (mobiel != null) m['mobiel'] = mobiel;
     if (btwNummer != null) m['btw_nummer'] = btwNummer;
+    if (kvkNummer != null) m['kvk_nummer'] = kvkNummer;
+    if (contactpersoon != null) m['contactpersoon'] = contactpersoon;
     if (opmerkingen != null) m['opmerkingen'] = opmerkingen;
     if (snelstartId != null) m['snelstart_id'] = snelstartId;
+    if (snelstartKlantcode != null) m['snelstart_klantcode'] = snelstartKlantcode;
+    if (klantcodeAliases.isNotEmpty) m['klantcode_aliases'] = klantcodeAliases;
+    if (totaleOmzet != 0) m['totale_omzet'] = totaleOmzet;
+    if (eersteFactuurDatum != null) m['eerste_factuur_datum'] = eersteFactuurDatum!.toIso8601String().split('T')[0];
+    if (laatsteFactuurDatum != null) m['laatste_factuur_datum'] = laatsteFactuurDatum!.toIso8601String().split('T')[0];
+    if (aantalFacturen > 0) m['aantal_facturen'] = aantalFacturen;
+    if (bronProspectId != null) m['bron_prospect_id'] = bronProspectId;
+    if (bronProspectLand != null) m['bron_prospect_land'] = bronProspectLand;
     return m;
+  }
+
+  Customer copyWith({
+    String? naam,
+    String? voornaam,
+    String? achternaam,
+    String? bedrijfsnaam,
+    String? email,
+    String? adres,
+    String? postcode,
+    String? woonplaats,
+    String? landCode,
+    String? telefoon,
+    String? mobiel,
+    String? btwNummer,
+    String? kvkNummer,
+    String? contactpersoon,
+    String? opmerkingen,
+    bool? isZakelijk,
+  }) {
+    return Customer(
+      id: id,
+      klantnummer: klantnummer,
+      authUserId: authUserId,
+      email: email ?? this.email,
+      naam: naam ?? this.naam,
+      voornaam: voornaam ?? this.voornaam,
+      achternaam: achternaam ?? this.achternaam,
+      bedrijfsnaam: bedrijfsnaam ?? this.bedrijfsnaam,
+      adres: adres ?? this.adres,
+      postcode: postcode ?? this.postcode,
+      woonplaats: woonplaats ?? this.woonplaats,
+      landCode: landCode ?? this.landCode,
+      telefoon: telefoon ?? this.telefoon,
+      mobiel: mobiel ?? this.mobiel,
+      btwNummer: btwNummer ?? this.btwNummer,
+      kvkNummer: kvkNummer ?? this.kvkNummer,
+      contactpersoon: contactpersoon ?? this.contactpersoon,
+      opmerkingen: opmerkingen ?? this.opmerkingen,
+      snelstartId: snelstartId,
+      snelstartKlantcode: snelstartKlantcode,
+      klantcodeAliases: klantcodeAliases,
+      isZakelijk: isZakelijk ?? this.isZakelijk,
+      totaleOmzet: totaleOmzet,
+      eersteFactuurDatum: eersteFactuurDatum,
+      laatsteFactuurDatum: laatsteFactuurDatum,
+      aantalFacturen: aantalFacturen,
+      bronProspectId: bronProspectId,
+      bronProspectLand: bronProspectLand,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
   }
 }
 
@@ -136,14 +283,30 @@ class CustomerService {
   static const _table = 'klanten';
   static const _extTable = 'klant_externe_nummers';
 
-  Future<List<Customer>> getAll({String? search}) async {
+  static const _allowedSortColumns = {
+    'naam', 'email', 'klantnummer', 'woonplaats', 'land_code',
+    'totale_omzet', 'aantal_facturen', 'laatste_factuur_datum', 'created_at',
+  };
+
+  static String _sanitizeFilter(String input) {
+    return input.replaceAll(RegExp(r'[,\(\)\.\\\"]'), '');
+  }
+
+  Future<List<Customer>> getAll({String? search, String? landFilter, bool? zakelijkFilter, String? sortBy, bool sortAsc = true, int limit = 500}) async {
     try {
       var query = _client.from(_table).select();
       if (search != null && search.trim().isNotEmpty) {
-        final s = '%${search.trim()}%';
-        query = query.or('email.ilike.$s,voornaam.ilike.$s,achternaam.ilike.$s,klantnummer.ilike.$s,bedrijfsnaam.ilike.$s');
+        final s = '%${_sanitizeFilter(search.trim())}%';
+        query = query.or('email.ilike.$s,naam.ilike.$s,klantnummer.ilike.$s,bedrijfsnaam.ilike.$s,woonplaats.ilike.$s,snelstart_klantcode.ilike.$s,contactpersoon.ilike.$s');
       }
-      final List<dynamic> rows = await query.order('created_at', ascending: false);
+      if (landFilter != null && landFilter.isNotEmpty) {
+        query = query.eq('land_code', landFilter);
+      }
+      if (zakelijkFilter != null) {
+        query = query.eq('is_zakelijk', zakelijkFilter);
+      }
+      final orderCol = _allowedSortColumns.contains(sortBy) ? sortBy! : 'naam';
+      final List<dynamic> rows = await query.order(orderCol, ascending: sortAsc).limit(limit);
       return rows.cast<Map<String, dynamic>>().map(Customer.fromJson).toList();
     } catch (e) {
       if (kDebugMode) debugPrint('CustomerService.getAll error: $e');
@@ -295,8 +458,6 @@ class CustomerService {
     }
   }
 
-  // External customer numbers
-
   Future<List<ExternalCustomerNumber>> getExternalNumbers(String klantId) async {
     try {
       final List<dynamic> rows = await _client.from(_extTable)
@@ -328,6 +489,24 @@ class CustomerService {
       return rows.length;
     } catch (_) {
       return 0;
+    }
+  }
+
+  Future<Map<String, int>> getStats() async {
+    try {
+      final List<dynamic> rows = await _client.from(_table).select('is_zakelijk, land_code').limit(10000);
+      int total = rows.length;
+      int zakelijk = 0;
+      final landen = <String, int>{};
+      for (final row in rows) {
+        final r = row as Map<String, dynamic>;
+        if (r['is_zakelijk'] == true) zakelijk++;
+        final lc = (r['land_code'] as String?) ?? 'NL';
+        landen[lc] = (landen[lc] ?? 0) + 1;
+      }
+      return {'total': total, 'zakelijk': zakelijk, 'particulier': total - zakelijk, ...landen};
+    } catch (_) {
+      return {};
     }
   }
 }

@@ -10,6 +10,10 @@ class MarketplaceService {
   static const _listingsTable = 'marketplace_listings';
   static const _ordersTable = 'marketplace_orders';
   static const _credentialsTable = 'marketplace_credentials';
+
+  static String _sanitizeFilter(String input) {
+    return input.replaceAll(RegExp(r'[,\(\)\.\\\"]'), '');
+  }
   static const _syncLogTable = 'marketplace_sync_log';
 
   // ── Listings CRUD ──
@@ -619,6 +623,30 @@ class MarketplaceService {
     return counts;
   }
 
+  // ── Kanaalvaluta & Wisselkoersen (voor batch-omrekening) ──
+
+  /// Haalt valuta en wisselkoers per kanaal op. wisselkoers_eur = hoeveel EUR per 1 eenheid lokale valuta (bijv. 1 GBP = 0.85 EUR).
+  Future<Map<String, Map<String, dynamic>>> getKanaalValuta() async {
+    try {
+      final rows = await _client.from('kanaal_valuta').select('kanaal_code, valuta, wisselkoers_eur');
+      final map = <String, Map<String, dynamic>>{};
+      for (final r in (rows as List)) {
+        final row = r as Map<String, dynamic>;
+        final code = row['kanaal_code'] as String?;
+        if (code != null) {
+          map[code] = {
+            'valuta': row['valuta'] ?? 'EUR',
+            'wisselkoers_eur': (row['wisselkoers_eur'] as num?)?.toDouble(),
+          };
+        }
+      }
+      return map;
+    } catch (e) {
+      if (kDebugMode) debugPrint('MarketplaceService.getKanaalValuta error: $e');
+      return {};
+    }
+  }
+
   // ── Channel Matrix ──
 
   Future<List<ChannelMatrixRow>> getChannelMatrix() async {
@@ -912,7 +940,7 @@ class MarketplaceService {
     final rows = await _client
         .from('product_catalogus')
         .select('id, naam, artikelnummer, ean_code, afbeelding_url, prijs')
-        .or('naam.ilike.%$query%,artikelnummer.ilike.%$query%,ean_code.ilike.%$query%')
+        .or('naam.ilike.%${_sanitizeFilter(query)}%,artikelnummer.ilike.%${_sanitizeFilter(query)}%,ean_code.ilike.%${_sanitizeFilter(query)}%')
         .limit(20);
     return (rows as List).cast<Map<String, dynamic>>();
   }

@@ -176,7 +176,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               ]),
               const SizedBox(height: 8),
               Row(children: [
-                Text(PricingService.formatEuro(order.totaal), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF455A64))),
+                Text(order.formatTotaal(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF455A64))),
                 if (order.btwVerlegd) ...[
                   const SizedBox(width: 8),
                   Container(
@@ -284,7 +284,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           PricingService.formatEuro(order.btwBedrag), subtle: true),
                       _detailRow(_l.t('verzendkosten'),
                         order.verzendkosten > 0 ? PricingService.formatEuro(order.verzendkosten) : _l.t('gratis'), subtle: true),
-                      _detailRow(_l.t('totaal'), PricingService.formatEuro(order.totaal), bold: true),
+                      _detailRow(_l.t('totaal'), order.formatTotaal(), bold: true),
                       if (order.opmerkingen != null && order.opmerkingen!.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Text('${_l.t('opmerkingen')}: ${order.opmerkingen}', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Color(0xFF64748B))),

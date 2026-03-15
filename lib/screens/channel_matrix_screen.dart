@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/marketplace_listing.dart';
 import '../services/marketplace_service.dart';
+import '../services/user_service.dart';
 
 class ChannelMatrixScreen extends StatefulWidget {
   const ChannelMatrixScreen({super.key});
@@ -28,6 +29,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   String _sortField = 'naam';
   bool _sortAsc = true;
   final Set<int> _selected = {};
+  bool _canBatchConvert = false;
 
   double _channelColWidth = 68;
   double _productColWidth = 220;
@@ -48,10 +50,18 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   Future<void> _load() async {
     setState(() { _loading = true; _loadError = null; });
     try {
-      final rows = await _service.getChannelMatrix();
+      final results = await Future.wait([
+        _service.getChannelMatrix(),
+        UserService().isRealOwner(),
+        UserService().isCurrentUserAdmin(),
+      ]);
+      final rows = results[0] as List<ChannelMatrixRow>;
+      final isOwner = results[1] as bool;
+      final isAdmin = results[2] as bool;
       if (!mounted) return;
       setState(() {
         _allRows = rows;
+        _canBatchConvert = isOwner || isAdmin;
         _loading = false;
         _applyFilters();
       });
@@ -144,6 +154,20 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF475569)),
           ),
           const Spacer(),
+          if (_canBatchConvert)
+            OutlinedButton.icon(
+              onPressed: _showBatchConvertDialog,
+              icon: const Icon(Icons.currency_exchange_rounded, size: 16),
+              label: const Text('Omrekenen naar lokale valuta'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF92400E),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                textStyle: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                side: const BorderSide(color: Color(0xFFF59E0B)),
+              ),
+            ),
+          if (_canBatchConvert) const SizedBox(width: 6),
           OutlinedButton.icon(
             onPressed: _importCsv,
             icon: const Icon(Icons.upload_file_outlined, size: 16),
@@ -416,7 +440,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             _groupCell('Adm', admarkColor),
           ],
         ),
-        // Sub-header row (country codes)
+        // Sub-header row (country codes + valuta)
         TableRow(
           decoration: const BoxDecoration(color: headerBg),
           children: [
@@ -424,11 +448,11 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             Padding(padding: cellPad, child: Text('Product', style: _headerStyle)),
             Padding(padding: cellPad, child: Text('Art.nr', style: _headerStyle)),
             Padding(padding: cellPad, child: Text('Vrrd', style: _headerStyle, textAlign: TextAlign.center)),
-            Padding(padding: cellPad, child: Text('Prijs', style: _headerStyle, textAlign: TextAlign.center)),
-            ...SalesChannel.ebayChannels.map((ch) => Padding(padding: cellPad, child: Text(ch.shortLabel, style: _headerStyle, textAlign: TextAlign.center))),
-            ...SalesChannel.bolChannels.map((ch) => Padding(padding: cellPad, child: Text(ch.shortLabel, style: _headerStyle, textAlign: TextAlign.center))),
-            ...SalesChannel.amazonChannels.map((ch) => Padding(padding: cellPad, child: Text(ch.shortLabel, style: _headerStyle, textAlign: TextAlign.center))),
-            Padding(padding: cellPad, child: Text('Adm', style: _headerStyle, textAlign: TextAlign.center)),
+            Padding(padding: cellPad, child: Text('€', style: _headerStyle, textAlign: TextAlign.center)),
+            ...SalesChannel.ebayChannels.map((ch) => Padding(padding: cellPad, child: Text('${ch.shortLabel} ${_currencySymbol(ch.currency)}', style: _headerStyle, textAlign: TextAlign.center))),
+            ...SalesChannel.bolChannels.map((ch) => Padding(padding: cellPad, child: Text('${ch.shortLabel} ${_currencySymbol(ch.currency)}', style: _headerStyle, textAlign: TextAlign.center))),
+            ...SalesChannel.amazonChannels.map((ch) => Padding(padding: cellPad, child: Text('${ch.shortLabel} ${_currencySymbol(ch.currency)}', style: _headerStyle, textAlign: TextAlign.center))),
+            Padding(padding: cellPad, child: Text('Adm €', style: _headerStyle, textAlign: TextAlign.center)),
           ],
         ),
         // Data rows
@@ -438,6 +462,15 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   }
 
   TextStyle get _headerStyle => GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF475569));
+
+  String _currencySymbol(String currency) {
+    return switch (currency) {
+      'GBP' => '£',
+      'USD' => '\$',
+      'PLN' => 'zł',
+      _ => '€',
+    };
+  }
 
   Widget _groupCell(String text, Color? bg) {
     return Container(
@@ -476,7 +509,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             ),
           )),
         ),
-        // Product name + category
+        // Product name + category + EAN
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           child: Column(
@@ -484,8 +517,13 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(row.product.displayNaam, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: _navy), maxLines: 1, overflow: TextOverflow.ellipsis),
-              if (row.product.categorie != null)
-                Text(_categoryLabel(row.product.categorie!), style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8))),
+              if (row.product.categorie != null || row.product.eanCode != null)
+                Text(
+                  [if (row.product.categorie != null) _categoryLabel(row.product.categorie!), if (row.product.eanCode != null) 'EAN: ${row.product.eanCode}'].join(' · '),
+                  style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
             ],
           ),
         ),
@@ -821,6 +859,145 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   }
 
   // ═══════════════════════════════════════════
+  // Batch Omrekenen
+  // ═══════════════════════════════════════════
+
+  Future<void> _showBatchConvertDialog() async {
+    final rowsToProcess = _selected.isNotEmpty
+        ? _allRows.where((r) => r.product.id != null && _selected.contains(r.product.id!)).toList()
+        : _filteredRows;
+    if (rowsToProcess.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selecteer producten of filter de lijst'), backgroundColor: Color(0xFFF59E0B)),
+        );
+      }
+      return;
+    }
+    Map<String, Map<String, dynamic>> kanaalValuta = {};
+    try {
+      kanaalValuta = await _service.getKanaalValuta();
+    } catch (_) {}
+    final changes = <_BatchConvertItem>[];
+    for (final row in rowsToProcess) {
+      final eurPrice = row.product.displayPrijs;
+      if (eurPrice == null || eurPrice <= 0) continue;
+      for (final ch in SalesChannel.allChannels) {
+        if (ch.currency == 'EUR') continue;
+        final kv = kanaalValuta[ch.code];
+        final wisselkoers = (kv?['wisselkoers_eur'] as num?)?.toDouble();
+        if (wisselkoers == null || wisselkoers <= 0) continue;
+        final listing = row.listingForChannel(ch.code);
+        if (listing == null || listing.id == null || listing.prijs == null) continue;
+        final proposed = (eurPrice / wisselkoers).ceilToDouble();
+        if (proposed == listing.prijs) continue;
+        changes.add(_BatchConvertItem(
+          productId: row.product.id!,
+          productNaam: row.product.displayNaam,
+          channel: ch,
+          currentPrijs: listing.prijs!,
+          proposedPrijs: proposed,
+          listingId: listing.id!,
+        ));
+      }
+    }
+    if (changes.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Geen prijswijzigingen nodig voor niet-EUR kanalen'), backgroundColor: Color(0xFF2E7D32)),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(children: [
+          Icon(Icons.currency_exchange_rounded, color: const Color(0xFFF59E0B)),
+          const SizedBox(width: 8),
+          Text('Omrekenen naar lokale valuta', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700)),
+        ]),
+        content: SizedBox(
+          width: 480,
+          height: 360,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7).withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  '${changes.length} prijswijziging(en) voorgesteld. Bron: catalogus-basisprijs (EUR), afgerond naar boven.',
+                  style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF92400E)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: changes.length,
+                  itemBuilder: (_, i) {
+                    final c = changes[i];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFDE7),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Text(c.productNaam, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ),
+                          SizedBox(width: 50, child: Text(c.channel.shortLabel, style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF64748B)))),
+                          SizedBox(width: 50, child: Text('${c.currentPrijs.toStringAsFixed(0)} →', style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF94A3B8)))),
+                          SizedBox(width: 50, child: Text(c.proposedPrijs.toStringAsFixed(0), style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF92400E)))),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuleren')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF92400E)),
+            child: const Text('Toepassen'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    int count = 0;
+    for (final c in changes) {
+      try {
+        await _service.updateListing(c.listingId, prijs: c.proposedPrijs);
+        count++;
+      } catch (_) {}
+    }
+    setState(() => _selected.clear());
+    _load();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$count prijzen bijgewerkt'), backgroundColor: const Color(0xFF2E7D32)),
+      );
+    }
+  }
+
+  // ═══════════════════════════════════════════
   // Bulk Actions
   // ═══════════════════════════════════════════
 
@@ -1034,4 +1211,22 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   };
 
   String _categoryLabel(String cat) => _catLabels[cat] ?? cat;
+}
+
+class _BatchConvertItem {
+  final int productId;
+  final String productNaam;
+  final SalesChannel channel;
+  final double currentPrijs;
+  final double proposedPrijs;
+  final String listingId;
+
+  const _BatchConvertItem({
+    required this.productId,
+    required this.productNaam,
+    required this.channel,
+    required this.currentPrijs,
+    required this.proposedPrijs,
+    required this.listingId,
+  });
 }

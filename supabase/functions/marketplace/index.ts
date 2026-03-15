@@ -29,6 +29,13 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
+function jsonResp(body: object, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -37,7 +44,21 @@ serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // ── Auth: require admin/owner JWT ──
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return jsonResp({ error: "Not authorized" }, 401);
+
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? serviceRoleKey;
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user: caller }, error: authErr } = await createClient(supabaseUrl, anonKey).auth.getUser(token);
+    if (authErr || !caller) return jsonResp({ error: "Invalid session" }, 401);
+
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data: callerRow } = await supabase.from("ventoz_users").select("is_owner, is_admin, user_type").eq("auth_user_id", caller.id).maybeSingle();
+    const isAdmin = callerRow?.is_owner || callerRow?.is_admin || ["owner", "admin"].includes(callerRow?.user_type || "");
+    if (!isAdmin) return jsonResp({ error: "Admin access required" }, 403);
 
     const body: RequestBody = await req.json();
     const { action } = body;

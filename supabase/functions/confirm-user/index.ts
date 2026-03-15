@@ -19,16 +19,41 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
     const { action, email, password } = await req.json()
 
     if (!email) return jsonResponse({ error: 'email is required' }, 400)
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     })
+
+    // Server-side invite verification: email must exist in ventoz_users or invited_users
+    const normalizedEmail = email.toLowerCase().trim()
+    const { data: userRow } = await adminClient
+      .from('ventoz_users')
+      .select('id, status')
+      .eq('email', normalizedEmail)
+      .maybeSingle()
+
+    let isInvited = !!userRow
+
+    if (!isInvited) {
+      const { data: settings } = await adminClient
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'invited_users')
+        .maybeSingle()
+      if (settings?.value?.users) {
+        isInvited = (settings.value.users as Array<{ email?: string }>).some(
+          (u: { email?: string }) => u.email?.toLowerCase() === normalizedEmail
+        )
+      }
+    }
+
+    if (!isInvited) return jsonResponse({ error: 'Email is not invited' }, 403)
 
     // Action: "create" — create a pre-confirmed auth user (no confirmation email)
     if (action === 'create') {

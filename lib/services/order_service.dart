@@ -46,6 +46,16 @@ class Order {
   final String? klantId;
   final List<OrderRegel> regels;
 
+  /// Multi-valuta: valuta van de order (bijv. GBP bij eBay UK)
+  final String? orderValuta;
+  /// Bedrag in order-valuta
+  final double? orderBedrag;
+  /// Bedrag in EUR (omgerekend)
+  final double? orderBedragEur;
+  /// Wisselkoers gebruikt (bijv. 0.85 = 1 GBP = 0.85 EUR)
+  final double? wisselkoers;
+  final DateTime? wisselkoersDatum;
+
   const Order({
     this.id,
     required this.orderNummer,
@@ -86,7 +96,37 @@ class Order {
     this.verzendEmailVerzonden = false,
     this.klantId,
     this.regels = const [],
+    this.orderValuta,
+    this.orderBedrag,
+    this.orderBedragEur,
+    this.wisselkoers,
+    this.wisselkoersDatum,
   });
+
+  /// Valuta van de order (order_valuta of valuta)
+  String get effectiveValuta => orderValuta ?? valuta;
+
+  /// Bedrag in order-valuta (order_bedrag of totaal)
+  double get effectiveBedrag => orderBedrag ?? totaal;
+
+  /// Bedrag in EUR (order_bedrag_eur of berekend uit order_valuta + wisselkoers)
+  double get effectiveBedragEur => orderBedragEur ?? (effectiveValuta == 'EUR' ? effectiveBedrag : (wisselkoers != null ? effectiveBedrag * wisselkoers! : effectiveBedrag));
+
+  /// Formatteert het totaal voor weergave (incl. EUR-equivalent bij niet-EUR)
+  String formatTotaal() {
+    final sym = switch (effectiveValuta) {
+      'GBP' => '£',
+      'USD' => '\$',
+      'PLN' => 'zł ',
+      _ => '€',
+    };
+    final fmt = (double v) => v.toStringAsFixed(2).replaceAll('.', ',');
+    final s = '$sym ${fmt(effectiveBedrag)}';
+    if (effectiveValuta != 'EUR' && (orderBedragEur != null || wisselkoers != null)) {
+      return '$s (≈ € ${fmt(effectiveBedragEur)})';
+    }
+    return s;
+  }
 
   factory Order.fromJson(Map<String, dynamic> json, {List<OrderRegel>? regels}) {
     return Order(
@@ -129,6 +169,11 @@ class Order {
       verzendEmailVerzonden: (json['verzend_email_verzonden'] as bool?) ?? false,
       klantId: json['klant_id'] as String?,
       regels: regels ?? [],
+      orderValuta: json['order_valuta'] as String?,
+      orderBedrag: (json['order_bedrag'] as num?)?.toDouble(),
+      orderBedragEur: (json['order_bedrag_eur'] as num?)?.toDouble(),
+      wisselkoers: (json['wisselkoers'] as num?)?.toDouble(),
+      wisselkoersDatum: json['wisselkoers_datum'] != null ? DateTime.tryParse(json['wisselkoers_datum'] as String) : null,
     );
   }
 

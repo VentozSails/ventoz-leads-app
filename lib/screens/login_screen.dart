@@ -420,7 +420,7 @@ class _InvitedRegisterFormState extends State<_InvitedRegisterForm> {
       try {
         await widget.userService.markAsRegistered(email);
       } catch (e) {
-        debugPrint('markAsRegistered failed (non-fatal): $e');
+        if (kDebugMode) debugPrint('markAsRegistered failed (non-fatal): $e');
       }
 
       if (mounted) {
@@ -429,7 +429,7 @@ class _InvitedRegisterFormState extends State<_InvitedRegisterForm> {
     } on AuthException catch (e) {
       setState(() => _error = _translateRegisterError(e.message));
     } catch (e) {
-      debugPrint('Register error: $e');
+      if (kDebugMode) debugPrint('Register error: $e');
       final errStr = e.toString().toLowerCase();
       if (errStr.contains('duplicate') || errStr.contains('already')) {
         setState(() => _error = 'Er bestaat al een account met dit e-mailadres. Probeer in te loggen.');

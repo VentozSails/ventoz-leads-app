@@ -64,6 +64,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _shippingReadyCount = 0;
   int _lockedCount = 0;
   int _customerCount = 0;
+  int _lowStockCount = 0;
+  int _syncErrorCount = 0;
   bool _statsLoaded = false;
 
   final Set<String> _collapsedSections = {};
@@ -158,6 +160,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       try {
         customerCount = await CustomerService().getCustomerCount();
       } catch (_) {}
+      int lowStock = 0;
+      int syncErrors = 0;
+      try {
+        final inv = await Supabase.instance.client.from('inventory_items').select('voorraad_actueel').lt('voorraad_actueel', 5).gte('voorraad_actueel', 1);
+        lowStock = (inv as List).length;
+      } catch (_) {}
+      try {
+        final log = await Supabase.instance.client.from('marketplace_sync_log').select('id').eq('status', 'fout').limit(100);
+        syncErrors = (log as List).length;
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _productCount = productCount;
@@ -165,6 +177,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         _shippingReadyCount = shippingReady;
         _lockedCount = lockedCount;
         _customerCount = customerCount;
+        _lowStockCount = lowStock;
+        _syncErrorCount = syncErrors;
         _statsLoaded = true;
       });
     } catch (_) {
@@ -292,17 +306,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async { await _loadStats(); await _loadUserInfo(); },
-            child: CustomScrollView(slivers: [
-              SliverToBoxAdapter(child: _buildHeader(dateStr)),
-              SliverToBoxAdapter(child: _buildQuickStats()),
-              if (_permissions.bestellingenVerzenden || _permissions.alleBestellingenBeheren ||
-                  _permissions.zendingenOverzicht || _permissions.statistiekenBekijken)
-                SliverToBoxAdapter(child: _buildQuickActions()),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(32, 0, 32, 40),
-                sliver: SliverList(delegate: SliverChildListDelegate(_buildSections())),
-              ),
-            ]),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return CustomScrollView(slivers: [
+                  SliverToBoxAdapter(child: _buildHeader(dateStr)),
+                  SliverToBoxAdapter(child: _buildQuickStats()),
+                  if (_lowStockCount > 0 || _syncErrorCount > 0 || _shippingReadyCount > 0 || _pendingOrderCount > 0 || _lockedCount > 0)
+                    SliverToBoxAdapter(child: _buildMeldingenSection()),
+                  if (_permissions.bestellingenVerzenden || _permissions.alleBestellingenBeheren ||
+                      _permissions.zendingenOverzicht || _permissions.statistiekenBekijken)
+                    SliverToBoxAdapter(child: _buildQuickActions()),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
+                    sliver: SliverList(delegate: SliverChildListDelegate(_buildSections())),
+                  ),
+                ]);
+              },
+            ),
           ),
         ),
       ]),
@@ -387,50 +407,50 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   Widget _buildHeader(String dateStr) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(32, 28, 32, 0),
-      padding: const EdgeInsets.fromLTRB(32, 28, 32, 24),
+      margin: const EdgeInsets.fromLTRB(28, 20, 28, 0),
+      padding: const EdgeInsets.fromLTRB(28, 20, 28, 18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0D1B2A), Color(0xFF1B3A5C), Color(0xFF1B4965)],
+          colors: [Color(0xFF0D1B2A), Color(0xFF152D45), Color(0xFF1B4965)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: _navy.withValues(alpha: 0.25), blurRadius: 24, offset: const Offset(0, 8))],
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: _navy.withValues(alpha: 0.18), blurRadius: 16, offset: const Offset(0, 4))],
       ),
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Text('Dashboard', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white38, letterSpacing: 1.5)),
-            const SizedBox(width: 12),
+            Text('DASHBOARD', style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white30, letterSpacing: 2)),
+            const SizedBox(width: 10),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: _gold.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _gold.withValues(alpha: 0.35)),
+                color: _gold.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _gold.withValues(alpha: 0.25)),
               ),
-              child: Text(_userRole, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: _gold)),
+              child: Text(_userRole, style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: _gold)),
             ),
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Text(
             'Welkom terug, $_userName',
-            style: GoogleFonts.dmSans(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white, height: 1.15),
+            style: GoogleFonts.dmSans(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white, height: 1.15),
           ),
-          const SizedBox(height: 6),
-          Text(dateStr, style: GoogleFonts.dmSans(fontSize: 14, color: Colors.white54)),
+          const SizedBox(height: 3),
+          Text(dateStr, style: GoogleFonts.dmSans(fontSize: 12, color: Colors.white38)),
         ])),
         Container(
-          width: 72, height: 72,
+          width: 52, height: 52,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.08),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+            borderRadius: BorderRadius.circular(14),
+            color: Colors.white.withValues(alpha: 0.06),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Image.asset('assets/ventoz_logo.png', width: 72, height: 72),
+            borderRadius: BorderRadius.circular(13),
+            child: Image.asset('assets/ventoz_logo.png', width: 52, height: 52),
           ),
         ),
       ]),
@@ -443,17 +463,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   Widget _buildQuickStats() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 20, 32, 4),
+      padding: const EdgeInsets.fromLTRB(28, 14, 28, 2),
       child: Row(children: [
         _stat('Producten', _statsLoaded ? '$_productCount' : '—', Icons.inventory_2_rounded, const Color(0xFF1B4965)),
-        const SizedBox(width: 14),
+        const SizedBox(width: 10),
+        _stat('Klanten', _statsLoaded && _customerCount > 0 ? '$_customerCount' : '—', Icons.people_rounded, const Color(0xFF00838F),
+            onTap: _permissions.klantenBeheren ? () => context.push('/dashboard/klanten') : null),
+        const SizedBox(width: 10),
         _stat('Openstaand', _statsLoaded ? '$_pendingOrderCount' : '—', Icons.pending_actions_rounded, const Color(0xFFE65100),
             badge: _pendingOrderCount > 0),
-        const SizedBox(width: 14),
+        const SizedBox(width: 10),
         _stat('Te verzenden', _statsLoaded ? '$_shippingReadyCount' : '—', Icons.local_shipping_outlined, const Color(0xFF00897B),
             badge: _shippingReadyCount > 0,
             onTap: _permissions.bestellingenVerzenden && _shippingReadyCount > 0 ? () => _navigate(const AdminShippingScreen()) : null),
-        const SizedBox(width: 14),
+        const SizedBox(width: 10),
         _stat('Geblokkeerd', _statsLoaded ? '$_lockedCount' : '—', Icons.lock_outline_rounded, const Color(0xFFC62828),
             badge: _lockedCount > 0,
             onTap: _permissions.geblokkeerdeAccountsBeheren && _lockedCount > 0 ? () => _navigate(const AdminLockedAccountsScreen()) : null),
@@ -465,34 +488,110 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     return Expanded(
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           hoverColor: color.withValues(alpha: 0.04),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: badge ? color.withValues(alpha: 0.3) : const Color(0xFFE8ECF1)),
             ),
             child: Row(children: [
               Container(
-                width: 42, height: 42,
+                width: 36, height: 36,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(icon, color: color, size: 18),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(value, style: GoogleFonts.dmSans(fontSize: 24, fontWeight: FontWeight.w800, color: badge ? color : _navy)),
-                Text(label, style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
+                Text(value, style: GoogleFonts.dmSans(fontSize: 20, fontWeight: FontWeight.w800, color: badge ? color : _navy)),
+                Text(label, style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
               ])),
-              if (onTap != null) Icon(Icons.chevron_right_rounded, size: 18, color: color.withValues(alpha: 0.5)),
+              if (onTap != null) Icon(Icons.chevron_right_rounded, size: 16, color: color.withValues(alpha: 0.5)),
             ]),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────────
+  // MELDINGEN & TAKEN
+  // ────────────────────────────────────────────────────
+
+  Widget _buildMeldingenSection() {
+    final items = <Widget>[];
+    if (_shippingReadyCount > 0 && _permissions.bestellingenVerzenden) {
+      items.add(_meldingTile('Te verzenden', '$_shippingReadyCount order(s) klaar voor verzending', Icons.local_shipping_rounded, const Color(0xFF00897B),
+          onTap: () => _navigate(const AdminShippingScreen())));
+    }
+    if (_pendingOrderCount > 0 && _permissions.alleBestellingenBeheren) {
+      items.add(_meldingTile('Openstaande orders', '$_pendingOrderCount order(s) wachten op actie', Icons.pending_actions_rounded, const Color(0xFFE65100),
+          onTap: () => _navigate(const OrdersScreen(adminView: true))));
+    }
+    if (_lowStockCount > 0 && _permissions.voorraadBeheren) {
+      items.add(_meldingTile('Lage voorraad', '$_lowStockCount product(en) onder 5 stuks', Icons.warning_amber_rounded, const Color(0xFFF57F17),
+          onTap: () => context.push('/dashboard/voorraad')));
+    }
+    if (_syncErrorCount > 0 && _permissions.marktplaatsKoppelingen) {
+      items.add(_meldingTile('Sync-fouten', '$_syncErrorCount sync-fout(en) op marktplaatsen', Icons.sync_problem_rounded, const Color(0xFFE53935),
+          onTap: () => context.push('/dashboard/marktplaatsen')));
+    }
+    if (_lockedCount > 0 && _permissions.geblokkeerdeAccountsBeheren) {
+      items.add(_meldingTile('Geblokkeerde accounts', '$_lockedCount account(s) geblokkeerd', Icons.lock_outline_rounded, const Color(0xFFC62828),
+          onTap: () => _navigate(const AdminLockedAccountsScreen())));
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 10, 28, 2),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF3C7).withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(Icons.notifications_active_rounded, size: 18, color: const Color(0xFF92400E)),
+              const SizedBox(width: 8),
+              Text('Aandacht nodig', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF92400E))),
+            ]),
+            const SizedBox(height: 10),
+            Wrap(spacing: 10, runSpacing: 8, children: items),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _meldingTile(String title, String desc, IconData icon, Color color, {VoidCallback? onTap}) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text(title, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w700, color: _navy)),
+              Text(desc, style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF64748B))),
+            ]),
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right_rounded, size: 16, color: color.withValues(alpha: 0.6)),
+          ]),
         ),
       ),
     );
@@ -529,7 +628,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       spaced.add(actions[i]);
     }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 18, 32, 6),
+      padding: const EdgeInsets.fromLTRB(28, 12, 28, 2),
       child: Row(children: spaced),
     );
   }
@@ -538,37 +637,37 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     return Expanded(
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           hoverColor: color.withValues(alpha: 0.06),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFE8ECF1)),
             ),
             child: Row(children: [
               Container(
-                width: 44, height: 44,
+                width: 38, height: 38,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: color.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 3))],
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 6, offset: const Offset(0, 2))],
                 ),
-                child: Icon(icon, color: Colors.white, size: 22),
+                child: Icon(icon, color: Colors.white, size: 18),
               ),
-              const SizedBox(width: 12),
-              Expanded(child: Text(label, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w700, color: _navy, height: 1.3))),
+              const SizedBox(width: 10),
+              Expanded(child: Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w700, color: _navy, height: 1.2))),
               if (badge != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
-                  child: Text(badge, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
+                  child: Text(badge, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
                 ),
-              const SizedBox(width: 4),
-              Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey.shade300),
+              const SizedBox(width: 3),
+              Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey.shade300),
             ]),
           ),
         ),
@@ -584,7 +683,22 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final p = _permissions;
 
     return [
-      // ── 1. Producten ──
+      // ── 1. Relaties ──
+      if (p.klantenBeheren || p.leadsInzien || p.voorraadBeheren)
+        _section('Relaties', Icons.people_rounded, [
+          if (p.klantenBeheren)
+            _tile('Klanten', 'Klantenregister met omzet en facturen', Icons.people_rounded, const Color(0xFF1B4965),
+                badge: _statsLoaded && _customerCount > 0 ? '$_customerCount' : null,
+                onTap: () => context.push('/dashboard/klanten')),
+          if (p.leadsInzien)
+            _tile('Prospects', 'Leads NL, DE, BE bekijken en e-mailen', Icons.people_alt_rounded, const Color(0xFF00838F),
+                onTap: () => context.push('/dashboard/beheer')),
+          if (p.voorraadBeheren)
+            _tile('Leveranciers', 'Inloggegevens en websites', Icons.factory_rounded, const Color(0xFF4E342E),
+                onTap: () => _navigate(const AdminSuppliersScreen())),
+        ]),
+
+      // ── 2. Producten ──
       if (p.productenBewerken || p.uitgelichteProducten || p.productenBlokkeren)
         _section('Producten', Icons.inventory_2_rounded, [
           _tile('Productcatalogus', 'Bekijk en beheer alle producten', Icons.storefront_rounded, const Color(0xFF1B4965),
@@ -600,27 +714,44 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 onTap: () => _navigate(const ProductCatalogusScreen(showBlocked: true))),
         ]),
 
-      // ── 2. Marktplaatsen & Kanalen ──
+      // ── 3. Voorraadbeheer ──
+      if (p.voorraadBeheren || p.voorraadImporteren || p.eanCodesBeheren)
+        _section('Voorraadbeheer', Icons.warehouse_rounded, [
+          if (p.voorraadBeheren)
+            _tile('Voorraadoverzicht', 'Alle producten en varianten', Icons.inventory_rounded, const Color(0xFF2E7D32),
+                onTap: () => context.push('/dashboard/voorraad')),
+          if (p.voorraadBeheren)
+            _tile('Zeilnummers & letters', 'Voorraad stickers', Icons.format_list_numbered_rounded, const Color(0xFF00838F),
+                onTap: () => context.push('/dashboard/zeil-voorraad')),
+          if (p.voorraadBeheren)
+            _tile('Voorraadlog', 'Alle mutaties en correcties', Icons.history_rounded, const Color(0xFF37474F),
+                onTap: () => context.push('/dashboard/voorraadlog')),
+          if (p.voorraadBeheren)
+            _tile('Voorraad Archief', 'Gearchiveerde items', Icons.archive_rounded, const Color(0xFF6D4C41),
+                onTap: () => context.push('/dashboard/voorraad/archief')),
+          if (p.voorraadImporteren)
+            _tile('CSV importeren', 'Voorraad bijwerken via bestand', Icons.upload_file_rounded, const Color(0xFF1565C0),
+                onTap: () => context.push('/dashboard/voorraad/import')),
+          if (p.eanCodesBeheren)
+            _tile('EAN-codes', 'Barcode-register beheren', Icons.qr_code_rounded, const Color(0xFF6A1B9A),
+                onTap: () => context.push('/dashboard/ean-beheer')),
+        ]),
+
+      // ── 4. Prijzen & Kanalen ──
       if (p.marktplaatsKoppelingen || p.verkoopkanalenBeheren)
-        _section('Marktplaatsen & Kanalen', Icons.shopping_bag_rounded, [
+        _section('Prijzen & Kanalen', Icons.attach_money_rounded, [
           if (p.marktplaatsKoppelingen)
-            _tile('Kanaaloverzicht', 'Alle producten op alle platforms', Icons.grid_view_rounded, const Color(0xFF0070E0),
-                onTap: () => context.push('/dashboard/marktplaatsen')),
+            _tile('Kanaaloverzicht', 'Prijzen en plaatsingen per product per kanaal', Icons.grid_view_rounded, const Color(0xFF0070E0),
+                onTap: () => context.push('/dashboard/kanaaloverzicht')),
           if (p.marktplaatsKoppelingen)
-            _tile('Bol.com', 'Listings, orders en synchronisatie', Icons.shopping_bag_rounded, const Color(0xFF0000CC),
-                onTap: () => context.push('/dashboard/marktplaatsen')),
-          if (p.marktplaatsKoppelingen)
-            _tile('eBay', 'Internationaal verkopen', Icons.gavel_rounded, const Color(0xFFE53238),
-                onTap: () => context.push('/dashboard/marktplaatsen')),
-          if (p.marktplaatsKoppelingen)
-            _tile('Marktplaats', 'Feed-beheer en advertenties', Icons.storefront_rounded, const Color(0xFF2D8CFF),
+            _tile('Marktplaatsen', 'Listings, eBay matching, orders, feed', Icons.shopping_bag_rounded, const Color(0xFF0070E0),
                 onTap: () => context.push('/dashboard/marktplaatsen')),
           if (p.verkoopkanalenBeheren)
             _tile('Verkoopkanalen', 'Kanalen configureren', Icons.tune_rounded, const Color(0xFF00695C),
                 onTap: () => context.push('/dashboard/verkoopkanalen')),
         ]),
 
-      // ── 3. Orders & Verzending (admin/owner) ──
+      // ── 5. Orders & Verzending ──
       if (p.alleBestellingenBeheren || p.bestellingenVerzenden || p.zendingenOverzicht)
         _section('Orders & Verzending', Icons.local_shipping_rounded, [
           if (p.bestellingenVerzenden)
@@ -644,50 +775,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               onTap: () => _navigate(const OrdersScreen())),
         ]),
 
-      // ── 4. Klanten & Marketing ──
-      if (p.klantenBeheren || p.leadsInzien || p.statistiekenBekijken || p.kortingscodesBeheren)
-        _section('Klanten & Marketing', Icons.campaign_rounded, [
-          if (p.klantenBeheren)
-            _tile('Klanten', 'Klantenregister beheren', Icons.people_rounded, const Color(0xFF1B4965),
-                badge: _statsLoaded && _customerCount > 0 ? '$_customerCount' : null,
-                onTap: () => context.push('/dashboard/klanten')),
-          if (p.leadsInzien)
-            _tile('Leadbeheer', 'Leads bekijken, filteren en e-mailen', Icons.people_alt_rounded, const Color(0xFF00838F),
-                onTap: () => context.push('/dashboard/beheer')),
-          if (p.statistiekenBekijken)
-            _tile('Statistieken', 'Conversies en campagnes', Icons.insights_rounded, const Color(0xFF6A1B9A),
-                onTap: () => _navigate(const StatisticsScreen())),
-          if (p.leadEmailsVersturen)
-            _tile('E-mail overzicht', 'Verzonden e-mails en logboek', Icons.inbox_rounded, const Color(0xFF00695C),
-                onTap: () => _navigate(const EmailOverviewScreen())),
-          if (p.kortingscodesBeheren)
-            _tile('Kortingscodes', 'Codes aanmaken en beheren', Icons.local_offer_rounded, const Color(0xFFE65100),
-                onTap: () => _navigate(const KortingscodesScreen())),
-        ]),
-
-      // ── 5. Voorraad ──
-      if (p.voorraadBeheren || p.voorraadImporteren || p.eanCodesBeheren)
-        _section('Voorraad', Icons.warehouse_rounded, [
-          if (p.voorraadBeheren)
-            _tile('Voorraadoverzicht', 'Alle producten en varianten', Icons.inventory_rounded, const Color(0xFF2E7D32),
-                onTap: () => context.push('/dashboard/voorraad')),
-          if (p.voorraadBeheren)
-            _tile('Zeilnummers & letters', 'Voorraad stickers', Icons.format_list_numbered_rounded, const Color(0xFF00838F),
-                onTap: () => context.push('/dashboard/zeil-voorraad')),
-          if (p.voorraadBeheren)
-            _tile('Voorraadlog', 'Alle mutaties en correcties', Icons.history_rounded, const Color(0xFF37474F),
-                onTap: () => context.push('/dashboard/voorraadlog')),
-          if (p.voorraadBeheren)
-            _tile('Voorraad Archief', 'Gearchiveerde items', Icons.archive_rounded, const Color(0xFF6D4C41),
-                onTap: () => context.push('/dashboard/voorraad/archief')),
-          if (p.voorraadImporteren)
-            _tile('CSV importeren', 'Voorraad bijwerken via bestand', Icons.upload_file_rounded, const Color(0xFF1565C0),
-                onTap: () => context.push('/dashboard/voorraad/import')),
-          if (p.eanCodesBeheren)
-            _tile('EAN-codes', 'Barcode-register beheren', Icons.qr_code_rounded, const Color(0xFF6A1B9A),
-                onTap: () => context.push('/dashboard/ean-beheer')),
-        ]),
-
       // ── 6. Logistiek & Inkoop ──
       if (p.productgewichtenBeheren || p.verpakkingenBeheren || p.voorraadBeheren)
         _section('Logistiek & Inkoop', Icons.local_shipping_outlined, [
@@ -702,7 +789,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 onTap: () => _navigate(const AdminBoxesScreen())),
         ]),
 
-      // ── 7. Website & Content ──
+      // ── 7. Website Content ──
       if (p.aboutTekstBewerken || p.impressiesBeheren || p.categoryVideosBeheren || p.reviewPlatformsBeheren)
         _section('Website & Content', Icons.web_rounded, [
           if (p.aboutTekstBewerken)
@@ -728,7 +815,21 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 onTap: () => _navigate(const ReviewPlatformsScreen())),
         ]),
 
-      // ── 8. Beheer & Beveiliging ──
+      // ── 8. Marketing & Communicatie ──
+      if (p.statistiekenBekijken || p.leadEmailsVersturen || p.kortingscodesBeheren)
+        _section('Marketing & Communicatie', Icons.campaign_rounded, [
+          if (p.statistiekenBekijken)
+            _tile('Statistieken', 'Conversies en campagnes', Icons.insights_rounded, const Color(0xFF6A1B9A),
+                onTap: () => _navigate(const StatisticsScreen())),
+          if (p.leadEmailsVersturen)
+            _tile('E-mail overzicht', 'Verzonden e-mails en logboek', Icons.inbox_rounded, const Color(0xFF00695C),
+                onTap: () => _navigate(const EmailOverviewScreen())),
+          if (p.kortingscodesBeheren)
+            _tile('Kortingscodes', 'Codes aanmaken en beheren', Icons.local_offer_rounded, const Color(0xFFE65100),
+                onTap: () => _navigate(const KortingscodesScreen())),
+        ]),
+
+      // ── 9. Beheer & Beveiliging ──
       if (p.gebruikersBeheren || p.geblokkeerdeAccountsBeheren || p.activiteitenlogBekijken || p.testmodus)
         _section('Beheer & Beveiliging', Icons.admin_panel_settings_rounded, [
           if (p.gebruikersBeheren)
@@ -817,19 +918,19 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final accent = _sectionAccents[title] ?? _slate;
     final collapsed = _collapsedSections.contains(title);
     return Padding(
-      padding: const EdgeInsets.only(top: 24),
+      padding: const EdgeInsets.only(top: 14),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFE8ECF1)),
-          boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.06), blurRadius: 16, offset: const Offset(0, 4))],
+          boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(children: [
-          Positioned(left: 0, top: 0, bottom: 0, width: 4, child: ColoredBox(color: accent)),
+          Positioned(left: 0, top: 0, bottom: 0, width: 3, child: ColoredBox(color: accent)),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 18, 20, 18),
+            padding: EdgeInsets.fromLTRB(18, 12, 14, collapsed ? 12 : 14),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
               InkWell(
                 onTap: () => setState(() {
@@ -839,47 +940,47 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     _collapsedSections.add(title);
                   }
                 }),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
                 hoverColor: accent.withValues(alpha: 0.04),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 1),
                   child: Row(children: [
                     Container(
-                      width: 32, height: 32,
+                      width: 26, height: 26,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(colors: [accent, accent.withValues(alpha: 0.7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                        borderRadius: BorderRadius.circular(9),
+                        borderRadius: BorderRadius.circular(7),
                       ),
-                      child: Icon(icon, size: 16, color: Colors.white),
+                      child: Icon(icon, size: 13, color: Colors.white),
                     ),
-                    const SizedBox(width: 12),
-                    Text(title, style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w800, color: _navy, letterSpacing: 0.2)),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
+                    Text(title, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w800, color: _navy, letterSpacing: 0.1)),
+                    const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(color: accent.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
-                      child: Text('${tiles.length}', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: accent)),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(color: accent.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(6)),
+                      child: Text('${tiles.length}', style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: accent)),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(child: Container(height: 1, color: const Color(0xFFE8ECF1))),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
+                    Expanded(child: Container(height: 1, color: const Color(0xFFEDF0F4))),
+                    const SizedBox(width: 8),
                     AnimatedRotation(
                       turns: collapsed ? -0.25 : 0,
                       duration: const Duration(milliseconds: 200),
-                      child: Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: _slate.withValues(alpha: 0.5)),
+                      child: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: _slate.withValues(alpha: 0.4)),
                     ),
                   ]),
                 ),
               ),
               if (!collapsed) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 LayoutBuilder(builder: (context, box) {
-                  final cols = box.maxWidth > 960 ? 4 : box.maxWidth > 640 ? 3 : 2;
+                  final cols = box.maxWidth > 1200 ? 5 : box.maxWidth > 960 ? 4 : box.maxWidth > 640 ? 3 : 2;
                   return GridView.count(
                     crossAxisCount: cols,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 2.6,
+                    mainAxisSpacing: 7,
+                    crossAxisSpacing: 7,
+                    childAspectRatio: 3.0,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     children: tiles,
@@ -900,38 +1001,37 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget _tile(String title, String desc, IconData icon, Color color, {String? badge, VoidCallback? onTap}) {
     return Material(
       color: const Color(0xFFF8FAFC),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         hoverColor: color.withValues(alpha: 0.06),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFFEDF0F4)),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-            Row(children: [
+          child: Row(children: [
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+              child: Icon(icon, color: color, size: 16),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text(title, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w700, color: _navy), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(desc, style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF94A3B8)), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ])),
+            if (badge != null)
               Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(10)),
-                child: Icon(icon, color: color, size: 18),
+                margin: const EdgeInsets.only(left: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
+                child: Text(badge, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
               ),
-              const Spacer(),
-              if (badge != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
-                  child: Text(badge, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
-                ),
-              const SizedBox(width: 2),
-              Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey.shade300),
-            ]),
-            const SizedBox(height: 8),
-            Text(title, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w700, color: _navy), maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 1),
-            Text(desc, style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF94A3B8)), maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(width: 2),
+            Icon(Icons.chevron_right_rounded, size: 14, color: Colors.grey.shade300),
           ]),
         ),
       ),

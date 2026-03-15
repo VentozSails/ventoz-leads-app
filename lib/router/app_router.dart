@@ -245,5 +245,11 @@ final appRouter = GoRouter(
         child: MarketplaceDashboardScreen(),
       ),
     ),
+    GoRoute(
+      path: '/dashboard/kanaaloverzicht',
+      pageBuilder: (context, state) => const NoTransitionPage(
+        child: MarketplaceDashboardScreen(initialTabIndex: 1),
+      ),
+    ),
   ],
 );
