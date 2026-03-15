@@ -664,7 +664,7 @@ class MarketplaceService {
             .neq('status', 'verwijderd'),
         _client
             .from('inventory_items')
-            .select('product_id, voorraad_actueel')
+            .select('product_id, voorraad_actueel, naam')
             .eq('is_archived', false),
       ]);
 
@@ -681,18 +681,54 @@ class MarketplaceService {
       final stockMap = <int, int>{};
       for (final row in (results[2] as List)) {
         final rawPid = row['product_id'];
-        final pid = rawPid is int ? rawPid : int.tryParse(rawPid?.toString() ?? '');
-        if (pid == null) continue;
         final rawQty = row['voorraad_actueel'];
         final qty = rawQty is int ? rawQty : (int.tryParse(rawQty?.toString() ?? '') ?? 0);
+
+        int? pid = rawPid is int ? rawPid : int.tryParse(rawPid?.toString() ?? '');
+
+        // If inventory item has no product_id, try matching by naam
+        if (pid == null) {
+          final invName = (row['naam'] as String? ?? '').toLowerCase().trim();
+          if (invName.isNotEmpty) {
+            final match = products.where((p) => p.naam.toLowerCase().trim() == invName).firstOrNull;
+            pid = match?.id;
+          }
+        }
+
+        if (pid == null) continue;
         stockMap[pid] = (stockMap[pid] ?? 0) + qty;
+      }
+
+      // Index products by name (lowercased) and artikelnummer for fuzzy matching
+      final productByName = <String, CatalogProduct>{};
+      final productByArtNr = <String, CatalogProduct>{};
+      for (final p in products) {
+        productByName[p.naam.toLowerCase().trim()] = p;
+        final artNr = p.artikelnummer;
+        if (artNr != null && artNr.isNotEmpty) {
+          productByArtNr[artNr.toLowerCase().trim()] = p;
+        }
       }
 
       final listingsByProduct = <int, Map<MarketplacePlatform, List<MarketplaceListing>>>{};
       for (final l in allListings) {
-        if (l.productId == null) continue;
+        int? pid = l.productId;
+
+        // Try to match unmatched listings to products by title or SKU
+        if (pid == null) {
+          final title = (l.externTitle ?? '').toLowerCase().trim();
+          final sku = (l.ebaySku ?? '').toLowerCase().trim();
+
+          CatalogProduct? matched;
+          if (sku.isNotEmpty) matched = productByArtNr[sku];
+          if (matched == null && title.isNotEmpty) matched = productByName[title];
+
+          if (matched != null) pid = matched.id;
+        }
+
+        if (pid == null) continue;
         listingsByProduct
-            .putIfAbsent(l.productId!, () => {})
+            .putIfAbsent(pid, () => {})
             .putIfAbsent(l.platform, () => [])
             .add(l);
       }

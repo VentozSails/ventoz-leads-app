@@ -2154,53 +2154,80 @@ async function handleImportEbayListings(
           const listingStatus = primaryOffer?.status === "ACTIVE" ? "actief" : "concept";
           const imageUrl = product.imageUrls?.[0] || null;
 
-          const record: Record<string, any> = {
-            platform: "ebay",
-            ebay_sku: sku,
-            ebay_item_id: listingId,
-            ebay_offer_id: offerId,
-            ebay_marketplaces: marketplaces,
-            extern_id: listingId || offerId,
-            extern_url: listingId ? `https://www.ebay.com/itm/${listingId}` : null,
-            extern_title: product.title || null,
-            extern_description: product.description || null,
-            extern_image_url: imageUrl,
-            extern_quantity: availability?.quantity ?? null,
-            status: listingStatus,
-            prijs: price,
-            taal: "nl",
-            account_label: accountLabel,
-            laatste_sync: new Date().toISOString(),
-            sync_fout: null,
-            match_status: "unmatched",
-            platform_data: {
-              sku,
-              offer_id: offerId,
-              listing_id: listingId,
-              condition: item.condition,
-              ean: product.ean?.[0] || null,
-              aspects: product.aspects || {},
-              marketplaces,
-              all_offers: offers.map((o: any) => ({
-                offerId: o.offerId,
-                status: o.status,
-                marketplaceId: o.marketplaceId,
-                price: o.pricingSummary?.price,
-                quantity: o.availableQuantity,
-                listingId: o.listing?.listingId,
-              })),
-            },
+          // Map each marketplace to its taal code
+          const mpToTaal: Record<string, string> = {
+            EBAY_GB: "uk", EBAY_DE: "de", EBAY_FR: "fr", EBAY_IT: "it",
+            EBAY_NL: "nl", EBAY_ES: "es", EBAY_BE: "be", EBAY_IE: "ie",
+            EBAY_PL: "pl", EBAY_AT: "de", EBAY_CH: "de",
+            EBAY_US: "uk", EBAY_AU: "uk",
           };
 
-          if (existing) {
-            // Don't overwrite product_id or match_status if already set
-            delete record.match_status;
-            await supabase.from("marketplace_listings").update(record).eq("id", existing.id);
-            updated++;
-          } else {
-            record.product_id = null;
-            await supabase.from("marketplace_listings").insert(record);
-            imported++;
+          // Create one listing per marketplace offer (or one for the primary if no offers)
+          const effectiveOffers = offers.length > 0 ? offers : [{ marketplaceId: null }];
+          for (const offer of effectiveOffers) {
+            const mpId = offer.marketplaceId || (marketplaces.length > 0 ? marketplaces[0] : null);
+            const derivedTaal = mpId ? (mpToTaal[mpId] || "nl") : "nl";
+            const offerPrice = offer.pricingSummary?.price?.value
+              ? parseFloat(offer.pricingSummary.price.value) : price;
+            const offerListingId = offer.listing?.listingId || listingId;
+            const offerOfferId = offer.offerId || offerId;
+            const offerStatus = offer.status === "ACTIVE" ? "actief" : listingStatus;
+
+            const offerExisting = await supabase.from("marketplace_listings")
+              .select("id, product_id, match_status")
+              .eq("platform", "ebay")
+              .eq("ebay_sku", sku)
+              .eq("taal", derivedTaal)
+              .maybeSingle();
+            const existingRow = offerExisting.data;
+
+            const record: Record<string, any> = {
+              platform: "ebay",
+              ebay_sku: sku,
+              ebay_item_id: offerListingId,
+              ebay_offer_id: offerOfferId,
+              ebay_marketplaces: mpId ? [mpId] : marketplaces,
+              extern_id: offerListingId || offerOfferId,
+              extern_url: offerListingId ? `https://www.ebay.com/itm/${offerListingId}` : null,
+              extern_title: product.title || null,
+              extern_description: product.description || null,
+              extern_image_url: imageUrl,
+              extern_quantity: availability?.quantity ?? null,
+              status: offerStatus,
+              prijs: offerPrice,
+              taal: derivedTaal,
+              account_label: accountLabel,
+              laatste_sync: new Date().toISOString(),
+              sync_fout: null,
+              platform_data: {
+                sku,
+                offer_id: offerOfferId,
+                listing_id: offerListingId,
+                condition: item.condition,
+                ean: product.ean?.[0] || null,
+                aspects: product.aspects || {},
+                marketplaces: mpId ? [mpId] : marketplaces,
+                all_offers: offers.map((o: any) => ({
+                  offerId: o.offerId,
+                  status: o.status,
+                  marketplaceId: o.marketplaceId,
+                  price: o.pricingSummary?.price,
+                  quantity: o.availableQuantity,
+                  listingId: o.listing?.listingId,
+                })),
+              },
+            };
+
+            if (existingRow) {
+              delete record.match_status;
+              await supabase.from("marketplace_listings").update(record).eq("id", existingRow.id);
+              updated++;
+            } else {
+              record.product_id = null;
+              record.match_status = "unmatched";
+              await supabase.from("marketplace_listings").insert(record);
+              imported++;
+            }
           }
         } catch (itemErr: unknown) {
           const msg = `SKU ${item.sku}: ${getErrorMessage(itemErr)}`;
