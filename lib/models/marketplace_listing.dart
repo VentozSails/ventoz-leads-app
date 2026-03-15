@@ -572,6 +572,9 @@ class ChannelMatrixRow {
   final int voorraad;
   final Map<MarketplacePlatform, List<MarketplaceListing>> listings;
 
+  /// Stock breakdown per color variant. Key = color name (lowercase), value = stock count.
+  final Map<String, int> voorraadPerKleur;
+
   /// Channel-based lookup: key is channel code (e.g. 'ebay_de', 'bol_nl').
   late final Map<String, MarketplaceListing> _channelMap;
 
@@ -579,6 +582,7 @@ class ChannelMatrixRow {
     required this.product,
     this.voorraad = 0,
     this.listings = const {},
+    this.voorraadPerKleur = const {},
   }) {
     final map = <String, MarketplaceListing>{};
     for (final entry in listings.entries) {

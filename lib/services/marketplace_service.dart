@@ -664,7 +664,7 @@ class MarketplaceService {
             .neq('status', 'verwijderd'),
         _client
             .from('inventory_items')
-            .select('product_id, voorraad_actueel, variant_label, ean_code, artikelnummer')
+            .select('product_id, voorraad_actueel, variant_label, ean_code, artikelnummer, kleur')
             .eq('is_archived', false),
       ]);
 
@@ -705,10 +705,12 @@ class MarketplaceService {
       }
 
       final stockMap = <int, int>{};
+      final colorStockMap = <int, Map<String, int>>{};
       for (final row in (results[2] as List)) {
         final rawPid = row['product_id'];
         final rawQty = row['voorraad_actueel'];
         final qty = rawQty is int ? rawQty : (int.tryParse(rawQty?.toString() ?? '') ?? 0);
+        final kleur = ((row['kleur'] as String?) ?? '').trim();
 
         int? pid = rawPid is int ? rawPid : int.tryParse(rawPid?.toString() ?? '');
 
@@ -729,6 +731,10 @@ class MarketplaceService {
 
         if (pid == null) continue;
         stockMap[pid] = (stockMap[pid] ?? 0) + qty;
+        if (kleur.isNotEmpty) {
+          final colorMap = colorStockMap.putIfAbsent(pid, () => {});
+          colorMap[kleur.toLowerCase()] = (colorMap[kleur.toLowerCase()] ?? 0) + qty;
+        }
       }
 
       final listingsByProduct = <int, Map<MarketplacePlatform, List<MarketplaceListing>>>{};
@@ -781,6 +787,7 @@ class MarketplaceService {
         product: p,
         voorraad: stockMap[p.id] ?? 0,
         listings: listingsByProduct[p.id] ?? {},
+        voorraadPerKleur: colorStockMap[p.id] ?? const {},
       )).toList();
     } catch (e) {
       if (kDebugMode) debugPrint('MarketplaceService.getChannelMatrix error: $e');

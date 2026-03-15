@@ -735,13 +735,19 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
           ),
         ),
         Tooltip(
-          message: row.voorraad > 0
-              ? 'Voorraad: ${row.voorraad} (beheer via Voorraadlijst)'
-              : 'Niet op voorraad (beheer via Voorraadlijst)',
+          message: _stockTooltip(row),
           child: Container(
             height: 38,
             alignment: Alignment.center,
-            child: _stockBadge(row.voorraad),
+            child: row.voorraadPerKleur.length > 1
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _stockBadge(row.voorraad),
+                      Text('${row.voorraadPerKleur.length} kl.', style: GoogleFonts.dmSans(fontSize: 7, color: const Color(0xFF94A3B8))),
+                    ],
+                  )
+                : _stockBadge(row.voorraad),
           ),
         ),
         _priceCell(row.product.displayPrijs, null, () => _showSitePriceEdit(row)),
@@ -878,6 +884,21 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
       ListingStatus.verwijderd => const Color(0xFF94A3B8),
       ListingStatus.concept    => const Color(0xFF1565C0),
     };
+  }
+
+  String _stockTooltip(ChannelMatrixRow row) {
+    if (row.voorraadPerKleur.isEmpty) {
+      return row.voorraad > 0
+          ? 'Voorraad: ${row.voorraad}'
+          : 'Niet op voorraad';
+    }
+    final lines = <String>['Totaal: ${row.voorraad}'];
+    final sorted = row.voorraadPerKleur.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    for (final e in sorted) {
+      lines.add('  ${e.key[0].toUpperCase()}${e.key.substring(1)}: ${e.value}');
+    }
+    return lines.join('\n');
   }
 
   Widget _stockBadge(int stock) {
@@ -1066,7 +1087,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             if (filterMode == 'approved' && !s.approved) return false;
             if (q.isNotEmpty) {
               final item = s.inventoryItem;
-              final haystack = '${item.variantLabel} ${item.artikelnummer ?? ''} ${item.eanCode ?? ''} ${item.leverancierCode ?? ''} ${s.productNaam}'.toLowerCase();
+              final haystack = '${item.variantLabel} ${s.kleur} ${item.artikelnummer ?? ''} ${item.eanCode ?? ''} ${item.leverancierCode ?? ''} ${s.productNaam}'.toLowerCase();
               if (!haystack.contains(q)) return false;
             }
             return true;
@@ -1195,7 +1216,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(item.variantLabel.isNotEmpty ? item.variantLabel : '(naamloos)', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: _navy), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                        Text(s.displayLabel, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: _navy), maxLines: 1, overflow: TextOverflow.ellipsis),
                                         Text(
                                           [
                                             if (item.eanCode != null) 'EAN: ${item.eanCode}',

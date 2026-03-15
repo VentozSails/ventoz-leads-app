@@ -1341,12 +1341,14 @@ class InventoryService {
         .select('id,naam,artikelnummer,ean_code');
     final catalog = catalogRows.cast<Map<String, dynamic>>();
 
-    // Group items by variant_label (product name) so we match per product, not per row
+    // Group items by variant_label + kleur so we match per color variant
     final grouped = <String, List<InventoryItem>>{};
     for (final item in unlinked) {
-      final key = item.variantLabel.trim().isEmpty
+      final name = item.variantLabel.trim().isEmpty
           ? 'ean:${item.eanCode ?? item.artikelnummer ?? "unknown_${item.id}"}'
           : item.variantLabel.trim();
+      final color = item.kleur.trim();
+      final key = color.isEmpty ? name : '$name\x00$color';
       grouped.putIfAbsent(key, () => []).add(item);
     }
 
@@ -1355,6 +1357,7 @@ class InventoryService {
     for (final entry in grouped.entries) {
       final items = entry.value;
       final representative = items.first;
+      final groupColor = representative.kleur.trim();
       InventoryMatchSuggestion? best;
 
       // Collect all unique EANs and artikelnummers from the group
@@ -1384,6 +1387,7 @@ class InventoryService {
               productNaam: (p['naam'] as String?) ?? '',
               matchMethod: 'EAN',
               matchScore: 100,
+              kleur: groupColor,
             );
             break;
           }
@@ -1405,6 +1409,7 @@ class InventoryService {
                 productNaam: (p['naam'] as String?) ?? '',
                 matchMethod: 'Artikelnr',
                 matchScore: 95,
+                kleur: groupColor,
               );
               break;
             }
@@ -1428,6 +1433,7 @@ class InventoryService {
                 productNaam: (p['naam'] as String?) ?? '',
                 matchMethod: 'EAN deel',
                 matchScore: 90,
+                kleur: groupColor,
               );
               break;
             }
@@ -1452,6 +1458,7 @@ class InventoryService {
               productNaam: (p['naam'] as String?) ?? '',
               matchMethod: 'Naam',
               matchScore: score,
+              kleur: groupColor,
             );
           }
         }
@@ -1471,6 +1478,7 @@ class InventoryService {
                 productNaam: (p['naam'] as String?) ?? '',
                 matchMethod: 'Lev.code',
                 matchScore: 80,
+                kleur: groupColor,
               );
               break;
             }
@@ -1489,6 +1497,7 @@ class InventoryService {
           productNaam: '',
           matchMethod: 'Geen',
           matchScore: 0,
+          kleur: groupColor,
           approved: false,
         ));
       }
@@ -1589,6 +1598,9 @@ class InventoryMatchSuggestion {
   final String matchMethod; // 'EAN', 'Artikelnummer', 'Naam'
   final int matchScore; // 0-100
 
+  /// Color variant for this suggestion (empty = all colors combined).
+  final String kleur;
+
   bool approved;
   int? overrideProductId;
 
@@ -1599,6 +1611,7 @@ class InventoryMatchSuggestion {
     required this.productNaam,
     required this.matchMethod,
     required this.matchScore,
+    this.kleur = '',
     this.approved = false,
     this.overrideProductId,
   });
@@ -1612,6 +1625,13 @@ class InventoryMatchSuggestion {
 
   /// Number of variant rows in this group.
   int get variantCount => groupItems.isEmpty ? 1 : groupItems.length;
+
+  /// Display label: product name + color (if present).
+  String get displayLabel {
+    final name = inventoryItem.variantLabel.isNotEmpty ? inventoryItem.variantLabel : '(naamloos)';
+    if (kleur.isEmpty) return name;
+    return '$name – $kleur';
+  }
 }
 
 class ImportMismatch {
