@@ -491,6 +491,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
     }
 
     final hScrollCtrl = ScrollController();
+    final vScrollCtrl = ScrollController();
     return Scrollbar(
       controller: hScrollCtrl,
       thumbVisibility: true,
@@ -500,15 +501,14 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
         scrollDirection: Axis.horizontal,
         child: SizedBox(
           width: _calcTableWidth(),
-          child: _buildStickyHeaderTable(hScrollCtrl),
+          child: _buildStickyHeaderTable(vScrollCtrl),
         ),
       ),
     );
   }
 
-  Widget _buildStickyHeaderTable(ScrollController hScrollCtrl) {
+  Widget _buildStickyHeaderTable(ScrollController vScrollCtrl) {
     const borderColor = Color(0xFFE2E8F0);
-    final vScrollCtrl = ScrollController();
     return Column(children: [
       _buildHeaderRows(),
       const Divider(height: 1, color: borderColor),

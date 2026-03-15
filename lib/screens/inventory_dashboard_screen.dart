@@ -479,16 +479,14 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                         final availableWidth = constraints.maxWidth;
                         final effectiveWidth = availableWidth > _tableWidth ? availableWidth : _tableWidth;
                         return Scrollbar(
-                          controller: _vScroll, thumbVisibility: true,
-                          notificationPredicate: (n) => n.depth == 0,
-                          child: Scrollbar(
-                            controller: _hScroll, thumbVisibility: true,
-                            notificationPredicate: (n) => n.depth == 1,
-                            child: SingleChildScrollView(
-                              controller: _hScroll, scrollDirection: Axis.horizontal,
-                              child: SizedBox(width: effectiveWidth, child: Column(children: [
-                                _buildColHdr(),
-                                Expanded(child: RefreshIndicator(onRefresh: _load, child: ListView.builder(
+                          controller: _hScroll, thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            controller: _hScroll, scrollDirection: Axis.horizontal,
+                            child: SizedBox(width: effectiveWidth, child: Column(children: [
+                              _buildColHdr(),
+                              Expanded(child: Scrollbar(
+                                controller: _vScroll, thumbVisibility: true, trackVisibility: true,
+                                child: RefreshIndicator(onRefresh: _load, child: ListView.builder(
                                   controller: _vScroll,
                                   itemCount: _filtered.length + 1,
                                   itemBuilder: (_, i) {
@@ -496,9 +494,9 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                                     final e = _filtered[i];
                                     return _buildGroup(e.key, e.value, i);
                                   },
-                                ))),
-                              ])),
-                            ),
+                                )),
+                              )),
+                            ])),
                           ),
                         );
                       },
