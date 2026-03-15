@@ -101,14 +101,11 @@ class SmtpService {
       final row = response.first as Map<String, dynamic>;
       var value = row['value'] as Map<String, dynamic>;
 
-      try {
-        final decrypted = await _client.rpc('decrypt_settings_secrets', params: {
-          'p_settings': value,
-          'p_secret_fields': _secretFields,
-        });
-        if (decrypted is Map<String, dynamic>) value = decrypted;
-      } catch (_) {
-        value = _decryptFallback(value);
+      for (final f in _secretFields) {
+        final v = value[f];
+        if (v is String && v.startsWith('ENC:')) {
+          value[f] = CryptoService.decrypt(v);
+        }
       }
 
       return SmtpSettings.fromJson(value);
@@ -119,17 +116,7 @@ class SmtpService {
 
   Future<void> saveSettings(SmtpSettings settings) async {
     try {
-      var json = settings.toJson();
-
-      try {
-        final encrypted = await _client.rpc('encrypt_settings_secrets', params: {
-          'p_settings': json,
-          'p_secret_fields': _secretFields,
-        });
-        if (encrypted is Map<String, dynamic>) json = encrypted;
-      } catch (_) {
-        json = _encryptFallback(json);
-      }
+      final json = settings.toJson();
 
       await _client.from(_tableName).upsert({
         'key': _settingKey,

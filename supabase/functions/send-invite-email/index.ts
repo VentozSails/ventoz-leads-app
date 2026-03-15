@@ -374,9 +374,15 @@ serve(async (req: Request) => {
     }
 
     const smtp = await loadSmtpSettings(supabase);
-    if (!smtp || !smtp.host || !smtp.username || !smtp.password || !smtp.from_email) {
+    if (!smtp || !smtp.host || !smtp.username || !smtp.from_email) {
       return new Response(
         JSON.stringify({ error: "SMTP not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    if (!smtp.password || smtp.password.startsWith("ENC:")) {
+      return new Response(
+        JSON.stringify({ error: "SMTP password is encrypted and cannot be decrypted — please re-enter it in the admin panel" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

@@ -64,7 +64,20 @@ class _SmtpSettingsScreenState extends State<SmtpSettingsScreen> {
       _hostCtrl.text = settings.host;
       _portCtrl.text = settings.port.toString();
       _userCtrl.text = settings.username;
-      _passCtrl.text = settings.password;
+      if (settings.password.startsWith('ENC:')) {
+        _passCtrl.text = '';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Het SMTP-wachtwoord moet opnieuw worden ingevoerd (versleuteling niet meer beschikbaar).'),
+              backgroundColor: Color(0xFFE65100),
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+      } else {
+        _passCtrl.text = settings.password;
+      }
       _fromNameCtrl.text = settings.fromName;
       _fromEmailCtrl.text = settings.fromEmail;
       _encryption = settings.encryption;
