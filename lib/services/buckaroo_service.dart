@@ -56,7 +56,10 @@ class BuckarooService {
 
   static const _secretFields = ['secret_key'];
 
+  bool hasUndecryptableSecrets = false;
+
   Future<BuckarooConfig?> getConfig() async {
+    hasUndecryptableSecrets = false;
     try {
       final List<dynamic> rows = await _supabase
           .from('app_settings')
@@ -66,17 +69,25 @@ class BuckarooService {
       final raw = rows.first['value'];
       if (raw is Map<String, dynamic> && raw.containsKey('buckaroo')) {
         var buc = Map<String, dynamic>.from(raw['buckaroo'] as Map<String, dynamic>);
+        bool decrypted = false;
         try {
           final dec = await _supabase.rpc('decrypt_settings_secrets', params: {
             'p_settings': buc, 'p_secret_fields': _secretFields,
           });
-          if (dec is Map<String, dynamic>) buc = dec;
-        } catch (_) {
+          if (dec is Map<String, dynamic>) { buc = dec; decrypted = true; }
+        } catch (_) {}
+        if (!decrypted) {
           for (final f in _secretFields) {
             if (buc[f] is String) {
               final val = buc[f] as String;
               if (val.startsWith('ENC:')) {
-                buc[f] = CryptoService.decrypt(val);
+                final result = CryptoService.decrypt(val);
+                if (result.startsWith('ENC:')) {
+                  buc[f] = '';
+                  hasUndecryptableSecrets = true;
+                } else {
+                  buc[f] = result;
+                }
               }
             }
           }

@@ -61,7 +61,10 @@ class PayNlService {
 
   static const _secretFields = ['service_secret', 'api_token'];
 
+  bool hasUndecryptableSecrets = false;
+
   Future<PaymentConfig?> getConfig() async {
+    hasUndecryptableSecrets = false;
     try {
       final List<dynamic> rows = await _supabase
           .from('app_settings')
@@ -71,17 +74,25 @@ class PayNlService {
       final raw = rows.first['value'];
       if (raw is Map<String, dynamic> && raw.containsKey('pay_nl')) {
         var payNl = Map<String, dynamic>.from(raw['pay_nl'] as Map<String, dynamic>);
+        bool decrypted = false;
         try {
           final dec = await _supabase.rpc('decrypt_settings_secrets', params: {
             'p_settings': payNl, 'p_secret_fields': _secretFields,
           });
-          if (dec is Map<String, dynamic>) payNl = dec;
-        } catch (_) {
+          if (dec is Map<String, dynamic>) { payNl = dec; decrypted = true; }
+        } catch (_) {}
+        if (!decrypted) {
           for (final f in _secretFields) {
             if (payNl[f] is String) {
               final val = payNl[f] as String;
               if (val.startsWith('ENC:')) {
-                payNl[f] = CryptoService.decrypt(val);
+                final result = CryptoService.decrypt(val);
+                if (result.startsWith('ENC:')) {
+                  payNl[f] = '';
+                  hasUndecryptableSecrets = true;
+                } else {
+                  payNl[f] = result;
+                }
               }
             }
           }

@@ -49,6 +49,8 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
     super.dispose();
   }
 
+  bool _showReenterWarning = false;
+
   Future<void> _loadConfig() async {
     final perms = await _userService.getCurrentUserPermissions();
     if (!mounted) return;
@@ -64,6 +66,7 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
     final payConfig = await _payNlService.getConfig();
     final bConfig = await _buckarooService.getConfig();
     final gateways = await _buckarooService.getActiveGateways();
+    final needsReenter = _payNlService.hasUndecryptableSecrets || _buckarooService.hasUndecryptableSecrets;
     if (!mounted) return;
     setState(() {
       if (payConfig != null) {
@@ -79,6 +82,7 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
         _buckarooTestMode = bConfig.testMode;
       }
       _activeGateways = gateways;
+      _showReenterWarning = needsReenter;
       _loading = false;
     });
   }
@@ -166,6 +170,36 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (_showReenterWarning) ...[
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3E0),
+                            border: Border.all(color: const Color(0xFFFF9800)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.warning_amber_rounded, color: Color(0xFFE65100), size: 22),
+                              SizedBox(width: 10),
+                              Expanded(child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('API-sleutels opnieuw invoeren',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFE65100))),
+                                  SizedBox(height: 4),
+                                  Text('Sommige geheime sleutels stonden versleuteld opgeslagen en konden niet worden ontsleuteld. '
+                                      'Voer de API-sleutels (API token, Service Secret, Secret Key) opnieuw in en klik op Opslaan. '
+                                      'Daarna werken de verbindingen weer.',
+                                    style: TextStyle(fontSize: 12, color: Color(0xFF795548))),
+                                ],
+                              )),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       _buildGatewaySelector(),
                       const SizedBox(height: 24),
                       _buildPayNlSection(),
