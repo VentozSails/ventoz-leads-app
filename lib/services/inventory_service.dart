@@ -1265,19 +1265,45 @@ class InventoryService {
         .select('id,naam,artikelnummer,ean_code');
     final catalog = catalogRows.cast<Map<String, dynamic>>();
 
+    // Group items by variant_label (product name) so we match per product, not per row
+    final grouped = <String, List<InventoryItem>>{};
+    for (final item in unlinked) {
+      final key = item.variantLabel.trim().isEmpty
+          ? 'ean:${item.eanCode ?? item.artikelnummer ?? "unknown_${item.id}"}'
+          : item.variantLabel.trim();
+      grouped.putIfAbsent(key, () => []).add(item);
+    }
+
     final suggestions = <InventoryMatchSuggestion>[];
 
-    for (final item in unlinked) {
+    for (final entry in grouped.entries) {
+      final items = entry.value;
+      final representative = items.first;
       InventoryMatchSuggestion? best;
 
+      // Collect all unique EANs and artikelnummers from the group
+      final groupEans = items
+          .map((i) => (i.eanCode ?? '').trim())
+          .where((e) => e.isNotEmpty)
+          .toSet();
+      final groupArts = items
+          .map((i) => (i.artikelnummer ?? '').trim().toLowerCase())
+          .where((a) => a.isNotEmpty)
+          .toSet();
+      final groupLevCodes = items
+          .map((i) => (i.leverancierCode ?? '').trim().toLowerCase())
+          .where((l) => l.isNotEmpty)
+          .toSet();
+
       // Priority 1: exact EAN match
-      if (item.eanCode != null && item.eanCode!.isNotEmpty) {
-        final ean = item.eanCode!.trim();
+      for (final ean in groupEans) {
+        if (best != null) break;
         for (final p in catalog) {
           final pEan = ((p['ean_code'] as String?) ?? '').trim();
           if (pEan.isNotEmpty && pEan == ean) {
             best = InventoryMatchSuggestion(
-              inventoryItem: item,
+              inventoryItem: representative,
+              groupItems: items,
               productId: p['id'] as int,
               productNaam: (p['naam'] as String?) ?? '',
               matchMethod: 'EAN',
@@ -1289,46 +1315,53 @@ class InventoryService {
       }
 
       // Priority 2: exact artikelnummer match
-      if (best == null && item.artikelnummer != null && item.artikelnummer!.isNotEmpty) {
-        final artClean = item.artikelnummer!.trim().toLowerCase();
-        final artNumeric = artClean.replaceAll(RegExp(r'[^0-9]'), '');
-        for (final p in catalog) {
-          final pArt = ((p['artikelnummer'] as String?) ?? '').trim().toLowerCase();
-          if (pArt.isNotEmpty && (pArt == artClean || (artNumeric.isNotEmpty && pArt.replaceAll(RegExp(r'[^0-9]'), '') == artNumeric))) {
-            best = InventoryMatchSuggestion(
-              inventoryItem: item,
-              productId: p['id'] as int,
-              productNaam: (p['naam'] as String?) ?? '',
-              matchMethod: 'Artikelnr',
-              matchScore: 95,
-            );
-            break;
+      if (best == null) {
+        for (final art in groupArts) {
+          if (best != null) break;
+          final artNumeric = art.replaceAll(RegExp(r'[^0-9]'), '');
+          for (final p in catalog) {
+            final pArt = ((p['artikelnummer'] as String?) ?? '').trim().toLowerCase();
+            if (pArt.isNotEmpty && (pArt == art || (artNumeric.isNotEmpty && pArt.replaceAll(RegExp(r'[^0-9]'), '') == artNumeric))) {
+              best = InventoryMatchSuggestion(
+                inventoryItem: representative,
+                groupItems: items,
+                productId: p['id'] as int,
+                productNaam: (p['naam'] as String?) ?? '',
+                matchMethod: 'Artikelnr',
+                matchScore: 95,
+              );
+              break;
+            }
           }
         }
       }
 
       // Priority 3: partial EAN (last 8+ digits)
-      if (best == null && item.eanCode != null && item.eanCode!.trim().length >= 8) {
-        final ean = item.eanCode!.trim();
-        final tail = ean.length > 8 ? ean.substring(ean.length - 8) : ean;
-        for (final p in catalog) {
-          final pEan = ((p['ean_code'] as String?) ?? '').trim();
-          if (pEan.length >= 8 && pEan.endsWith(tail)) {
-            best = InventoryMatchSuggestion(
-              inventoryItem: item,
-              productId: p['id'] as int,
-              productNaam: (p['naam'] as String?) ?? '',
-              matchMethod: 'EAN deel',
-              matchScore: 90,
-            );
-            break;
+      if (best == null) {
+        for (final ean in groupEans) {
+          if (best != null) break;
+          if (ean.length < 8) continue;
+          final tail = ean.length > 8 ? ean.substring(ean.length - 8) : ean;
+          for (final p in catalog) {
+            final pEan = ((p['ean_code'] as String?) ?? '').trim();
+            if (pEan.length >= 8 && pEan.endsWith(tail)) {
+              best = InventoryMatchSuggestion(
+                inventoryItem: representative,
+                groupItems: items,
+                productId: p['id'] as int,
+                productNaam: (p['naam'] as String?) ?? '',
+                matchMethod: 'EAN deel',
+                matchScore: 90,
+              );
+              break;
+            }
           }
         }
       }
 
-      // Priority 4: fuzzy name match with improved scoring
-      if (best == null && item.variantLabel.isNotEmpty) {
-        final needle = _normalizeForMatch(item.variantLabel);
+      // Priority 4: fuzzy name match
+      if (best == null && representative.variantLabel.isNotEmpty) {
+        final needle = _normalizeForMatch(representative.variantLabel);
         int bestScore = 0;
         for (final p in catalog) {
           final pName = _normalizeForMatch((p['naam'] as String?) ?? '');
@@ -1337,7 +1370,8 @@ class InventoryService {
           if (score > bestScore && score >= 50) {
             bestScore = score;
             best = InventoryMatchSuggestion(
-              inventoryItem: item,
+              inventoryItem: representative,
+              groupItems: items,
               productId: p['id'] as int,
               productNaam: (p['naam'] as String?) ?? '',
               matchMethod: 'Naam',
@@ -1348,30 +1382,33 @@ class InventoryService {
       }
 
       // Priority 5: leverancier_code → artikelnummer match
-      if (best == null && item.leverancierCode != null && item.leverancierCode!.isNotEmpty) {
-        final lc = item.leverancierCode!.trim().toLowerCase();
-        for (final p in catalog) {
-          final pArt = ((p['artikelnummer'] as String?) ?? '').trim().toLowerCase();
-          if (pArt.isNotEmpty && (pArt.contains(lc) || lc.contains(pArt))) {
-            best = InventoryMatchSuggestion(
-              inventoryItem: item,
-              productId: p['id'] as int,
-              productNaam: (p['naam'] as String?) ?? '',
-              matchMethod: 'Lev.code',
-              matchScore: 80,
-            );
-            break;
+      if (best == null) {
+        for (final lc in groupLevCodes) {
+          if (best != null) break;
+          for (final p in catalog) {
+            final pArt = ((p['artikelnummer'] as String?) ?? '').trim().toLowerCase();
+            if (pArt.isNotEmpty && (pArt.contains(lc) || lc.contains(pArt))) {
+              best = InventoryMatchSuggestion(
+                inventoryItem: representative,
+                groupItems: items,
+                productId: p['id'] as int,
+                productNaam: (p['naam'] as String?) ?? '',
+                matchMethod: 'Lev.code',
+                matchScore: 80,
+              );
+              break;
+            }
           }
         }
       }
 
-      // Always add: matched items with approved=true if high score, unmatched with approved=false
       if (best != null) {
         best.approved = best.matchScore >= 90;
         suggestions.add(best);
       } else {
         suggestions.add(InventoryMatchSuggestion(
-          inventoryItem: item,
+          inventoryItem: representative,
+          groupItems: items,
           productId: catalog.isNotEmpty ? catalog.first['id'] as int : 0,
           productNaam: '',
           matchMethod: 'Geen',
@@ -1381,7 +1418,6 @@ class InventoryService {
       }
     }
 
-    // Sort: matched high-score first, then lower scores, unmatched last
     suggestions.sort((a, b) {
       if (a.matchScore == 0 && b.matchScore > 0) return 1;
       if (b.matchScore == 0 && a.matchScore > 0) return -1;
@@ -1433,6 +1469,17 @@ class InventoryService {
     }).eq('id', inventoryItemId);
   }
 
+  /// Link all inventory items in a group to a product at once.
+  Future<void> linkGroupToProduct(List<InventoryItem> items, int productId) async {
+    final ids = items.map((i) => i.id).whereType<int>().toList();
+    if (ids.isEmpty) return;
+    final now = DateTime.now().toUtc().toIso8601String();
+    await _client.from('inventory_items').update({
+      'product_id': productId,
+      'laatst_bijgewerkt': now,
+    }).inFilter('id', ids);
+  }
+
   // ── Aggregated inventory summary ──
 
   Future<Map<int, int>> getStockSummaryByProduct() async {
@@ -1457,6 +1504,10 @@ class _ProductTotals {
 
 class InventoryMatchSuggestion {
   final InventoryItem inventoryItem;
+
+  /// All individual rows belonging to this product group.
+  final List<InventoryItem> groupItems;
+
   final int productId;
   final String productNaam;
   final String matchMethod; // 'EAN', 'Artikelnummer', 'Naam'
@@ -1467,6 +1518,7 @@ class InventoryMatchSuggestion {
 
   InventoryMatchSuggestion({
     required this.inventoryItem,
+    this.groupItems = const [],
     required this.productId,
     required this.productNaam,
     required this.matchMethod,
@@ -1476,6 +1528,14 @@ class InventoryMatchSuggestion {
   });
 
   int get effectiveProductId => overrideProductId ?? productId;
+
+  /// Total stock across all variant rows in this product group.
+  int get totalStock => groupItems.isEmpty
+      ? inventoryItem.voorraadActueel
+      : groupItems.fold(0, (sum, i) => sum + i.voorraadActueel);
+
+  /// Number of variant rows in this group.
+  int get variantCount => groupItems.isEmpty ? 1 : groupItems.length;
 }
 
 class ImportMismatch {

@@ -664,7 +664,7 @@ class MarketplaceService {
             .neq('status', 'verwijderd'),
         _client
             .from('inventory_items')
-            .select('product_id, voorraad_actueel, variant_label')
+            .select('product_id, voorraad_actueel, variant_label, ean_code, artikelnummer')
             .eq('is_archived', false),
       ]);
 
@@ -678,6 +678,21 @@ class MarketplaceService {
           .map(MarketplaceListing.fromJson)
           .toList();
 
+      final productByName = <String, CatalogProduct>{};
+      final productByArtNr = <String, CatalogProduct>{};
+      final productByEan = <String, CatalogProduct>{};
+      for (final p in products) {
+        productByName[p.naam.toLowerCase().trim()] = p;
+        final artNr = p.artikelnummer;
+        if (artNr != null && artNr.isNotEmpty) {
+          productByArtNr[artNr.toLowerCase().trim()] = p;
+        }
+        final ean = p.eanCode;
+        if (ean != null && ean.isNotEmpty) {
+          productByEan[ean.trim()] = p;
+        }
+      }
+
       final stockMap = <int, int>{};
       for (final row in (results[2] as List)) {
         final rawPid = row['product_id'];
@@ -687,42 +702,41 @@ class MarketplaceService {
         int? pid = rawPid is int ? rawPid : int.tryParse(rawPid?.toString() ?? '');
 
         if (pid == null) {
-          final invName = (row['variant_label'] as String? ?? '').toLowerCase().trim();
-          if (invName.isNotEmpty) {
-            final match = products.where((p) => p.naam.toLowerCase().trim() == invName).firstOrNull;
-            pid = match?.id;
-          }
+          final ean = ((row['ean_code'] as String?) ?? '').trim();
+          if (ean.isNotEmpty) pid = productByEan[ean]?.id;
+        }
+
+        if (pid == null) {
+          final art = ((row['artikelnummer'] as String?) ?? '').toLowerCase().trim();
+          if (art.isNotEmpty) pid = productByArtNr[art]?.id;
+        }
+
+        if (pid == null) {
+          final invName = ((row['variant_label'] as String?) ?? '').toLowerCase().trim();
+          if (invName.isNotEmpty) pid = productByName[invName]?.id;
         }
 
         if (pid == null) continue;
         stockMap[pid] = (stockMap[pid] ?? 0) + qty;
       }
 
-      // Index products by name (lowercased) and artikelnummer for fuzzy matching
-      final productByName = <String, CatalogProduct>{};
-      final productByArtNr = <String, CatalogProduct>{};
-      for (final p in products) {
-        productByName[p.naam.toLowerCase().trim()] = p;
-        final artNr = p.artikelnummer;
-        if (artNr != null && artNr.isNotEmpty) {
-          productByArtNr[artNr.toLowerCase().trim()] = p;
-        }
-      }
-
       final listingsByProduct = <int, Map<MarketplacePlatform, List<MarketplaceListing>>>{};
       for (final l in allListings) {
         int? pid = l.productId;
 
-        // Try to match unmatched listings to products by title or SKU
+        if (pid == null) {
+          final ean = (l.productEan ?? '').trim();
+          if (ean.isNotEmpty) pid = productByEan[ean]?.id;
+        }
+
+        if (pid == null) {
+          final sku = (l.ebaySku ?? '').toLowerCase().trim();
+          if (sku.isNotEmpty) pid = productByArtNr[sku]?.id;
+        }
+
         if (pid == null) {
           final title = (l.externTitle ?? '').toLowerCase().trim();
-          final sku = (l.ebaySku ?? '').toLowerCase().trim();
-
-          CatalogProduct? matched;
-          if (sku.isNotEmpty) matched = productByArtNr[sku];
-          if (matched == null && title.isNotEmpty) matched = productByName[title];
-
-          if (matched != null) pid = matched.id;
+          if (title.isNotEmpty) pid = productByName[title]?.id;
         }
 
         if (pid == null) continue;

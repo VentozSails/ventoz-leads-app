@@ -1199,10 +1199,10 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
                                         Text(item.variantLabel.isNotEmpty ? item.variantLabel : '(naamloos)', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: _navy), maxLines: 1, overflow: TextOverflow.ellipsis),
                                         Text(
                                           [
-                                            if (item.artikelnummer != null) 'Art: ${item.artikelnummer}',
                                             if (item.eanCode != null) 'EAN: ${item.eanCode}',
-                                            if (item.leverancierCode != null) 'Lev: ${item.leverancierCode}',
-                                            'Vrrd: ${item.voorraadActueel}',
+                                            if (item.artikelnummer != null) 'Art: ${item.artikelnummer}',
+                                            'Voorraad: ${s.totalStock}',
+                                            if (s.variantCount > 1) '(${s.variantCount} regels)',
                                           ].join(' · '),
                                           style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8)),
                                           maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -1305,18 +1305,25 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
     final toLink = suggestions.where((s) => s.approved && s.effectiveProductId > 0).toList();
     if (toLink.isEmpty) return;
 
-    int linked = 0;
+    int linkedGroups = 0;
+    int linkedItems = 0;
     for (final s in toLink) {
       try {
-        await invService.linkInventoryToProduct(s.inventoryItem.id!, s.effectiveProductId);
-        linked++;
+        if (s.groupItems.isNotEmpty) {
+          await invService.linkGroupToProduct(s.groupItems, s.effectiveProductId);
+          linkedItems += s.groupItems.length;
+        } else {
+          await invService.linkInventoryToProduct(s.inventoryItem.id!, s.effectiveProductId);
+          linkedItems++;
+        }
+        linkedGroups++;
       } catch (_) {}
     }
 
     _load();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('$linked voorraadartikelen gekoppeld aan producten'),
+        content: Text('$linkedGroups producten gekoppeld ($linkedItems voorraadregels)'),
         backgroundColor: const Color(0xFF2E7D32),
       ));
     }
