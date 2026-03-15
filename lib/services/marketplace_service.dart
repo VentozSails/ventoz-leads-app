@@ -664,7 +664,7 @@ class MarketplaceService {
             .neq('status', 'verwijderd'),
         _client
             .from('inventory_items')
-            .select('product_id, voorraad_actueel, naam')
+            .select('product_id, voorraad_actueel, variant_label')
             .eq('is_archived', false),
       ]);
 
@@ -686,9 +686,8 @@ class MarketplaceService {
 
         int? pid = rawPid is int ? rawPid : int.tryParse(rawPid?.toString() ?? '');
 
-        // If inventory item has no product_id, try matching by naam
         if (pid == null) {
-          final invName = (row['naam'] as String? ?? '').toLowerCase().trim();
+          final invName = (row['variant_label'] as String? ?? '').toLowerCase().trim();
           if (invName.isNotEmpty) {
             final match = products.where((p) => p.naam.toLowerCase().trim() == invName).firstOrNull;
             pid = match?.id;

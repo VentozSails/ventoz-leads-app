@@ -736,14 +736,13 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
           ),
         ),
         Tooltip(
-          message: 'Bekijk voorraad',
-          child: InkWell(
-            onTap: () => context.push('/dashboard/voorraad'),
-            child: Container(
-              height: 38,
-              alignment: Alignment.center,
-              child: _stockBadge(row.voorraad),
-            ),
+          message: row.voorraad > 0
+              ? 'Voorraad: ${row.voorraad} (beheer via Voorraadlijst)'
+              : 'Niet op voorraad (beheer via Voorraadlijst)',
+          child: Container(
+            height: 38,
+            alignment: Alignment.center,
+            child: _stockBadge(row.voorraad),
           ),
         ),
         _priceCell(row.product.displayPrijs, null, () => _showSitePriceEdit(row)),

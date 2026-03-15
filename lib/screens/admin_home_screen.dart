@@ -685,11 +685,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           badge: _shippingReadyCount > 0 ? '$_shippingReadyCount' : null,
           onTap: () => _navigate(const AdminShippingScreen())));
     }
-    if (_permissions.alleBestellingenBeheren) {
-      actions.add(_quickAction('Orderbeheer', Icons.receipt_long_rounded, const Color(0xFF1565C0),
-          badge: _pendingOrderCount > 0 ? '$_pendingOrderCount' : null,
-          onTap: () => _navigate(const OrdersScreen(adminView: true))));
-    }
     if (_permissions.zendingenOverzicht) {
       actions.add(_quickAction('Zendingen\noverzicht', Icons.track_changes_rounded, const Color(0xFF5C6BC0),
           onTap: () => _navigate(const AdminMyParcelOverviewScreen())));
