@@ -1068,13 +1068,14 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
       return;
     }
 
-    final matchedCount = suggestions.where((s) => s.matchScore > 0).length;
-    final unmatchedCount = suggestions.length - matchedCount;
+    final matchedCount = suggestions.where((s) => s.matchScore > 0 && !s.excluded).length;
+    final unmatchedCount = suggestions.where((s) => s.matchScore == 0 && !s.excluded).length;
+    final excludedCount = suggestions.where((s) => s.excluded).length;
     final autoApproved = suggestions.where((s) => s.approved).length;
 
     if (!mounted) return;
     final searchCtrl = TextEditingController();
-    String filterMode = 'all'; // 'all', 'matched', 'unmatched', 'approved'
+    String filterMode = 'all'; // 'all', 'matched', 'unmatched', 'approved', 'excluded'
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1082,6 +1083,8 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
         builder: (ctx, setDlg) {
           final q = searchCtrl.text.toLowerCase().trim();
           final filtered = suggestions.where((s) {
+            if (filterMode == 'excluded') return s.excluded;
+            if (s.excluded && filterMode != 'excluded') return false;
             if (filterMode == 'matched' && s.matchScore == 0) return false;
             if (filterMode == 'unmatched' && s.matchScore > 0) return false;
             if (filterMode == 'approved' && !s.approved) return false;
@@ -1120,6 +1123,10 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
                       _matchStatChip('$unmatchedCount', 'geen match', const Color(0xFFE53935)),
                       const SizedBox(width: 8),
                       _matchStatChip('$autoApproved', 'auto-goedgekeurd', const Color(0xFF1565C0)),
+                      if (excludedCount > 0) ...[
+                        const SizedBox(width: 8),
+                        _matchStatChip('$excludedCount', 'uitgesloten', const Color(0xFF78909C)),
+                      ],
                       const Spacer(),
                       Text(
                         '${suggestions.where((s) => s.approved).length} geselecteerd',
@@ -1157,6 +1164,10 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
                     _matchFilterChip('Geen match', filterMode == 'unmatched', () => setDlg(() => filterMode = 'unmatched')),
                     const SizedBox(width: 4),
                     _matchFilterChip('Goedgek.', filterMode == 'approved', () => setDlg(() => filterMode = 'approved')),
+                    if (excludedCount > 0) ...[
+                      const SizedBox(width: 4),
+                      _matchFilterChip('Uitgesloten', filterMode == 'excluded', () => setDlg(() => filterMode = 'excluded')),
+                    ],
                   ]),
                   const SizedBox(height: 8),
                   // Column header
@@ -1170,6 +1181,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
                       Expanded(flex: 3, child: Text('Gekoppeld product', style: _headerStyle)),
                       SizedBox(width: 55, child: Text('Via', style: _headerStyle, textAlign: TextAlign.center)),
                       SizedBox(width: 45, child: Text('Score', style: _headerStyle, textAlign: TextAlign.center)),
+                      const SizedBox(width: 32),
                     ]),
                   ),
                   // Suggestion list
@@ -1193,12 +1205,14 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
                                 margin: const EdgeInsets.only(bottom: 2),
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                                 decoration: BoxDecoration(
-                                  color: s.approved
-                                      ? const Color(0xFFE8F5E9)
-                                      : noMatch
-                                          ? const Color(0xFFFFF8F8)
-                                          : Colors.white,
-                                  border: Border.all(color: s.approved ? const Color(0xFF66BB6A) : noMatch ? const Color(0xFFFFCDD2) : const Color(0xFFE2E8F0)),
+                                  color: s.excluded
+                                      ? const Color(0xFFF5F5F5)
+                                      : s.approved
+                                          ? const Color(0xFFE8F5E9)
+                                          : noMatch
+                                              ? const Color(0xFFFFF8F8)
+                                              : Colors.white,
+                                  border: Border.all(color: s.excluded ? const Color(0xFFBDBDBD) : s.approved ? const Color(0xFF66BB6A) : noMatch ? const Color(0xFFFFCDD2) : const Color(0xFFE2E8F0)),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(children: [
@@ -1284,6 +1298,26 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
                                             child: Text('${s.matchScore}%', style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: scoreColor)),
                                           ),
                                   ),
+                                  SizedBox(
+                                    width: 32,
+                                    child: Tooltip(
+                                      message: s.excluded ? 'Terugzetten' : 'Uitsluiten van koppeling',
+                                      child: IconButton(
+                                        icon: Icon(
+                                          s.excluded ? Icons.undo_rounded : Icons.block_rounded,
+                                          size: 14,
+                                          color: s.excluded ? const Color(0xFF1565C0) : const Color(0xFF94A3B8),
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () => setDlg(() {
+                                          s.excluded = !s.excluded;
+                                          if (s.excluded) s.approved = false;
+                                        }),
+                                      ),
+                                    ),
+                                  ),
                                 ]),
                               );
                             },
@@ -1317,11 +1351,18 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuleren')),
               ElevatedButton.icon(
-                onPressed: suggestions.any((s) => s.approved)
+                onPressed: suggestions.any((s) => s.approved || s.excluded)
                     ? () => Navigator.pop(ctx, true)
                     : null,
                 icon: const Icon(Icons.check_circle_outline, size: 16),
-                label: Text('Koppelen (${suggestions.where((s) => s.approved).length})'),
+                label: Text(() {
+                  final approvedN = suggestions.where((s) => s.approved).length;
+                  final excludedN = suggestions.where((s) => s.excluded).length;
+                  final parts = <String>[];
+                  if (approvedN > 0) parts.add('$approvedN koppelen');
+                  if (excludedN > 0) parts.add('$excludedN uitsluiten');
+                  return parts.isEmpty ? 'Toepassen' : parts.join(', ');
+                }()),
                 style: ElevatedButton.styleFrom(backgroundColor: _navy, foregroundColor: Colors.white),
               ),
             ],
@@ -1332,8 +1373,8 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
     if (confirmed != true || !mounted) return;
 
-    final toLink = suggestions.where((s) => s.approved && s.effectiveProductId > 0).toList();
-    if (toLink.isEmpty) return;
+    final toLink = suggestions.where((s) => s.approved && !s.excluded && s.effectiveProductId > 0).toList();
+    final toExclude = suggestions.where((s) => s.excluded).toList();
 
     int linkedGroups = 0;
     int linkedItems = 0;
@@ -1350,10 +1391,22 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
       } catch (_) {}
     }
 
+    int excludedItems = 0;
+    for (final s in toExclude) {
+      try {
+        final items = s.groupItems.isNotEmpty ? s.groupItems : [s.inventoryItem];
+        await invService.excludeFromMatching(items);
+        excludedItems += items.length;
+      } catch (_) {}
+    }
+
     _load();
     if (mounted) {
+      final parts = <String>[];
+      if (linkedGroups > 0) parts.add('$linkedGroups gekoppeld ($linkedItems regels)');
+      if (excludedItems > 0) parts.add('$excludedItems uitgesloten');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('$linkedGroups producten gekoppeld ($linkedItems voorraadregels)'),
+        content: Text(parts.join(' · ')),
         backgroundColor: const Color(0xFF2E7D32),
       ));
     }

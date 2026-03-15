@@ -771,7 +771,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 onTap: () => context.push('/dashboard/klanten')),
           if (p.leadsInzien)
             _tile('Prospects', 'Leads NL, DE, BE bekijken en e-mailen', Icons.people_alt_rounded, const Color(0xFF00838F),
-                onTap: () => context.push('/dashboard/beheer')),
+                onTap: () => context.push('/dashboard/leads')),
           if (p.voorraadBeheren)
             _tile('Leveranciers', 'Inloggegevens en websites', Icons.factory_rounded, const Color(0xFF4E342E),
                 onTap: () => _navigate(const AdminSuppliersScreen())),

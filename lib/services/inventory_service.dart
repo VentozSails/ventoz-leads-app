@@ -34,6 +34,7 @@ class InventoryItem {
   final int? gewichtGram;
   final int? gewichtVerpakkingGram;
   final bool isArchived;
+  final bool matchExcluded;
   final DateTime? laatstBijgewerkt;
 
   const InventoryItem({
@@ -66,6 +67,7 @@ class InventoryItem {
     this.gewichtGram,
     this.gewichtVerpakkingGram,
     this.isArchived = false,
+    this.matchExcluded = false,
     this.laatstBijgewerkt,
   });
 
@@ -99,6 +101,7 @@ class InventoryItem {
     gewichtGram: json['gewicht_gram'] as int?,
     gewichtVerpakkingGram: json['gewicht_verpakking_gram'] as int?,
     isArchived: (json['is_archived'] as bool?) ?? false,
+    matchExcluded: (json['match_excluded'] as bool?) ?? false,
     laatstBijgewerkt: json['laatst_bijgewerkt'] != null
         ? DateTime.tryParse(json['laatst_bijgewerkt'] as String)
         : null,
@@ -1332,7 +1335,8 @@ class InventoryService {
         .from('inventory_items')
         .select()
         .isFilter('product_id', null)
-        .eq('is_archived', false);
+        .eq('is_archived', false)
+        .neq('match_excluded', true);
     final unlinked = unlinkedRows.cast<Map<String, dynamic>>().map(InventoryItem.fromJson).toList();
     if (unlinked.isEmpty) return [];
 
@@ -1565,6 +1569,26 @@ class InventoryService {
     }).inFilter('id', ids);
   }
 
+  /// Exclude inventory items from matching via match_excluded flag.
+  Future<void> excludeFromMatching(List<InventoryItem> items) async {
+    final ids = items.map((i) => i.id).whereType<int>().toList();
+    if (ids.isEmpty) return;
+    await _client.from('inventory_items').update({
+      'match_excluded': true,
+      'laatst_bijgewerkt': DateTime.now().toUtc().toIso8601String(),
+    }).inFilter('id', ids);
+  }
+
+  /// Undo exclusion.
+  Future<void> undoExcludeFromMatching(List<InventoryItem> items) async {
+    final ids = items.map((i) => i.id).whereType<int>().toList();
+    if (ids.isEmpty) return;
+    await _client.from('inventory_items').update({
+      'match_excluded': false,
+      'laatst_bijgewerkt': DateTime.now().toUtc().toIso8601String(),
+    }).inFilter('id', ids);
+  }
+
   // ── Aggregated inventory summary ──
 
   Future<Map<int, int>> getStockSummaryByProduct() async {
@@ -1602,6 +1626,7 @@ class InventoryMatchSuggestion {
   final String kleur;
 
   bool approved;
+  bool excluded;
   int? overrideProductId;
 
   InventoryMatchSuggestion({
@@ -1613,6 +1638,7 @@ class InventoryMatchSuggestion {
     required this.matchScore,
     this.kleur = '',
     this.approved = false,
+    this.excluded = false,
     this.overrideProductId,
   });
 

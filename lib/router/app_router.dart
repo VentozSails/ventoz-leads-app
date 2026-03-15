@@ -271,6 +271,12 @@ final appRouter = GoRouter(
       ),
     ),
     GoRoute(
+      path: '/dashboard/leads',
+      pageBuilder: (context, state) => const NoTransitionPage(
+        child: DashboardScreen(initialView: 'leads'),
+      ),
+    ),
+    GoRoute(
       path: '/dashboard/voorraad',
       pageBuilder: (context, state) => NoTransitionPage(
         child: _PermissionGate(routePath: '/dashboard/voorraad', child: const InventoryDashboardScreen()),

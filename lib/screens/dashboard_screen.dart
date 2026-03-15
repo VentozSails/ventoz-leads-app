@@ -49,7 +49,8 @@ enum Country {
 }
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final String initialView;
+  const DashboardScreen({super.key, this.initialView = 'catalogus'});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -70,7 +71,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool get _hasLeadAccess => _isOwner || _isAdmin || _userType.hasLeadAccess;
 
   /// 'catalogus' (default for everyone) or 'leads' (admin/owner only)
-  String _currentView = 'catalogus';
+  late String _currentView = widget.initialView;
 
   bool _sidebarExpanded = true;
   static const _sidebarExpandedWidth = 220.0;
