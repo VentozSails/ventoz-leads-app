@@ -725,18 +725,23 @@ class MarketplaceService {
         int? pid = l.productId;
 
         if (pid == null) {
-          final ean = (l.productEan ?? '').trim();
-          if (ean.isNotEmpty) pid = productByEan[ean]?.id;
-        }
-
-        if (pid == null) {
           final sku = (l.ebaySku ?? '').toLowerCase().trim();
           if (sku.isNotEmpty) pid = productByArtNr[sku]?.id;
         }
 
         if (pid == null) {
           final title = (l.externTitle ?? '').toLowerCase().trim();
-          if (title.isNotEmpty) pid = productByName[title]?.id;
+          if (title.isNotEmpty) {
+            pid = productByName[title]?.id;
+            if (pid == null) {
+              for (final entry in productByName.entries) {
+                if (title.contains(entry.key) || entry.key.contains(title)) {
+                  pid = entry.value.id;
+                  break;
+                }
+              }
+            }
+          }
         }
 
         if (pid == null) continue;

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1218,7 +1217,17 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
                                         value: allProducts.any((p) => p['id'] == s.effectiveProductId) ? s.effectiveProductId : null,
                                         isDense: true,
                                         isExpanded: true,
-                                        hint: Text(noMatch ? 'Kies product...' : '', style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF94A3B8))),
+                                        hint: Text(
+                                          noMatch
+                                              ? 'Kies product...'
+                                              : s.productNaam.isNotEmpty
+                                                  ? s.productNaam
+                                                  : 'Product #${s.effectiveProductId}',
+                                          style: GoogleFonts.dmSans(fontSize: 11,
+                                            color: noMatch ? const Color(0xFF94A3B8) : _navy,
+                                            fontWeight: noMatch ? FontWeight.w400 : FontWeight.w600),
+                                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        ),
                                         style: GoogleFonts.dmSans(fontSize: 11, color: _navy),
                                         items: allProducts.map((p) => DropdownMenuItem<int>(
                                           value: p['id'] as int,
