@@ -56,10 +56,10 @@ class _AdminShippingScreenState extends State<AdminShippingScreen> {
       }
       return;
     }
-    final all = await _orderService.fetchOrders(adminView: true);
+    final pending = await _orderService.fetchOrdersByStatus('betaald');
     if (!mounted) return;
     setState(() {
-      _pendingOrders = all.where((o) => o.status == 'betaald').toList();
+      _pendingOrders = pending;
       _loading = false;
     });
   }

@@ -57,14 +57,27 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
         _service.getChannelMatrix(),
         UserService().isRealOwner(),
         UserService().isCurrentUserAdmin(),
+        _service.getCredentialStatuses(),
       ]);
       final rows = results[0] as List<ChannelMatrixRow>;
       final isOwner = results[1] as bool;
       final isAdmin = results[2] as bool;
+      final credStatuses = results[3] as List<MarketplaceCredentialStatus>;
+
+      final active = <String>{'eigen_site'};
+      for (final s in credStatuses) {
+        if (s.isConfigured && s.isActive) {
+          for (final ch in SalesChannel.allChannels) {
+            if (ch.platform == s.platform) active.add(ch.code);
+          }
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _allRows = rows;
         _canBatchConvert = isOwner || isAdmin;
+        _activeChannelCodes = active;
         _loading = false;
         _applyFilters();
       });
@@ -383,6 +396,10 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   // ── Matrix Table ──
 
+  Set<String> _activeChannelCodes = {};
+
+  bool _isChannelActive(SalesChannel ch) => _activeChannelCodes.contains(ch.code);
+
   Widget _buildMatrix() {
     if (_filteredRows.isEmpty) {
       return Center(
@@ -404,12 +421,24 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
         scrollDirection: Axis.horizontal,
         child: SizedBox(
           width: _calcTableWidth(),
-          child: SingleChildScrollView(
-            child: _buildTable(),
-          ),
+          child: _buildStickyHeaderTable(),
         ),
       ),
     );
+  }
+
+  Widget _buildStickyHeaderTable() {
+    const borderColor = Color(0xFFE2E8F0);
+    return Column(children: [
+      _buildHeaderRows(),
+      const Divider(height: 1, color: borderColor),
+      Expanded(
+        child: ListView.builder(
+          itemCount: _filteredRows.length,
+          itemBuilder: (_, i) => _buildDataRowWidget(_filteredRows[i]),
+        ),
+      ),
+    ]);
   }
 
   double _calcTableWidth() {
@@ -422,41 +451,51 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
     return fixedCols + _productColWidth + _artNrColWidth + (channelCount * _channelColWidth) + 2;
   }
 
-  Widget _buildTable() {
+  Widget _buildHeaderRows() {
     const headerBg = Color(0xFFF1F5F9);
-    const borderColor = Color(0xFFE2E8F0);
     const cellPad = EdgeInsets.symmetric(horizontal: 4, vertical: 6);
     const ebayColor = Color(0xFFE53238);
     const bolColor = Color(0xFF0000CC);
     const amazonColor = Color(0xFFFF9900);
     const admarkColor = Color(0xFF00897B);
+    const inactiveOverlay = Color(0x30000000);
+
+    Color groupBg(SalesChannel ch, Color base) {
+      if (!_isChannelActive(ch)) return Color.alphaBlend(inactiveOverlay, base);
+      return base;
+    }
 
     return Table(
-      border: TableBorder.all(color: borderColor, width: 0.5),
+      border: TableBorder.all(color: const Color(0xFFE2E8F0), width: 0.5),
       defaultColumnWidth: FixedColumnWidth(_channelColWidth),
       columnWidths: {
-        0: const FixedColumnWidth(28),   // checkbox
-        1: FixedColumnWidth(_productColWidth),  // product
-        2: FixedColumnWidth(_artNrColWidth),   // artikelnr
-        3: const FixedColumnWidth(48),   // voorraad
-        4: FixedColumnWidth(_channelColWidth), // eigen site prijs
+        0: const FixedColumnWidth(28),
+        1: FixedColumnWidth(_productColWidth),
+        2: FixedColumnWidth(_artNrColWidth),
+        3: const FixedColumnWidth(48),
+        4: FixedColumnWidth(_channelColWidth),
       },
       children: [
-        // Group header row — platform names with colored backgrounds
-        TableRow(
-          children: [
-            _groupCell('', null),
-            _groupCell('', null),
-            _groupCell('', null),
-            _groupCell('', null),
-            _groupCell('Site', _navy),
-            ...SalesChannel.ebayChannels.map((ch) => _groupCell(ch == SalesChannel.ebayUk ? 'eBay' : '', ebayColor)),
-            ...SalesChannel.bolChannels.map((ch) => _groupCell(ch == SalesChannel.bolNl ? 'Bol' : '', bolColor)),
-            ...SalesChannel.amazonChannels.map((ch) => _groupCell(ch == SalesChannel.amazonDe ? 'Amazon' : '', amazonColor)),
-            _groupCell('Adm', admarkColor),
-          ],
-        ),
-        // Sub-header row (country codes + valuta)
+        TableRow(children: [
+          _groupCell('', null),
+          _groupCell('', null),
+          _groupCell('', null),
+          _groupCell('', null),
+          _groupCell('Site', _navy),
+          ...SalesChannel.ebayChannels.map((ch) => _groupCell(
+            ch == SalesChannel.ebayUk ? 'eBay' : '',
+            groupBg(ch, ebayColor),
+          )),
+          ...SalesChannel.bolChannels.map((ch) => _groupCell(
+            ch == SalesChannel.bolNl ? 'Bol' : '',
+            groupBg(ch, bolColor),
+          )),
+          ...SalesChannel.amazonChannels.map((ch) => _groupCell(
+            ch == SalesChannel.amazonDe ? 'Amazon' : '',
+            groupBg(ch, amazonColor),
+          )),
+          _groupCell('Adm', groupBg(SalesChannel.admarkNl, admarkColor)),
+        ]),
         TableRow(
           decoration: const BoxDecoration(color: headerBg),
           children: [
@@ -465,15 +504,45 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             Padding(padding: cellPad, child: Text('Art.nr', style: _headerStyle)),
             Padding(padding: cellPad, child: Text('Vrrd', style: _headerStyle, textAlign: TextAlign.center)),
             Padding(padding: cellPad, child: Text('€', style: _headerStyle, textAlign: TextAlign.center)),
-            ...SalesChannel.ebayChannels.map((ch) => Padding(padding: cellPad, child: Text('${ch.shortLabel} ${_currencySymbol(ch.currency)}', style: _headerStyle, textAlign: TextAlign.center))),
-            ...SalesChannel.bolChannels.map((ch) => Padding(padding: cellPad, child: Text('${ch.shortLabel} ${_currencySymbol(ch.currency)}', style: _headerStyle, textAlign: TextAlign.center))),
-            ...SalesChannel.amazonChannels.map((ch) => Padding(padding: cellPad, child: Text('${ch.shortLabel} ${_currencySymbol(ch.currency)}', style: _headerStyle, textAlign: TextAlign.center))),
-            Padding(padding: cellPad, child: Text('Adm €', style: _headerStyle, textAlign: TextAlign.center)),
+            ...SalesChannel.ebayChannels.map((ch) => _channelSubHeader(ch)),
+            ...SalesChannel.bolChannels.map((ch) => _channelSubHeader(ch)),
+            ...SalesChannel.amazonChannels.map((ch) => _channelSubHeader(ch)),
+            _channelSubHeader(SalesChannel.admarkNl),
           ],
         ),
-        // Data rows
-        ..._filteredRows.map(_buildDataRow),
       ],
+    );
+  }
+
+  Widget _channelSubHeader(SalesChannel ch) {
+    const cellPad = EdgeInsets.symmetric(horizontal: 4, vertical: 6);
+    final active = _isChannelActive(ch);
+    return Container(
+      color: active ? null : const Color(0xFFF1F0EC),
+      padding: cellPad,
+      child: Text(
+        '${ch.shortLabel} ${_currencySymbol(ch.currency)}',
+        style: _headerStyle.copyWith(
+          color: active ? const Color(0xFF475569) : const Color(0xFFAAAAAA),
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  Widget _buildDataRowWidget(ChannelMatrixRow row) {
+    const borderColor = Color(0xFFE2E8F0);
+    return Table(
+      border: TableBorder.all(color: borderColor, width: 0.5),
+      defaultColumnWidth: FixedColumnWidth(_channelColWidth),
+      columnWidths: {
+        0: const FixedColumnWidth(28),
+        1: FixedColumnWidth(_productColWidth),
+        2: FixedColumnWidth(_artNrColWidth),
+        3: const FixedColumnWidth(48),
+        4: FixedColumnWidth(_channelColWidth),
+      },
+      children: [_buildDataRow(row)],
     );
   }
 
@@ -628,46 +697,58 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   Widget _channelCell(ChannelMatrixRow row, SalesChannel channel) {
     final listing = row.listingForChannel(channel.code);
+    final active = _isChannelActive(channel);
     final isUitverkocht = row.voorraad <= 0;
 
     if (listing == null) {
-      // No listing: show yellow "potential" if product has stock, grey if uitverkocht
-      final canPlace = !isUitverkocht && row.product.displayPrijs != null;
       return Tooltip(
-        message: canPlace ? 'Klik om advertentie te plaatsen' : '',
+        message: active
+            ? 'Klik om listing toe te voegen'
+            : '${channel.label} (niet gekoppeld) — klik om prijs in te stellen',
         child: InkWell(
-          onTap: canPlace ? () => _showAddChannelDialog(row, channel) : null,
+          onTap: () => _showAddChannelDialog(row, channel),
           child: Container(
             height: 38,
             alignment: Alignment.center,
-            color: canPlace ? const Color(0xFFFFFDE7) : null,
-            child: canPlace
-                ? null
-                : Text('—', style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFFE2E8F0))),
+            color: active
+                ? (isUitverkocht ? null : const Color(0xFFFFFDE7))
+                : const Color(0xFFF5F3EE),
+            child: active && !isUitverkocht
+                ? const Icon(Icons.add, size: 12, color: Color(0xFFBBBBBB))
+                : Text('—', style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFFD0D0D0))),
           ),
         ),
       );
     }
 
-    // Has listing — show status-colored cell
     final hasPrice = listing.prijs != null;
     return Tooltip(
-      message: '${channel.label}: ${listing.status.label}${listing.externUrl != null ? '\nKlik voor acties' : ''}',
+      message: '${channel.label}: ${listing.status.label}${!active ? ' (niet gekoppeld)' : ''}',
       child: InkWell(
         onTap: () => _showQuickEdit(row, channel, listing),
         child: Container(
           height: 38,
           alignment: Alignment.center,
-          color: _statusBg(listing.status),
-          child: hasPrice
-              ? Text(
-                  listing.prijs!.toStringAsFixed(0),
-                  style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: _statusFg(listing.status)),
-                )
-              : Text(
-                  'x',
-                  style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: _statusFg(listing.status)),
+          color: active ? _statusBg(listing.status) : Color.alphaBlend(const Color(0x18000000), _statusBg(listing.status)),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!active)
+                const Padding(
+                  padding: EdgeInsets.only(right: 2),
+                  child: Icon(Icons.link_off, size: 8, color: Color(0xFFAAAAAA)),
                 ),
+              Text(
+                hasPrice ? listing.prijs!.toStringAsFixed(0) : 'x',
+                style: GoogleFonts.dmSans(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: active ? _statusFg(listing.status) : _statusFg(listing.status).withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1054,6 +1135,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
     final prijsCtrl = TextEditingController(text: listing.prijs?.toStringAsFixed(2) ?? '');
     var selectedStatus = listing.status;
     final hasExternUrl = listing.externUrl != null && listing.externUrl!.isNotEmpty;
+    final active = _isChannelActive(channel);
 
     showDialog(
       context: context,
@@ -1063,12 +1145,21 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
           title: Row(children: [
             Icon(_platformIcon(channel.platform), size: 18, color: _platformColor(channel.platform)),
             const SizedBox(width: 6),
-            Expanded(child: Text('${channel.label}', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700))),
+            Expanded(child: Text(channel.label, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700))),
+            if (!active)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFFF59E0B)),
+                ),
+                child: Text('Niet gekoppeld', style: GoogleFonts.dmSans(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFF92400E))),
+              ),
           ]),
           content: SizedBox(
             width: 360,
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // Product info
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
@@ -1146,9 +1237,10 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
                   labelText: 'Prijs (${channel.currency})',
                   border: const OutlineInputBorder(),
                   isDense: true,
-                  prefixText: channel.currency == 'GBP' ? '£ ' : '€ ',
+                  prefixText: channel.currency == 'GBP' ? '£ ' : channel.currency == 'PLN' ? 'zł ' : '€ ',
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.,]'))],
               ),
               if (listing.externTitle != null) ...[
                 const SizedBox(height: 10),
@@ -1195,6 +1287,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   void _showAddChannelDialog(ChannelMatrixRow row, SalesChannel channel) {
     final prijsCtrl = TextEditingController(text: row.product.displayPrijs?.toStringAsFixed(2) ?? '');
+    final active = _isChannelActive(channel);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1202,22 +1295,44 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
         title: Row(children: [
           Icon(_platformIcon(channel.platform), size: 18, color: _platformColor(channel.platform)),
           const SizedBox(width: 6),
-          Text('Toevoegen: ${channel.label}', style: const TextStyle(fontSize: 14)),
+          Expanded(child: Text('Toevoegen: ${channel.label}', style: const TextStyle(fontSize: 14))),
         ]),
         content: SizedBox(
-          width: 300,
+          width: 320,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text(row.product.displayNaam, style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 14),
+            if (!active)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFF59E0B)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.info_outline, size: 16, color: Color(0xFF92400E)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(
+                    '${channel.platform.label} is nog niet gekoppeld. '
+                    'Prijs wordt opgeslagen maar pas actief na koppeling via Marktplaatsen.',
+                    style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF92400E)),
+                  )),
+                ]),
+              ),
             TextField(
               controller: prijsCtrl,
+              autofocus: true,
               decoration: InputDecoration(
                 labelText: 'Prijs (${channel.currency})',
                 border: const OutlineInputBorder(),
                 isDense: true,
-                prefixText: channel.currency == 'GBP' ? '£ ' : '€ ',
+                prefixText: channel.currency == 'GBP' ? '£ ' : channel.currency == 'PLN' ? 'zł ' : '€ ',
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.,]'))],
             ),
           ]),
         ),
@@ -1230,7 +1345,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
               await _service.createListing(MarketplaceListing(
                 productId: row.product.id!,
                 platform: channel.platform,
-                status: ListingStatus.actief,
+                status: active ? ListingStatus.actief : ListingStatus.concept,
                 prijs: prijs ?? row.product.displayPrijs,
                 taal: channel.country,
               ));

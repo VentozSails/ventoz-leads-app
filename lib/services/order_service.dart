@@ -421,6 +421,35 @@ class OrderService {
     return orders;
   }
 
+  Future<List<Order>> fetchOrdersByStatus(String status) async {
+    try {
+      final List<dynamic> rows = await _client.from(_ordersTable)
+          .select()
+          .eq('status', status)
+          .order('created_at', ascending: false);
+      return rows.map((r) => Order.fromJson(r as Map<String, dynamic>)).toList();
+    } catch (e) {
+      if (kDebugMode) debugPrint('fetchOrdersByStatus error: $e');
+      return [];
+    }
+  }
+
+  Future<int> bulkUpdateStatus({required String fromStatus, required String toStatus, String? orderNummerPrefix}) async {
+    try {
+      var query = _client.from(_ordersTable)
+          .update({'status': toStatus, 'updated_at': DateTime.now().toUtc().toIso8601String()})
+          .eq('status', fromStatus);
+      if (orderNummerPrefix != null) {
+        query = query.like('order_nummer', '$orderNummerPrefix%');
+      }
+      final rows = await query.select('id');
+      return (rows as List).length;
+    } catch (e) {
+      if (kDebugMode) debugPrint('bulkUpdateStatus error: $e');
+      return 0;
+    }
+  }
+
   Future<List<Order>> fetchOrdersForCustomer({required String? klantId, required String? email}) async {
     if (klantId == null && (email == null || email.isEmpty)) return [];
     try {
