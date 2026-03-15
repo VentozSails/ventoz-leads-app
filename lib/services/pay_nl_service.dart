@@ -107,16 +107,7 @@ class PayNlService {
 
   Future<void> saveConfig(PaymentConfig config) async {
     final existing = await _getRawConfig();
-    var json = config.toJson();
-    try {
-      final enc = await _supabase.rpc('encrypt_settings_secrets', params: {
-        'p_settings': json, 'p_secret_fields': _secretFields,
-      });
-      if (enc is Map<String, dynamic>) json = enc;
-    } catch (_) {
-      // Server-side encryption unavailable; store as-is (plain text) rather
-      // than using local encryption that may not be decryptable elsewhere.
-    }
+    final json = config.toJson();
     existing['pay_nl'] = json;
     await _supabase.from('app_settings').upsert({
       'key': _settingsKey,
