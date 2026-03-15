@@ -1272,9 +1272,10 @@ class InventoryService {
 
       // Priority 1: exact EAN match
       if (item.eanCode != null && item.eanCode!.isNotEmpty) {
+        final ean = item.eanCode!.trim();
         for (final p in catalog) {
           final pEan = ((p['ean_code'] as String?) ?? '').trim();
-          if (pEan.isNotEmpty && pEan == item.eanCode!.trim()) {
+          if (pEan.isNotEmpty && pEan == ean) {
             best = InventoryMatchSuggestion(
               inventoryItem: item,
               productId: p['id'] as int,
@@ -1289,16 +1290,16 @@ class InventoryService {
 
       // Priority 2: exact artikelnummer match
       if (best == null && item.artikelnummer != null && item.artikelnummer!.isNotEmpty) {
-        final artClean = item.artikelnummer!.trim();
+        final artClean = item.artikelnummer!.trim().toLowerCase();
         final artNumeric = artClean.replaceAll(RegExp(r'[^0-9]'), '');
         for (final p in catalog) {
-          final pArt = ((p['artikelnummer'] as String?) ?? '').trim();
+          final pArt = ((p['artikelnummer'] as String?) ?? '').trim().toLowerCase();
           if (pArt.isNotEmpty && (pArt == artClean || (artNumeric.isNotEmpty && pArt.replaceAll(RegExp(r'[^0-9]'), '') == artNumeric))) {
             best = InventoryMatchSuggestion(
               inventoryItem: item,
               productId: p['id'] as int,
               productNaam: (p['naam'] as String?) ?? '',
-              matchMethod: 'Artikelnummer',
+              matchMethod: 'Artikelnr',
               matchScore: 95,
             );
             break;
@@ -1306,15 +1307,34 @@ class InventoryService {
         }
       }
 
-      // Priority 3: fuzzy name match
+      // Priority 3: partial EAN (last 8+ digits)
+      if (best == null && item.eanCode != null && item.eanCode!.trim().length >= 8) {
+        final ean = item.eanCode!.trim();
+        final tail = ean.length > 8 ? ean.substring(ean.length - 8) : ean;
+        for (final p in catalog) {
+          final pEan = ((p['ean_code'] as String?) ?? '').trim();
+          if (pEan.length >= 8 && pEan.endsWith(tail)) {
+            best = InventoryMatchSuggestion(
+              inventoryItem: item,
+              productId: p['id'] as int,
+              productNaam: (p['naam'] as String?) ?? '',
+              matchMethod: 'EAN deel',
+              matchScore: 90,
+            );
+            break;
+          }
+        }
+      }
+
+      // Priority 4: fuzzy name match with improved scoring
       if (best == null && item.variantLabel.isNotEmpty) {
-        final needle = item.variantLabel.toLowerCase().trim();
+        final needle = _normalizeForMatch(item.variantLabel);
         int bestScore = 0;
         for (final p in catalog) {
-          final pName = ((p['naam'] as String?) ?? '').toLowerCase().trim();
+          final pName = _normalizeForMatch((p['naam'] as String?) ?? '');
           if (pName.isEmpty) continue;
           final score = _fuzzyScore(needle, pName);
-          if (score > bestScore && score >= 70) {
+          if (score > bestScore && score >= 50) {
             bestScore = score;
             best = InventoryMatchSuggestion(
               inventoryItem: item,
@@ -1327,25 +1347,83 @@ class InventoryService {
         }
       }
 
+      // Priority 5: leverancier_code → artikelnummer match
+      if (best == null && item.leverancierCode != null && item.leverancierCode!.isNotEmpty) {
+        final lc = item.leverancierCode!.trim().toLowerCase();
+        for (final p in catalog) {
+          final pArt = ((p['artikelnummer'] as String?) ?? '').trim().toLowerCase();
+          if (pArt.isNotEmpty && (pArt.contains(lc) || lc.contains(pArt))) {
+            best = InventoryMatchSuggestion(
+              inventoryItem: item,
+              productId: p['id'] as int,
+              productNaam: (p['naam'] as String?) ?? '',
+              matchMethod: 'Lev.code',
+              matchScore: 80,
+            );
+            break;
+          }
+        }
+      }
+
+      // Always add: matched items with approved=true if high score, unmatched with approved=false
       if (best != null) {
+        best.approved = best.matchScore >= 90;
         suggestions.add(best);
+      } else {
+        suggestions.add(InventoryMatchSuggestion(
+          inventoryItem: item,
+          productId: catalog.isNotEmpty ? catalog.first['id'] as int : 0,
+          productNaam: '',
+          matchMethod: 'Geen',
+          matchScore: 0,
+          approved: false,
+        ));
       }
     }
+
+    // Sort: matched high-score first, then lower scores, unmatched last
+    suggestions.sort((a, b) {
+      if (a.matchScore == 0 && b.matchScore > 0) return 1;
+      if (b.matchScore == 0 && a.matchScore > 0) return -1;
+      return b.matchScore.compareTo(a.matchScore);
+    });
 
     return suggestions;
   }
 
+  static String _normalizeForMatch(String s) {
+    return s.toLowerCase().trim()
+        .replaceAll(RegExp(r'[/\-_.,;:()[\]{}]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
   static int _fuzzyScore(String a, String b) {
     if (a == b) return 100;
-    if (a.contains(b) || b.contains(a)) return 85;
+    if (a.contains(b) || b.contains(a)) return 88;
 
-    final wordsA = a.split(RegExp(r'\s+')).where((w) => w.length > 2).toSet();
-    final wordsB = b.split(RegExp(r'\s+')).where((w) => w.length > 2).toSet();
+    final wordsA = a.split(RegExp(r'\s+')).where((w) => w.length > 1).toSet();
+    final wordsB = b.split(RegExp(r'\s+')).where((w) => w.length > 1).toSet();
     if (wordsA.isEmpty || wordsB.isEmpty) return 0;
 
-    final overlap = wordsA.intersection(wordsB).length;
-    final total = wordsA.union(wordsB).length;
-    return ((overlap / total) * 100).round();
+    int matched = 0;
+    for (final wa in wordsA) {
+      for (final wb in wordsB) {
+        if (wa == wb) { matched++; break; }
+        if (wa.length >= 4 && wb.length >= 4 && (wa.contains(wb) || wb.contains(wa))) {
+          matched++; break;
+        }
+      }
+    }
+
+    final total = wordsA.length > wordsB.length ? wordsA.length : wordsB.length;
+    final score = ((matched / total) * 100).round();
+
+    // Bonus for matching beginning (likely the product type)
+    if (wordsA.isNotEmpty && wordsB.isNotEmpty && wordsA.first == wordsB.first) {
+      return (score + 10).clamp(0, 100);
+    }
+    return score;
   }
 
   Future<void> linkInventoryToProduct(int inventoryItemId, int productId) async {

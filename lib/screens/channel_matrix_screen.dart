@@ -943,171 +943,261 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
       return;
     }
 
+    final matchedCount = suggestions.where((s) => s.matchScore > 0).length;
+    final unmatchedCount = suggestions.length - matchedCount;
+    final autoApproved = suggestions.where((s) => s.approved).length;
+
     if (!mounted) return;
+    final searchCtrl = TextEditingController();
+    String filterMode = 'all'; // 'all', 'matched', 'unmatched', 'approved'
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlg) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Row(children: [
-            const Icon(Icons.link_rounded, size: 18, color: Color(0xFF1565C0)),
-            const SizedBox(width: 6),
-            Expanded(child: Text('Voorraadkoppeling beoordelen', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700))),
-          ]),
-          content: SizedBox(
-            width: 640,
-            height: 420,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.3)),
+        builder: (ctx, setDlg) {
+          final q = searchCtrl.text.toLowerCase().trim();
+          final filtered = suggestions.where((s) {
+            if (filterMode == 'matched' && s.matchScore == 0) return false;
+            if (filterMode == 'unmatched' && s.matchScore > 0) return false;
+            if (filterMode == 'approved' && !s.approved) return false;
+            if (q.isNotEmpty) {
+              final item = s.inventoryItem;
+              final haystack = '${item.variantLabel} ${item.artikelnummer ?? ''} ${item.eanCode ?? ''} ${item.leverancierCode ?? ''} ${s.productNaam}'.toLowerCase();
+              if (!haystack.contains(q)) return false;
+            }
+            return true;
+          }).toList();
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: Row(children: [
+              const Icon(Icons.link_rounded, size: 18, color: Color(0xFF1565C0)),
+              const SizedBox(width: 6),
+              Expanded(child: Text('Voorraadkoppeling', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700))),
+            ]),
+            content: SizedBox(
+              width: 760,
+              height: 520,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Stats banner
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.3)),
+                    ),
+                    child: Row(children: [
+                      _matchStatChip('$matchedCount', 'gematcht', const Color(0xFF2E7D32)),
+                      const SizedBox(width: 8),
+                      _matchStatChip('$unmatchedCount', 'geen match', const Color(0xFFE53935)),
+                      const SizedBox(width: 8),
+                      _matchStatChip('$autoApproved', 'auto-goedgekeurd', const Color(0xFF1565C0)),
+                      const Spacer(),
+                      Text(
+                        '${suggestions.where((s) => s.approved).length} geselecteerd',
+                        style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF1D4ED8)),
+                      ),
+                    ]),
                   ),
-                  child: Text(
-                    '${suggestions.length} niet-gekoppeld(e) voorraadartikelen met een match-suggestie. '
-                    'Controleer de koppelingen en bevestig of pas aan.',
-                    style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF1D4ED8)),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                // Header
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  color: const Color(0xFFF1F5F9),
-                  child: Row(children: [
-                    SizedBox(width: 30, child: Text('', style: _headerStyle)),
-                    Expanded(flex: 3, child: Text('Voorraaditem', style: _headerStyle)),
-                    const SizedBox(width: 6),
-                    Expanded(flex: 3, child: Text('Voorgesteld product', style: _headerStyle)),
-                    SizedBox(width: 60, child: Text('Match', style: _headerStyle, textAlign: TextAlign.center)),
-                    SizedBox(width: 50, child: Text('Score', style: _headerStyle, textAlign: TextAlign.center)),
-                  ]),
-                ),
-                // List
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: suggestions.length,
-                    itemBuilder: (_, i) {
-                      final s = suggestions[i];
-                      final item = s.inventoryItem;
-                      final scoreColor = s.matchScore >= 90
-                          ? const Color(0xFF2E7D32)
-                          : s.matchScore >= 70
-                              ? const Color(0xFFE65100)
-                              : const Color(0xFFE53935);
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 2),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: s.approved ? const Color(0xFFE8F5E9) : Colors.white,
-                          border: Border.all(color: s.approved ? const Color(0xFF66BB6A) : const Color(0xFFE2E8F0)),
-                          borderRadius: BorderRadius.circular(4),
+                  const SizedBox(height: 8),
+                  // Search bar + filter chips
+                  Row(children: [
+                    Expanded(
+                      child: TextField(
+                        controller: searchCtrl,
+                        onChanged: (_) => setDlg(() {}),
+                        decoration: InputDecoration(
+                          hintText: 'Zoek op naam, artikelnr, EAN...',
+                          hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                          prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                          suffixIcon: searchCtrl.text.isNotEmpty
+                              ? IconButton(icon: const Icon(Icons.clear, size: 16), onPressed: () { searchCtrl.clear(); setDlg(() {}); })
+                              : null,
                         ),
-                        child: Row(children: [
-                          SizedBox(
-                            width: 30,
-                            child: Checkbox(
-                              value: s.approved,
-                              onChanged: (v) => setDlg(() => s.approved = v ?? false),
-                              visualDensity: VisualDensity.compact,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
-                          Expanded(
-                            flex: 3,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(item.variantLabel, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: _navy), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                Text(
-                                  [if (item.artikelnummer != null) 'Art: ${item.artikelnummer}', if (item.eanCode != null) 'EAN: ${item.eanCode}', 'Voorraad: ${item.voorraadActueel}'].join(' · '),
-                                  style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8)),
-                                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _matchFilterChip('Alle', filterMode == 'all', () => setDlg(() => filterMode = 'all')),
+                    const SizedBox(width: 4),
+                    _matchFilterChip('Gematcht', filterMode == 'matched', () => setDlg(() => filterMode = 'matched')),
+                    const SizedBox(width: 4),
+                    _matchFilterChip('Geen match', filterMode == 'unmatched', () => setDlg(() => filterMode = 'unmatched')),
+                    const SizedBox(width: 4),
+                    _matchFilterChip('Goedgek.', filterMode == 'approved', () => setDlg(() => filterMode = 'approved')),
+                  ]),
+                  const SizedBox(height: 8),
+                  // Column header
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    color: const Color(0xFFF1F5F9),
+                    child: Row(children: [
+                      const SizedBox(width: 30),
+                      Expanded(flex: 3, child: Text('Voorraaditem', style: _headerStyle)),
+                      const SizedBox(width: 6),
+                      Expanded(flex: 3, child: Text('Gekoppeld product', style: _headerStyle)),
+                      SizedBox(width: 55, child: Text('Via', style: _headerStyle, textAlign: TextAlign.center)),
+                      SizedBox(width: 45, child: Text('Score', style: _headerStyle, textAlign: TextAlign.center)),
+                    ]),
+                  ),
+                  // Suggestion list
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? Center(child: Text('Geen resultaten', style: GoogleFonts.dmSans(fontSize: 13, color: const Color(0xFF94A3B8))))
+                        : ListView.builder(
+                            itemCount: filtered.length,
+                            itemBuilder: (_, i) {
+                              final s = filtered[i];
+                              final item = s.inventoryItem;
+                              final noMatch = s.matchScore == 0;
+                              final scoreColor = s.matchScore >= 90
+                                  ? const Color(0xFF2E7D32)
+                                  : s.matchScore >= 70
+                                      ? const Color(0xFFE65100)
+                                      : s.matchScore >= 50
+                                          ? const Color(0xFFF59E0B)
+                                          : const Color(0xFFE53935);
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: s.approved
+                                      ? const Color(0xFFE8F5E9)
+                                      : noMatch
+                                          ? const Color(0xFFFFF8F8)
+                                          : Colors.white,
+                                  border: Border.all(color: s.approved ? const Color(0xFF66BB6A) : noMatch ? const Color(0xFFFFCDD2) : const Color(0xFFE2E8F0)),
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            flex: 3,
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<int>(
-                                value: s.effectiveProductId,
-                                isDense: true,
-                                isExpanded: true,
-                                style: GoogleFonts.dmSans(fontSize: 11, color: _navy),
-                                items: allProducts.map((p) => DropdownMenuItem<int>(
-                                  value: p['id'] as int,
-                                  child: Text(
-                                    (p['naam'] as String?) ?? 'Product ${p['id']}',
-                                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.dmSans(fontSize: 11),
+                                child: Row(children: [
+                                  SizedBox(
+                                    width: 30,
+                                    child: Checkbox(
+                                      value: s.approved,
+                                      onChanged: (v) => setDlg(() => s.approved = v ?? false),
+                                      visualDensity: VisualDensity.compact,
+                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
                                   ),
-                                )).toList(),
-                                onChanged: (v) {
-                                  if (v != null) setDlg(() { s.overrideProductId = v; s.approved = true; });
-                                },
-                              ),
-                            ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(item.variantLabel.isNotEmpty ? item.variantLabel : '(naamloos)', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: _navy), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                        Text(
+                                          [
+                                            if (item.artikelnummer != null) 'Art: ${item.artikelnummer}',
+                                            if (item.eanCode != null) 'EAN: ${item.eanCode}',
+                                            if (item.leverancierCode != null) 'Lev: ${item.leverancierCode}',
+                                            'Vrrd: ${item.voorraadActueel}',
+                                          ].join(' · '),
+                                          style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8)),
+                                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    flex: 3,
+                                    child: DropdownButtonHideUnderline(
+                                      child: DropdownButton<int>(
+                                        value: allProducts.any((p) => p['id'] == s.effectiveProductId) ? s.effectiveProductId : null,
+                                        isDense: true,
+                                        isExpanded: true,
+                                        hint: Text(noMatch ? 'Kies product...' : '', style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF94A3B8))),
+                                        style: GoogleFonts.dmSans(fontSize: 11, color: _navy),
+                                        items: allProducts.map((p) => DropdownMenuItem<int>(
+                                          value: p['id'] as int,
+                                          child: Text(
+                                            (p['naam'] as String?) ?? 'Product ${p['id']}',
+                                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.dmSans(fontSize: 11),
+                                          ),
+                                        )).toList(),
+                                        onChanged: (v) {
+                                          if (v != null) setDlg(() { s.overrideProductId = v; s.approved = true; });
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 55,
+                                    child: noMatch
+                                        ? const Icon(Icons.help_outline, size: 14, color: Color(0xFFE53935))
+                                        : Text(s.matchMethod, style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF64748B)), textAlign: TextAlign.center),
+                                  ),
+                                  SizedBox(
+                                    width: 45,
+                                    child: noMatch
+                                        ? Text('—', style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFFE2E8F0)), textAlign: TextAlign.center)
+                                        : Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: scoreColor.withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: Text('${s.matchScore}%', style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: scoreColor)),
+                                          ),
+                                  ),
+                                ]),
+                              );
+                            },
                           ),
-                          SizedBox(width: 60, child: Text(s.matchMethod, style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF64748B)), textAlign: TextAlign.center)),
-                          SizedBox(
-                            width: 50,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: scoreColor.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text('${s.matchScore}%', style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: scoreColor)),
-                            ),
-                          ),
-                        ]),
-                      );
-                    },
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(children: [
-                  TextButton(
-                    onPressed: () => setDlg(() { for (final s in suggestions) s.approved = true; }),
-                    child: const Text('Alles selecteren', style: TextStyle(fontSize: 12)),
-                  ),
-                  const SizedBox(width: 6),
-                  TextButton(
-                    onPressed: () => setDlg(() { for (final s in suggestions) s.approved = false; }),
-                    child: const Text('Niets selecteren', style: TextStyle(fontSize: 12)),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${suggestions.where((s) => s.approved).length} / ${suggestions.length} geselecteerd',
-                    style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF64748B)),
-                  ),
-                ]),
-              ],
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    TextButton(
+                      onPressed: () => setDlg(() { for (final s in suggestions) { if (s.matchScore >= 90) s.approved = true; } }),
+                      child: const Text('Alle hoge matches', style: TextStyle(fontSize: 11)),
+                    ),
+                    const SizedBox(width: 4),
+                    TextButton(
+                      onPressed: () => setDlg(() { for (final s in suggestions) { if (s.matchScore > 0) s.approved = true; } }),
+                      child: const Text('Alle matches', style: TextStyle(fontSize: 11)),
+                    ),
+                    const SizedBox(width: 4),
+                    TextButton(
+                      onPressed: () => setDlg(() { for (final s in suggestions) s.approved = false; }),
+                      child: const Text('Niets', style: TextStyle(fontSize: 11)),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${filtered.length} getoond · ${suggestions.where((s) => s.approved).length} / ${suggestions.length} geselecteerd',
+                      style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF64748B)),
+                    ),
+                  ]),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuleren')),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.pop(ctx, true),
-              icon: const Icon(Icons.check_circle_outline, size: 16),
-              label: const Text('Bevestigen'),
-              style: ElevatedButton.styleFrom(backgroundColor: _navy, foregroundColor: Colors.white),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuleren')),
+              ElevatedButton.icon(
+                onPressed: suggestions.any((s) => s.approved)
+                    ? () => Navigator.pop(ctx, true)
+                    : null,
+                icon: const Icon(Icons.check_circle_outline, size: 16),
+                label: Text('Koppelen (${suggestions.where((s) => s.approved).length})'),
+                style: ElevatedButton.styleFrom(backgroundColor: _navy, foregroundColor: Colors.white),
+              ),
+            ],
+          );
+        },
       ),
     );
 
     if (confirmed != true || !mounted) return;
 
-    final toLink = suggestions.where((s) => s.approved).toList();
+    final toLink = suggestions.where((s) => s.approved && s.effectiveProductId > 0).toList();
     if (toLink.isEmpty) return;
 
     int linked = 0;
@@ -1125,6 +1215,37 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
         backgroundColor: const Color(0xFF2E7D32),
       ));
     }
+  }
+
+  Widget _matchStatChip(String value, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(value, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w800, color: color)),
+        const SizedBox(width: 4),
+        Text(label, style: GoogleFonts.dmSans(fontSize: 10, color: color)),
+      ]),
+    );
+  }
+
+  Widget _matchFilterChip(String label, bool active, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(5),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: active ? const Color(0xFF3B82F6) : const Color(0xFFE2E8F0)),
+        ),
+        child: Text(label, style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? const Color(0xFF1D4ED8) : const Color(0xFF64748B))),
+      ),
+    );
   }
 
   // ═══════════════════════════════════════════
