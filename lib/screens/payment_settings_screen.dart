@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/pay_nl_service.dart';
 import '../services/buckaroo_service.dart';
 import '../services/payment_gateway_service.dart';
@@ -31,6 +32,7 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
   bool _saving = false;
   bool _testing = false;
   Map<String, bool> _testResults = {};
+  List<_MethodPref> _methodPrefs = [];
 
   @override
   void initState() {
@@ -66,9 +68,18 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
     final payConfig = await _payNlService.getConfig();
     final bConfig = await _buckarooService.getConfig();
     final gateways = await _buckarooService.getActiveGateways();
+    List<_MethodPref> prefs = [];
+    try {
+      final rows = await Supabase.instance.client
+          .from('payment_method_preferences')
+          .select()
+          .order('sort_order');
+      prefs = (rows as List).map((r) => _MethodPref.fromJson(r as Map<String, dynamic>)).toList();
+    } catch (_) {}
     final needsReenter = _payNlService.hasUndecryptableSecrets || _buckarooService.hasUndecryptableSecrets;
     if (!mounted) return;
     setState(() {
+      _methodPrefs = prefs;
       if (payConfig != null) {
         _serviceIdCtrl.text = payConfig.serviceId;
         _serviceSecretCtrl.text = payConfig.serviceSecret;
@@ -207,6 +218,8 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
                       _buildBuckarooSection(),
                       const SizedBox(height: 24),
                       _buildActions(),
+                      const SizedBox(height: 32),
+                      _buildMethodPreferences(),
                     ],
                   ),
                 ),
@@ -662,4 +675,361 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
     'visa': 'Visa',
     'vpay': 'V PAY',
   };
+
+  Widget _buildMethodPreferences() {
+    return Card(
+      color: const Color(0xFFF8FAFC),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(children: [
+              Icon(Icons.tune, size: 24, color: Color(0xFF455A64)),
+              SizedBox(width: 10),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Betaalmethode-voorkeuren', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                  SizedBox(height: 2),
+                  Text('Per methode: voorkeursprovider, landen en aan/uit. De webshop toont alleen methoden die hier actief zijn én beschikbaar bij de provider.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                ],
+              )),
+            ]),
+            const SizedBox(height: 14),
+            if (_methodPrefs.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text('Geen betaalmethoden geconfigureerd. Sla eerst de gateway-instellingen op.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF90A4AE))),
+              )
+            else
+              ..._methodPrefs.map(_buildMethodPrefRow),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Methode toevoegen'),
+                onPressed: _addMethodPref,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMethodPrefRow(_MethodPref pref) {
+    final gwColor = pref.preferredGateway == 'pay_nl' ? const Color(0xFF2E7D32) : const Color(0xFF1565C0);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: pref.enabled ? Colors.white : const Color(0xFFF5F5F5),
+        border: Border.all(color: pref.enabled ? const Color(0xFFE0E0E0) : const Color(0xFFEEEEEE)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(children: [
+        Switch(
+          value: pref.enabled,
+          activeColor: const Color(0xFF43A047),
+          onChanged: (v) => _updateMethodPref(pref.copyWith(enabled: v)),
+        ),
+        const SizedBox(width: 6),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(pref.displayName, style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w600,
+              color: pref.enabled ? const Color(0xFF263238) : const Color(0xFF9E9E9E),
+            )),
+            const SizedBox(height: 2),
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: gwColor.withAlpha(20),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  pref.preferredGateway == 'pay_nl' ? 'Pay.nl' : 'Buckaroo',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: gwColor),
+                ),
+              ),
+              const SizedBox(width: 6),
+              if (pref.countries.isNotEmpty)
+                Text(pref.countries.join(', '), style: const TextStyle(fontSize: 10, color: Color(0xFF78909C)))
+              else
+                const Text('Alle landen', style: TextStyle(fontSize: 10, color: Color(0xFF78909C), fontStyle: FontStyle.italic)),
+            ]),
+          ],
+        )),
+        IconButton(
+          icon: const Icon(Icons.edit, size: 16, color: Color(0xFF78909C)),
+          onPressed: () => _editMethodPref(pref),
+          tooltip: 'Bewerken',
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          padding: EdgeInsets.zero,
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline, size: 16, color: Color(0xFFE53935)),
+          onPressed: () => _deleteMethodPref(pref),
+          tooltip: 'Verwijderen',
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          padding: EdgeInsets.zero,
+        ),
+      ]),
+    );
+  }
+
+  Future<void> _updateMethodPref(_MethodPref pref) async {
+    try {
+      await Supabase.instance.client
+          .from('payment_method_preferences')
+          .update({
+            'enabled': pref.enabled,
+            'preferred_gateway': pref.preferredGateway,
+            'countries': pref.countries,
+            'display_name': pref.displayName,
+            'sort_order': pref.sortOrder,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', pref.id);
+      setState(() {
+        final idx = _methodPrefs.indexWhere((p) => p.id == pref.id);
+        if (idx >= 0) _methodPrefs[idx] = pref;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Opslaan mislukt: $e'), backgroundColor: const Color(0xFFE53935)),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteMethodPref(_MethodPref pref) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Methode verwijderen?'),
+        content: Text('Weet je zeker dat je "${pref.displayName}" wilt verwijderen?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuleren')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Verwijderen', style: TextStyle(color: Color(0xFFE53935)))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await Supabase.instance.client
+          .from('payment_method_preferences')
+          .delete()
+          .eq('id', pref.id);
+      setState(() => _methodPrefs.removeWhere((p) => p.id == pref.id));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Verwijderen mislukt: $e'), backgroundColor: const Color(0xFFE53935)),
+        );
+      }
+    }
+  }
+
+  Future<void> _editMethodPref(_MethodPref pref) async {
+    final nameCtrl = TextEditingController(text: pref.displayName);
+    final countriesCtrl = TextEditingController(text: pref.countries.join(', '));
+    var gateway = pref.preferredGateway;
+
+    final result = await showDialog<_MethodPref>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: Text('${pref.displayName} bewerken'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Weergavenaam', isDense: true)),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: gateway,
+                decoration: const InputDecoration(labelText: 'Voorkeursprovider', isDense: true),
+                items: const [
+                  DropdownMenuItem(value: 'pay_nl', child: Text('Pay.nl')),
+                  DropdownMenuItem(value: 'buckaroo', child: Text('Buckaroo')),
+                ],
+                onChanged: (v) { if (v != null) setDlgState(() => gateway = v); },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: countriesCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Landen (ISO codes, komma-gescheiden)',
+                  hintText: 'NL, BE, DE (leeg = alle landen)',
+                  isDense: true,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuleren')),
+            ElevatedButton(
+              onPressed: () {
+                final countries = countriesCtrl.text
+                    .split(RegExp(r'[,;\s]+'))
+                    .map((c) => c.trim().toUpperCase())
+                    .where((c) => c.isNotEmpty && c.length == 2)
+                    .toList();
+                Navigator.pop(ctx, pref.copyWith(
+                  displayName: nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : pref.displayName,
+                  preferredGateway: gateway,
+                  countries: countries,
+                ));
+              },
+              child: const Text('Opslaan'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    nameCtrl.dispose();
+    countriesCtrl.dispose();
+    if (result != null) _updateMethodPref(result);
+  }
+
+  Future<void> _addMethodPref() async {
+    final nameCtrl = TextEditingController();
+    final idCtrl = TextEditingController();
+    final countriesCtrl = TextEditingController();
+    var gateway = 'pay_nl';
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('Betaalmethode toevoegen'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: idCtrl, decoration: const InputDecoration(labelText: 'Method ID (bijv. ideal, creditcard)', isDense: true)),
+              const SizedBox(height: 12),
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Weergavenaam', isDense: true)),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: gateway,
+                decoration: const InputDecoration(labelText: 'Voorkeursprovider', isDense: true),
+                items: const [
+                  DropdownMenuItem(value: 'pay_nl', child: Text('Pay.nl')),
+                  DropdownMenuItem(value: 'buckaroo', child: Text('Buckaroo')),
+                ],
+                onChanged: (v) { if (v != null) setDlgState(() => gateway = v); },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: countriesCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Landen (ISO codes, komma-gescheiden)',
+                  hintText: 'NL, BE (leeg = alle landen)',
+                  isDense: true,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuleren')),
+            ElevatedButton(
+              onPressed: () {
+                if (idCtrl.text.trim().isEmpty || nameCtrl.text.trim().isEmpty) return;
+                final countries = countriesCtrl.text
+                    .split(RegExp(r'[,;\s]+'))
+                    .map((c) => c.trim().toUpperCase())
+                    .where((c) => c.isNotEmpty && c.length == 2)
+                    .toList();
+                Navigator.pop(ctx, {
+                  'method_id': idCtrl.text.trim().toLowerCase(),
+                  'display_name': nameCtrl.text.trim(),
+                  'preferred_gateway': gateway,
+                  'countries': countries,
+                  'enabled': true,
+                  'sort_order': _methodPrefs.length + 1,
+                });
+              },
+              child: const Text('Toevoegen'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    nameCtrl.dispose();
+    idCtrl.dispose();
+    countriesCtrl.dispose();
+
+    if (result != null) {
+      try {
+        final rows = await Supabase.instance.client
+            .from('payment_method_preferences')
+            .insert(result)
+            .select();
+        if (rows is List && rows.isNotEmpty) {
+          setState(() => _methodPrefs.add(_MethodPref.fromJson(rows.first as Map<String, dynamic>)));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Toevoegen mislukt: $e'), backgroundColor: const Color(0xFFE53935)),
+          );
+        }
+      }
+    }
+  }
+}
+
+class _MethodPref {
+  final int id;
+  final String methodId;
+  final String displayName;
+  final String preferredGateway;
+  final List<String> countries;
+  final bool enabled;
+  final int sortOrder;
+
+  const _MethodPref({
+    required this.id,
+    required this.methodId,
+    required this.displayName,
+    required this.preferredGateway,
+    required this.countries,
+    required this.enabled,
+    required this.sortOrder,
+  });
+
+  factory _MethodPref.fromJson(Map<String, dynamic> json) => _MethodPref(
+    id: json['id'] as int,
+    methodId: json['method_id'] as String? ?? '',
+    displayName: json['display_name'] as String? ?? '',
+    preferredGateway: json['preferred_gateway'] as String? ?? 'pay_nl',
+    countries: (json['countries'] as List?)?.cast<String>() ?? [],
+    enabled: (json['enabled'] as bool?) ?? true,
+    sortOrder: (json['sort_order'] as int?) ?? 0,
+  );
+
+  _MethodPref copyWith({
+    String? displayName,
+    String? preferredGateway,
+    List<String>? countries,
+    bool? enabled,
+    int? sortOrder,
+  }) => _MethodPref(
+    id: id,
+    methodId: methodId,
+    displayName: displayName ?? this.displayName,
+    preferredGateway: preferredGateway ?? this.preferredGateway,
+    countries: countries ?? this.countries,
+    enabled: enabled ?? this.enabled,
+    sortOrder: sortOrder ?? this.sortOrder,
+  );
 }
