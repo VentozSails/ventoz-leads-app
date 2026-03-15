@@ -145,19 +145,20 @@ class PayNlService {
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_restUrl/services/${config.serviceId}'),
-        headers: _merchantHeaders(config),
-      ).timeout(const Duration(seconds: 15));
-      if (response.statusCode == 200) return true;
-      if (response.statusCode == 401 || response.statusCode == 403) {
-        lastTestError = 'Authenticatie mislukt (HTTP ${response.statusCode}). Controleer AT-code en API token.';
-      } else {
-        lastTestError = 'HTTP ${response.statusCode}: ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}';
+      final res = await _supabase.functions.invoke('payment-test', body: {
+        'provider': 'pay_nl',
+        'config': {
+          'at_code': config.atCode,
+          'api_token': config.apiToken,
+          'service_id': config.serviceId,
+        },
+      });
+      final data = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : <String, dynamic>{};
+      if (data['ok'] == true) {
+        lastTestError = null;
+        return true;
       }
-      return false;
-    } on TimeoutException {
-      lastTestError = 'Verbinding time-out na 15 seconden. Controleer je internetverbinding.';
+      lastTestError = data['details'] as String? ?? data['error'] as String? ?? 'Onbekende fout';
       return false;
     } catch (e) {
       lastTestError = 'Verbindingsfout: $e';

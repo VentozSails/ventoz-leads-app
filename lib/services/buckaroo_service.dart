@@ -177,23 +177,20 @@ class BuckarooService {
     }
 
     try {
-      final url = '${_baseUrl(config.testMode)}/Transaction/Specification/ideal';
-      final headers = _buildAuthHeaders(
-        config: config,
-        httpMethod: 'GET',
-        requestUri: url,
-        content: '',
-      );
-      final response = await http.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 15));
-      if (response.statusCode == 200) return true;
-      if (response.statusCode == 401 || response.statusCode == 403) {
-        lastTestError = 'Authenticatie mislukt (HTTP ${response.statusCode}). Controleer Website Key en Secret Key.';
-      } else {
-        lastTestError = 'HTTP ${response.statusCode}: ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}';
+      final res = await _supabase.functions.invoke('payment-test', body: {
+        'provider': 'buckaroo',
+        'config': {
+          'website_key': config.websiteKey,
+          'secret_key': config.secretKey,
+          'test_mode': config.testMode,
+        },
+      });
+      final data = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : <String, dynamic>{};
+      if (data['ok'] == true) {
+        lastTestError = null;
+        return true;
       }
-      return false;
-    } on TimeoutException {
-      lastTestError = 'Verbinding time-out na 15 seconden. Controleer je internetverbinding.';
+      lastTestError = data['details'] as String? ?? data['error'] as String? ?? 'Onbekende fout';
       return false;
     } catch (e) {
       lastTestError = 'Verbindingsfout: $e';
@@ -334,7 +331,7 @@ class BuckarooService {
     }
 
     final rawSignature = '${config.websiteKey}$httpMethod$encodedUri$timeStamp$nonce$contentHash';
-    final keyBytes = base64Decode(config.secretKey);
+    final keyBytes = utf8.encode(config.secretKey);
     final hmacBytes = Hmac(sha256, keyBytes).convert(utf8.encode(rawSignature)).bytes;
     final hmacHash = base64Encode(hmacBytes);
 
