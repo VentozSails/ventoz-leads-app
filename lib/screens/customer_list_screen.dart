@@ -27,16 +27,20 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
 
   String? _landFilter;
   bool? _zakelijkFilter;
-  String _sortBy = 'naam';
-  bool _sortAsc = true;
+  String _sortBy = 'klantnummer';
+  bool _sortAsc = false;
 
   int _totalCount = 0;
   int _zakelijkCount = 0;
   int _particulierCount = 0;
 
   final Set<String> _visibleCols = {
-    'naam', 'type', 'klantnr', 'email', 'adres', 'postcode', 'plaats', 'land', 'omzet', 'facturen', 'laatste_factuur',
+    'klantnr', 'naam', 'email', 'adres', 'postcode', 'plaats', 'land', 'telefoon', 'omzet', 'facturen', 'laatste_factuur', 'type',
   };
+
+  late List<String> _colOrder = [
+    'klantnr', 'naam', 'email', 'adres', 'postcode', 'plaats', 'land', 'telefoon', 'omzet', 'facturen', 'laatste_factuur', 'type',
+  ];
 
   @override
   void initState() {
@@ -275,29 +279,79 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   }
 
   Widget _columnChooserButton() {
-    return PopupMenuButton<String>(
-      tooltip: 'Kolommen kiezen',
-      offset: const Offset(0, 40),
+    return IconButton(
+      tooltip: 'Kolommen kiezen & ordenen',
       icon: Icon(Icons.view_column_rounded, size: 20, color: _accent.withValues(alpha: 0.7)),
-      onSelected: (col) => setState(() {
-        if (_visibleCols.contains(col)) {
-          _visibleCols.remove(col);
-        } else {
-          _visibleCols.add(col);
-        }
+      onPressed: _showColumnChooserDialog,
+    );
+  }
+
+  void _showColumnChooserDialog() {
+    final tempOrder = List<String>.from(_colOrder);
+    final tempVisible = Set<String>.from(_visibleCols);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
+        return AlertDialog(
+          title: Row(children: [
+            const Icon(Icons.view_column_rounded, size: 22, color: Color(0xFF455A64)),
+            const SizedBox(width: 10),
+            Text('Kolommen', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700)),
+          ]),
+          contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
+          content: SizedBox(
+            width: 320,
+            height: 420,
+            child: ReorderableListView.builder(
+              shrinkWrap: true,
+              itemCount: tempOrder.length,
+              onReorder: (oldIdx, newIdx) {
+                setDialogState(() {
+                  if (newIdx > oldIdx) newIdx--;
+                  final item = tempOrder.removeAt(oldIdx);
+                  tempOrder.insert(newIdx, item);
+                });
+              },
+              itemBuilder: (_, i) {
+                final key = tempOrder[i];
+                final def = _allColumns.firstWhere((d) => d.key == key, orElse: () => _ColDef(key, key));
+                return CheckboxListTile(
+                  key: ValueKey(key),
+                  value: tempVisible.contains(key),
+                  onChanged: (v) => setDialogState(() {
+                    if (v == true) { tempVisible.add(key); } else { tempVisible.remove(key); }
+                  }),
+                  title: Text(def.label, style: GoogleFonts.dmSans(fontSize: 13)),
+                  secondary: const Icon(Icons.drag_handle, size: 18, color: Color(0xFF94A3B8)),
+                  dense: true,
+                  controlAffinity: ListTileControlAffinity.leading,
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuleren')),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _colOrder = tempOrder;
+                  _visibleCols.clear();
+                  _visibleCols.addAll(tempVisible);
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text('Toepassen'),
+            ),
+          ],
+        );
       }),
-      itemBuilder: (_) => _allColumns.map((entry) => CheckedPopupMenuItem<String>(
-        value: entry.key,
-        checked: _visibleCols.contains(entry.key),
-        child: Text(entry.label, style: GoogleFonts.dmSans(fontSize: 12)),
-      )).toList(),
     );
   }
 
   static const _allColumns = <_ColDef>[
-    _ColDef('naam', 'Naam'),
-    _ColDef('type', 'Type'),
     _ColDef('klantnr', 'Klantnr / Snelstart'),
+    _ColDef('naam', 'Naam'),
     _ColDef('email', 'E-mail'),
     _ColDef('adres', 'Adres'),
     _ColDef('postcode', 'Postcode'),
@@ -307,6 +361,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     _ColDef('omzet', 'Omzet'),
     _ColDef('facturen', 'Facturen'),
     _ColDef('laatste_factuur', 'Laatste factuur'),
+    _ColDef('type', 'Type'),
   ];
 
   Widget _filterDropdown<T>({required T value, required String hint, required List<DropdownMenuItem<T>> items, required ValueChanged<T?> onChanged}) {
@@ -357,20 +412,28 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     );
   }
 
+  static const _colDefs = <String, _Col>{
+    'klantnr':        _Col('Klantnr', 110, sortKey: 'klantnummer'),
+    'naam':           _Col('Naam', 180, sortKey: 'naam'),
+    'email':          _Col('E-mail', 190),
+    'adres':          _Col('Adres', 170),
+    'postcode':       _Col('Postcode', 80),
+    'plaats':         _Col('Plaats', 120, sortKey: 'woonplaats'),
+    'land':           _Col('Land', 50, sortKey: 'land_code'),
+    'telefoon':       _Col('Telefoon', 110),
+    'omzet':          _Col('Omzet', 100, sortKey: 'totale_omzet'),
+    'facturen':       _Col('Facturen', 110, sortKey: 'aantal_facturen'),
+    'laatste_factuur': _Col('Laatste factuur', 105, sortKey: 'laatste_factuur_datum'),
+    'type':           _Col('Particulier / Zakelijk', 105),
+  };
+
   List<_Col> _buildCols() {
     final cols = <_Col>[const _Col('', 36)];
-    if (_visibleCols.contains('naam'))           cols.add(const _Col('Naam', 180, sortKey: 'naam'));
-    if (_visibleCols.contains('type'))           cols.add(const _Col('Type', 76));
-    if (_visibleCols.contains('klantnr'))        cols.add(const _Col('Klantnr', 110, sortKey: 'klantnummer'));
-    if (_visibleCols.contains('email'))          cols.add(const _Col('E-mail', 190));
-    if (_visibleCols.contains('adres'))          cols.add(const _Col('Adres', 170));
-    if (_visibleCols.contains('postcode'))       cols.add(const _Col('Postcode', 80));
-    if (_visibleCols.contains('plaats'))         cols.add(const _Col('Plaats', 120, sortKey: 'woonplaats'));
-    if (_visibleCols.contains('land'))           cols.add(const _Col('Land', 50, sortKey: 'land_code'));
-    if (_visibleCols.contains('telefoon'))       cols.add(const _Col('Telefoon', 110));
-    if (_visibleCols.contains('omzet'))          cols.add(const _Col('Omzet', 100, sortKey: 'totale_omzet'));
-    if (_visibleCols.contains('facturen'))       cols.add(const _Col('Facturen', 60, sortKey: 'aantal_facturen'));
-    if (_visibleCols.contains('laatste_factuur')) cols.add(const _Col('Laatste factuur', 105, sortKey: 'laatste_factuur_datum'));
+    for (final key in _colOrder) {
+      if (_visibleCols.contains(key) && _colDefs.containsKey(key)) {
+        cols.add(_colDefs[key]!);
+      }
+    }
     return cols;
   }
 
@@ -438,7 +501,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     final s11 = GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF64748B));
     return switch (colLabel) {
       'Naam' => Text(c.displayNaam, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: _navy), overflow: TextOverflow.ellipsis),
-      'Type' => _typeBadge(c.isZakelijk),
+      'Particulier / Zakelijk' => _typeBadge(c.isZakelijk),
       'Klantnr' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -455,10 +518,36 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
       'Land' => _landBadge(c.landCode),
       'Telefoon' => Text(c.telefoon ?? c.mobiel ?? '-', style: s11, overflow: TextOverflow.ellipsis),
       'Omzet' => Text(_fmtOmzet(c.totaleOmzet), style: GoogleFonts.dmSans(fontSize: 11, fontWeight: c.totaleOmzet > 1000 ? FontWeight.w700 : FontWeight.w400, color: c.totaleOmzet > 1000 ? _green : const Color(0xFF64748B)), textAlign: TextAlign.right, overflow: TextOverflow.ellipsis),
-      'Facturen' => Text(c.aantalFacturen > 0 ? '${c.aantalFacturen}' : '-', style: s11, textAlign: TextAlign.center),
+      'Facturen' => _factuurCell(c),
       'Laatste factuur' => Text(_fmtDate(c.laatsteFactuurDatum), style: s11),
       _ => null,
     };
+  }
+
+  Widget _factuurCell(Customer c) {
+    if (c.factuurNummers.isEmpty) {
+      return Text(c.aantalFacturen > 0 ? '${c.aantalFacturen}' : '-',
+          style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF64748B)), textAlign: TextAlign.center);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...c.factuurNummers.take(3).map((nr) => InkWell(
+          onTap: () => _openInvoice(nr, c),
+          child: Text(nr, style: GoogleFonts.dmSans(fontSize: 10, color: _accent, decoration: TextDecoration.underline, fontWeight: FontWeight.w600)),
+        )),
+        if (c.factuurNummers.length > 3)
+          Text('+${c.factuurNummers.length - 3}', style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8))),
+      ],
+    );
+  }
+
+  void _openInvoice(String factuurNummer, Customer c) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Factuur $factuurNummer — factuurweergave wordt binnenkort toegevoegd'), duration: const Duration(seconds: 2)),
+    );
   }
 
   Widget _tableRow(Customer c, int index, List<_Col> cols) {
@@ -469,7 +558,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
       child: Container(
         color: bg,
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        height: 42,
+        constraints: const BoxConstraints(minHeight: 48),
         child: Row(
           children: [
             SizedBox(

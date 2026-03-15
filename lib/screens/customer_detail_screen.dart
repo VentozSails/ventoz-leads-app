@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/customer_service.dart';
 import '../services/order_service.dart';
 
@@ -279,6 +281,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   _buildInfoCard(),
                   if (!_isNew) ...[
                     const SizedBox(height: 16),
+                    _buildActionsRow(),
+                    const SizedBox(height: 16),
+                    _buildFacturenCard(),
+                    const SizedBox(height: 16),
                     _buildExternalsCard(),
                     const SizedBox(height: 16),
                     _buildOrderHistoryCard(),
@@ -469,6 +475,277 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         labelText: label,
         border: const OutlineInputBorder(),
         isDense: true,
+      ),
+    );
+  }
+
+  Widget _buildActionsRow() {
+    return Row(children: [
+      Expanded(
+        child: _actionButton(
+          icon: Icons.email_outlined,
+          label: 'E-mail sturen',
+          color: const Color(0xFF0EA5E9),
+          onTap: _showSendEmailDialog,
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: _actionButton(
+          icon: Icons.local_offer_outlined,
+          label: 'Aanbieding doen',
+          color: const Color(0xFF8B5CF6),
+          onTap: _showOfferDialog,
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: _actionButton(
+          icon: Icons.phone_outlined,
+          label: 'Bellen',
+          color: _green,
+          onTap: () {
+            final tel = _customer!.telefoon ?? _customer!.mobiel;
+            if (tel != null && tel.isNotEmpty) {
+              launchUrl(Uri.parse('tel:$tel'));
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Geen telefoonnummer beschikbaar')));
+            }
+          },
+        ),
+      ),
+    ]);
+  }
+
+  Widget _actionButton({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 22, color: color),
+          const SizedBox(height: 6),
+          Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildFacturenCard() {
+    final invoiceOrders = _orders.where((o) => o.factuurNummer != null && o.factuurNummer!.isNotEmpty).toList();
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: _border)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const Icon(Icons.receipt_long, size: 18, color: _accent),
+              const SizedBox(width: 8),
+              Text('Facturen', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700, color: _navy)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: _accent.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(6)),
+                child: Text('${invoiceOrders.length}', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w700, color: _accent)),
+              ),
+            ]),
+            const SizedBox(height: 10),
+            if (invoiceOrders.isEmpty)
+              Text('Nog geen facturen beschikbaar.', style: GoogleFonts.dmSans(fontSize: 13, color: const Color(0xFF94A3B8)))
+            else
+              ...(invoiceOrders.map((o) => Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _border),
+                ),
+                child: Row(children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(color: _accent.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(6)),
+                    child: const Icon(Icons.description_outlined, size: 16, color: _accent),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(o.factuurNummer!, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: _navy)),
+                    Text('Order: ${o.orderNummer} — €${o.totaal.toStringAsFixed(2)}',
+                        style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF64748B))),
+                  ])),
+                  Text(
+                    o.createdAt != null ? '${o.createdAt!.day}-${o.createdAt!.month}-${o.createdAt!.year}' : '',
+                    style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF94A3B8)),
+                  ),
+                ]),
+              ))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSendEmailDialog() {
+    final subjectCtrl = TextEditingController();
+    final bodyCtrl = TextEditingController();
+    final email = _customer!.email;
+
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        const Icon(Icons.email_outlined, size: 20, color: Color(0xFF0EA5E9)),
+        const SizedBox(width: 10),
+        Text('E-mail sturen', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700)),
+      ]),
+      content: SizedBox(
+        width: 500,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: const Color(0xFFF0F4FF), borderRadius: BorderRadius.circular(8)),
+            child: Row(children: [
+              Text('Aan: ', style: GoogleFonts.dmSans(fontSize: 13, color: const Color(0xFF64748B))),
+              Text(email, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600)),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: subjectCtrl,
+            decoration: const InputDecoration(labelText: 'Onderwerp', border: OutlineInputBorder(), isDense: true),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: bodyCtrl,
+            decoration: const InputDecoration(labelText: 'Bericht', border: OutlineInputBorder(), isDense: true, alignLabelWithHint: true),
+            maxLines: 8,
+          ),
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuleren')),
+        TextButton(
+          onPressed: () {
+            final uri = Uri(scheme: 'mailto', path: email, queryParameters: {
+              if (subjectCtrl.text.isNotEmpty) 'subject': subjectCtrl.text,
+              if (bodyCtrl.text.isNotEmpty) 'body': bodyCtrl.text,
+            });
+            launchUrl(uri);
+            Navigator.pop(ctx);
+          },
+          child: const Text('Open in e-mailclient'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (subjectCtrl.text.isEmpty) return;
+            Navigator.pop(ctx);
+            try {
+              await Supabase.instance.client.functions.invoke('send-order-email', body: {
+                'to': email,
+                'subject': subjectCtrl.text,
+                'body': bodyCtrl.text,
+              });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('E-mail verzonden'), backgroundColor: Color(0xFF43A047)),
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Fout bij verzenden: $e'), backgroundColor: const Color(0xFFE53935)),
+                );
+              }
+            }
+          },
+          child: const Text('Verzenden via Ventoz'),
+        ),
+      ],
+    ));
+  }
+
+  void _showOfferDialog() {
+    final naam = _customer!.displayNaam;
+    final email = _customer!.email;
+
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        const Icon(Icons.local_offer_outlined, size: 20, color: Color(0xFF8B5CF6)),
+        const SizedBox(width: 10),
+        Text('Aanbieding aan $naam', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700)),
+      ]),
+      content: SizedBox(
+        width: 440,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Kies een standaard e-mailsjabloon of stel zelf een aanbieding samen.',
+              style: GoogleFonts.dmSans(fontSize: 13, color: const Color(0xFF64748B))),
+          const SizedBox(height: 16),
+          _offerOption(
+            icon: Icons.sailing,
+            title: 'Productaanbieding',
+            subtitle: 'Stuur een aanbieding op basis van ons assortiment',
+            onTap: () { Navigator.pop(ctx); _showSendEmailDialog(); },
+          ),
+          const SizedBox(height: 8),
+          _offerOption(
+            icon: Icons.percent,
+            title: 'Korting / Staffelprijs',
+            subtitle: 'Bied een speciale korting aan',
+            onTap: () { Navigator.pop(ctx); _showSendEmailDialog(); },
+          ),
+          const SizedBox(height: 8),
+          _offerOption(
+            icon: Icons.campaign_outlined,
+            title: 'Seizoensactie',
+            subtitle: 'Stuur een seizoensgebonden aanbieding',
+            onTap: () { Navigator.pop(ctx); _showSendEmailDialog(); },
+          ),
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Sluiten')),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            final uri = Uri(scheme: 'mailto', path: email, queryParameters: {'subject': 'Aanbieding Ventoz Sails'});
+            launchUrl(uri);
+          },
+          child: const Text('Open in e-mailclient'),
+        ),
+      ],
+    ));
+  }
+
+  Widget _offerOption({required IconData icon, required String title, required String subtitle, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _border),
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, size: 20, color: const Color(0xFF8B5CF6)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: _navy)),
+            Text(subtitle, style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF64748B))),
+          ])),
+          const Icon(Icons.chevron_right, size: 20, color: Color(0xFF94A3B8)),
+        ]),
       ),
     );
   }

@@ -28,6 +28,7 @@ class Customer {
   final DateTime? eersteFactuurDatum;
   final DateTime? laatsteFactuurDatum;
   final int aantalFacturen;
+  final List<String> factuurNummers;
   final int? bronProspectId;
   final String? bronProspectLand;
   final DateTime? createdAt;
@@ -60,6 +61,7 @@ class Customer {
     this.eersteFactuurDatum,
     this.laatsteFactuurDatum,
     this.aantalFacturen = 0,
+    this.factuurNummers = const [],
     this.bronProspectId,
     this.bronProspectLand,
     this.createdAt,
@@ -307,10 +309,56 @@ class CustomerService {
       }
       final orderCol = _allowedSortColumns.contains(sortBy) ? sortBy! : 'naam';
       final List<dynamic> rows = await query.order(orderCol, ascending: sortAsc).limit(limit);
-      return rows.cast<Map<String, dynamic>>().map(Customer.fromJson).toList();
+      final customers = rows.cast<Map<String, dynamic>>().map(Customer.fromJson).toList();
+      return await _enrichWithInvoiceNumbers(customers);
     } catch (e) {
       if (kDebugMode) debugPrint('CustomerService.getAll error: $e');
       return [];
+    }
+  }
+
+  Future<List<Customer>> _enrichWithInvoiceNumbers(List<Customer> customers) async {
+    final ids = customers.where((c) => c.id != null && c.aantalFacturen > 0).map((c) => c.id!).toList();
+    if (ids.isEmpty) return customers;
+
+    try {
+      final List<dynamic> rows = await _client
+          .from('orders')
+          .select('klant_id, factuur_nummer')
+          .inFilter('klant_id', ids)
+          .not('factuur_nummer', 'is', null)
+          .order('factuur_nummer', ascending: false);
+
+      final byKlant = <String, List<String>>{};
+      for (final row in rows.cast<Map<String, dynamic>>()) {
+        final klantId = row['klant_id'] as String?;
+        final nr = row['factuur_nummer'] as String?;
+        if (klantId != null && nr != null && nr.isNotEmpty) {
+          byKlant.putIfAbsent(klantId, () => []).add(nr);
+        }
+      }
+
+      return customers.map((c) {
+        final nrs = byKlant[c.id] ?? [];
+        if (nrs.isEmpty) return c;
+        return Customer(
+          id: c.id, klantnummer: c.klantnummer, authUserId: c.authUserId,
+          email: c.email, naam: c.naam, voornaam: c.voornaam, achternaam: c.achternaam,
+          bedrijfsnaam: c.bedrijfsnaam, adres: c.adres, postcode: c.postcode,
+          woonplaats: c.woonplaats, landCode: c.landCode, telefoon: c.telefoon,
+          mobiel: c.mobiel, btwNummer: c.btwNummer, kvkNummer: c.kvkNummer,
+          contactpersoon: c.contactpersoon, opmerkingen: c.opmerkingen,
+          snelstartId: c.snelstartId, snelstartKlantcode: c.snelstartKlantcode,
+          klantcodeAliases: c.klantcodeAliases, isZakelijk: c.isZakelijk,
+          totaleOmzet: c.totaleOmzet, eersteFactuurDatum: c.eersteFactuurDatum,
+          laatsteFactuurDatum: c.laatsteFactuurDatum, aantalFacturen: c.aantalFacturen,
+          factuurNummers: nrs, bronProspectId: c.bronProspectId,
+          bronProspectLand: c.bronProspectLand, createdAt: c.createdAt, updatedAt: c.updatedAt,
+        );
+      }).toList();
+    } catch (e) {
+      if (kDebugMode) debugPrint('_enrichWithInvoiceNumbers error: $e');
+      return customers;
     }
   }
 
