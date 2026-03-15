@@ -187,7 +187,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
         // Row 1: actions
         Row(children: [
           Text(
-            '${_filteredRows.length} / ${_allRows.length} producten · $_totalListings listings',
+            '${_filteredRows.length} / ${_allRows.length} producten · $_totalListings listings · ${_allRows.where((r) => r.listings.isNotEmpty).length} met adv.',
             style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF475569)),
           ),
           const Spacer(),

@@ -660,7 +660,7 @@ class MarketplaceService {
             .order('naam', ascending: true),
         _client
             .from(_listingsTable)
-            .select('*, product_catalogus(naam, afbeelding_url)')
+            .select()
             .neq('status', 'verwijderd'),
         _client
             .from('inventory_items')
@@ -673,7 +673,18 @@ class MarketplaceService {
           .map((j) => CatalogProduct.fromJson(j))
           .toList();
 
-      final allListings = (results[1] as List)
+      final rawListings = results[1] as List;
+      if (kDebugMode) {
+        debugPrint('ChannelMatrix: raw listings query returned ${rawListings.length} rows');
+        if (rawListings.isNotEmpty) {
+          final first = rawListings.first;
+          debugPrint('ChannelMatrix: first listing platform=${first['platform']}, status=${first['status']}, product_id=${first['product_id']}, match_status=${first['match_status']}');
+        }
+        final ebayCount = rawListings.where((r) => r['platform'] == 'ebay').length;
+        debugPrint('ChannelMatrix: $ebayCount eBay listings in query result');
+      }
+
+      final allListings = rawListings
           .cast<Map<String, dynamic>>()
           .map(MarketplaceListing.fromJson)
           .toList();
@@ -721,6 +732,9 @@ class MarketplaceService {
       }
 
       final listingsByProduct = <int, Map<MarketplacePlatform, List<MarketplaceListing>>>{};
+      int matchedCount = 0;
+      int unmatchedCount = 0;
+
       for (final l in allListings) {
         int? pid = l.productId;
 
@@ -744,11 +758,23 @@ class MarketplaceService {
           }
         }
 
-        if (pid == null) continue;
+        if (pid == null) {
+          unmatchedCount++;
+          continue;
+        }
+        matchedCount++;
         listingsByProduct
             .putIfAbsent(pid, () => {})
             .putIfAbsent(l.platform, () => [])
             .add(l);
+      }
+
+      if (kDebugMode) {
+        final ebayTotal = allListings.where((l) => l.platform == MarketplacePlatform.ebay).length;
+        final withPid = allListings.where((l) => l.productId != null).length;
+        debugPrint('ChannelMatrix: ${products.length} catalog products, ${allListings.length} total listings');
+        debugPrint('ChannelMatrix: $ebayTotal eBay, $withPid have product_id, $matchedCount resolved, $unmatchedCount orphaned');
+        debugPrint('ChannelMatrix: ${listingsByProduct.length} unique products have >= 1 listing');
       }
 
       return products.map((p) => ChannelMatrixRow(
