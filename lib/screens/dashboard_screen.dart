@@ -503,7 +503,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 _buildAppBar(),
                 if (UserService.isImpersonating) _buildImpersonationBanner(),
-                if (_permissions.alleBestellingenBeheren) _buildQuickAccessBar(),
+                _buildQuickAccessBar(),
                 Expanded(
                   child: _showingLeads
                       ? Stack(
@@ -531,43 +531,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ─── Quick Access Bar ───
 
   Widget _buildQuickAccessBar() {
+    final cards = <Widget>[];
+
+    cards.add(_quickAccessCard(
+      icon: Icons.inventory_2_outlined,
+      label: 'Productcatalogus',
+      color: const Color(0xFF1565C0),
+      onTap: () => setState(() => _currentView = 'catalogus'),
+    ));
+
+    if (_permissions.voorraadBeheren || _permissions.alleBestellingenBeheren) {
+      cards.add(_quickAccessCard(
+        icon: Icons.warehouse_outlined,
+        label: 'Voorraad',
+        color: const Color(0xFF2E7D32),
+        onTap: () => context.push('/dashboard/voorraad'),
+      ));
+    }
+
+    if (_permissions.verkoopkanalenBeheren || _permissions.marktplaatsKoppelingen || _permissions.alleBestellingenBeheren) {
+      cards.add(_quickAccessCard(
+        icon: Icons.grid_view_rounded,
+        label: 'Advertenties',
+        color: const Color(0xFFE53238),
+        onTap: () => context.push('/dashboard/kanaaloverzicht'),
+      ));
+    }
+
+    if (_permissions.klantenBeheren || _permissions.alleBestellingenBeheren) {
+      cards.add(_quickAccessCard(
+        icon: Icons.people_outline_rounded,
+        label: 'Klanten',
+        color: const Color(0xFF6366F1),
+        onTap: () => context.push('/dashboard/klanten'),
+      ));
+    }
+
+    if (cards.length <= 1) return const SizedBox.shrink();
+
+    final spaced = <Widget>[];
+    for (var i = 0; i < cards.length; i++) {
+      if (i > 0) spaced.add(const SizedBox(width: 10));
+      spaced.add(cards[i]);
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
       decoration: const BoxDecoration(
         color: Color(0xFFF8FAFC),
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
-      child: Row(
-        children: [
-          _quickAccessCard(
-            icon: Icons.inventory_2_outlined,
-            label: 'Productcatalogus',
-            color: const Color(0xFF1565C0),
-            onTap: () => setState(() => _currentView = 'catalogus'),
-          ),
-          const SizedBox(width: 10),
-          _quickAccessCard(
-            icon: Icons.warehouse_outlined,
-            label: 'Voorraad',
-            color: const Color(0xFF2E7D32),
-            onTap: () => context.push('/dashboard/voorraad'),
-          ),
-          const SizedBox(width: 10),
-          _quickAccessCard(
-            icon: Icons.grid_view_rounded,
-            label: 'Advertenties',
-            color: const Color(0xFFE53238),
-            onTap: () => context.push('/dashboard/kanaaloverzicht'),
-          ),
-          const SizedBox(width: 10),
-          _quickAccessCard(
-            icon: Icons.people_outline_rounded,
-            label: 'Klanten',
-            color: const Color(0xFF6366F1),
-            onTap: () => context.push('/dashboard/klanten'),
-          ),
-        ],
-      ),
+      child: Row(children: spaced),
     );
   }
 
