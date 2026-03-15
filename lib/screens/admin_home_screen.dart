@@ -312,11 +312,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   SliverToBoxAdapter(child: _buildHeader(dateStr)),
                   SliverToBoxAdapter(child: _buildQuickStats()),
                   SliverToBoxAdapter(child: _buildQuickAccessBar()),
-                  if (_lowStockCount > 0 || _syncErrorCount > 0 || _shippingReadyCount > 0 || _pendingOrderCount > 0 || _lockedCount > 0)
+                  if (_lowStockCount > 0 || _syncErrorCount > 0)
                     SliverToBoxAdapter(child: _buildMeldingenSection()),
-                  if (_permissions.bestellingenVerzenden || _permissions.alleBestellingenBeheren ||
-                      _permissions.zendingenOverzicht || _permissions.statistiekenBekijken)
-                    SliverToBoxAdapter(child: _buildQuickActions()),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
                     sliver: SliverList(delegate: SliverChildListDelegate(_buildSections())),
@@ -604,14 +601,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   Widget _buildMeldingenSection() {
     final items = <Widget>[];
-    if (_shippingReadyCount > 0 && _permissions.bestellingenVerzenden) {
-      items.add(_meldingTile('Te verzenden', '$_shippingReadyCount order(s) klaar voor verzending', Icons.local_shipping_rounded, const Color(0xFF00897B),
-          onTap: () => _navigate(const AdminShippingScreen())));
-    }
-    if (_pendingOrderCount > 0 && _permissions.alleBestellingenBeheren) {
-      items.add(_meldingTile('Openstaande orders', '$_pendingOrderCount order(s) wachten op actie', Icons.pending_actions_rounded, const Color(0xFFE65100),
-          onTap: () => _navigate(const OrdersScreen(adminView: true))));
-    }
     if (_lowStockCount > 0 && _permissions.voorraadBeheren) {
       items.add(_meldingTile('Lage voorraad', '$_lowStockCount product(en) onder 5 stuks', Icons.warning_amber_rounded, const Color(0xFFF57F17),
           onTap: () => context.push('/dashboard/voorraad')));
@@ -619,10 +608,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     if (_syncErrorCount > 0 && _permissions.marktplaatsKoppelingen) {
       items.add(_meldingTile('Sync-fouten', '$_syncErrorCount sync-fout(en) op marktplaatsen', Icons.sync_problem_rounded, const Color(0xFFE53935),
           onTap: () => context.push('/dashboard/marktplaatsen')));
-    }
-    if (_lockedCount > 0 && _permissions.geblokkeerdeAccountsBeheren) {
-      items.add(_meldingTile('Geblokkeerde accounts', '$_lockedCount account(s) geblokkeerd', Icons.lock_outline_rounded, const Color(0xFFC62828),
-          onTap: () => _navigate(const AdminLockedAccountsScreen())));
     }
     if (items.isEmpty) return const SizedBox.shrink();
     return Padding(
