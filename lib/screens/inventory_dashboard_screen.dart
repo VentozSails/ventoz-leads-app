@@ -28,6 +28,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
   final UserService _uSvc = UserService();
   final TextEditingController _searchCtl = TextEditingController();
   final ScrollController _hScroll = ScrollController();
+  final ScrollController _vScroll = ScrollController();
 
   List<InventoryItem> _all = [];
   Map<String, List<InventoryItem>> _grouped = {};
@@ -47,7 +48,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
   void initState() { super.initState(); _load(); _searchCtl.addListener(_filter); }
 
   @override
-  void dispose() { _searchCtl.dispose(); _hScroll.dispose(); super.dispose(); }
+  void dispose() { _searchCtl.dispose(); _hScroll.dispose(); _vScroll.dispose(); super.dispose(); }
 
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
@@ -478,20 +479,26 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                         final availableWidth = constraints.maxWidth;
                         final effectiveWidth = availableWidth > _tableWidth ? availableWidth : _tableWidth;
                         return Scrollbar(
-                          controller: _hScroll, thumbVisibility: true,
-                          child: SingleChildScrollView(
-                            controller: _hScroll, scrollDirection: Axis.horizontal,
-                            child: SizedBox(width: effectiveWidth, child: Column(children: [
-                              _buildColHdr(),
-                              Expanded(child: RefreshIndicator(onRefresh: _load, child: ListView.builder(
-                                itemCount: _filtered.length + 1,
-                                itemBuilder: (_, i) {
-                                  if (i >= _filtered.length) return const SizedBox(height: 60);
-                                  final e = _filtered[i];
-                                  return _buildGroup(e.key, e.value, i);
-                                },
-                              ))),
-                            ])),
+                          controller: _vScroll, thumbVisibility: true,
+                          notificationPredicate: (n) => n.depth == 0,
+                          child: Scrollbar(
+                            controller: _hScroll, thumbVisibility: true,
+                            notificationPredicate: (n) => n.depth == 1,
+                            child: SingleChildScrollView(
+                              controller: _hScroll, scrollDirection: Axis.horizontal,
+                              child: SizedBox(width: effectiveWidth, child: Column(children: [
+                                _buildColHdr(),
+                                Expanded(child: RefreshIndicator(onRefresh: _load, child: ListView.builder(
+                                  controller: _vScroll,
+                                  itemCount: _filtered.length + 1,
+                                  itemBuilder: (_, i) {
+                                    if (i >= _filtered.length) return const SizedBox(height: 60);
+                                    final e = _filtered[i];
+                                    return _buildGroup(e.key, e.value, i);
+                                  },
+                                ))),
+                              ])),
+                            ),
                           ),
                         );
                       },
@@ -856,10 +863,25 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
   }
 
   // ── Product Group ──
+  void _showVeOrderDetail(String veCode) {
+    showDialog(
+      context: context,
+      builder: (_) => _VeOrderDetailDialog(veCode: veCode),
+    );
+  }
+
+  String _gEan(List<InventoryItem> ii) {
+    for (final i in ii) {
+      if (i.eanCode != null && i.eanCode!.trim().isNotEmpty) return i.eanCode!.trim();
+    }
+    return '';
+  }
+
   Widget _buildGroup(String key, List<InventoryItem> items, int idx) {
     final name = _gName(key, items); final cat = _gCat(items); final total = _gStk(items);
     final besteld = _gBest(items); final cost = _gCost(items); final open = !_collapsed.contains(key);
     final clr = _gColor(items); final wStk = items.where((i) => i.voorraadActueel > 0).length;
+    final ean = _gEan(items);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       InkWell(
         onTap: () { setState(() { open ? _collapsed.add(key) : _collapsed.remove(key); }); },
@@ -874,7 +896,15 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
               decoration: BoxDecoration(color: const Color(0xFF2E7D32).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(2)),
               child: Text(cat, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Color(0xFF2E7D32)))),
             const SizedBox(width: 4),
-            Expanded(child: Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)))),
+            Expanded(child: Row(children: [
+              Flexible(child: Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)), overflow: TextOverflow.ellipsis)),
+              if (ean.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(3)),
+                  child: Text(ean, style: const TextStyle(fontSize: 9, fontFamily: 'monospace', color: Color(0xFF64748B), fontWeight: FontWeight.w500))),
+              ],
+            ])),
             Text('$wStk/${items.length}', style: TextStyle(fontSize: 8, color: Colors.black.withValues(alpha: 0.35))),
             const SizedBox(width: 4),
             if (besteld > 0) Container(margin: const EdgeInsets.only(right: 4), padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
@@ -960,8 +990,14 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
           _eurCell(it.verkoopprijsExcl, 56, tc),
           SizedBox(width: 46, child: Text(it.marge != null ? '${(it.marge! * 100).toStringAsFixed(0)}%' : '', textAlign: TextAlign.right, style: TextStyle(fontSize: 9, color: tc))),
           SizedBox(width: 20, child: _vIcon(it.vervoerMethode, !has)),
-          SizedBox(width: 70, child: Text(it.leverancierCode ?? '', textAlign: TextAlign.right,
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: has ? _navy : const Color(0xFFCCCCCC), fontFamily: 'monospace'))),
+          SizedBox(width: 70, child: it.leverancierCode != null && it.leverancierCode!.isNotEmpty
+            ? InkWell(
+                onTap: () => _showVeOrderDetail(it.leverancierCode!),
+                child: Tooltip(message: 'Toon alle regels voor ${it.leverancierCode}',
+                  child: Text(it.leverancierCode!, textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: has ? const Color(0xFF1565C0) : const Color(0xFFCCCCCC), fontFamily: 'monospace',
+                      decoration: has ? TextDecoration.underline : null, decorationColor: const Color(0xFF1565C0)))))
+            : const SizedBox.shrink()),
           const SizedBox(width: 8),
         ]),
       ),
@@ -998,4 +1034,176 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       _ => Tooltip(message: m, child: Icon(Icons.local_shipping_outlined, size: 10, color: c)),
     };
   }
+}
+
+// ── VE Order Detail Dialog ──
+
+class _VeOrderDetailDialog extends StatefulWidget {
+  final String veCode;
+  const _VeOrderDetailDialog({required this.veCode});
+  @override
+  State<_VeOrderDetailDialog> createState() => _VeOrderDetailDialogState();
+}
+
+class _VeOrderDetailDialogState extends State<_VeOrderDetailDialog> {
+  static const _navy = Color(0xFF1E3A5F);
+  List<InventoryItem>? _items;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    try {
+      final items = await InventoryService().getByLeverancierCode(widget.veCode);
+      if (mounted) setState(() { _items = items; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = '$e'; _loading = false; });
+    }
+  }
+
+  String _eur(double v) => '€${v.toStringAsFixed(2).replaceAll('.', ',')}';
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      titlePadding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+      title: Row(children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(color: _navy, borderRadius: BorderRadius.circular(6)),
+          child: Text(widget.veCode, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white, fontFamily: 'monospace')),
+        ),
+        const SizedBox(width: 10),
+        const Expanded(child: Text('Orderregels', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700))),
+        IconButton(icon: const Icon(Icons.close, size: 18), onPressed: () => Navigator.pop(context)),
+      ]),
+      content: SizedBox(
+        width: 780,
+        height: 420,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(child: Text('Fout: $_error'))
+                : _items == null || _items!.isEmpty
+                    ? const Center(child: Text('Geen regels gevonden.'))
+                    : _buildContent(),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    final items = _items!;
+    final active = items.where((i) => !i.isArchived).toList();
+    final archived = items.where((i) => i.isArchived).toList();
+    final totalStock = items.fold(0, (s, i) => s + i.voorraadActueel);
+    final totalCost = items.fold(0.0, (s, i) => s + ((i.inkoopPrijs ?? 0) * i.voorraadActueel));
+    final totalSale = items.fold(0.0, (s, i) => s + ((i.verkoopprijsIncl ?? 0) * i.voorraadActueel));
+    final firstDate = items.map((i) => i.laatstBijgewerkt).whereType<DateTime>().fold<DateTime?>(null, (prev, d) => prev == null || d.isBefore(prev) ? d : prev);
+    final lastDate = items.map((i) => i.laatstBijgewerkt).whereType<DateTime>().fold<DateTime?>(null, (prev, d) => prev == null || d.isAfter(prev) ? d : prev);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: const Color(0xFFF0F9FF), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFBFDBFE))),
+        child: Row(children: [
+          _summaryChip('${items.length}', 'regels totaal', const Color(0xFF1565C0)),
+          const SizedBox(width: 8),
+          _summaryChip('${active.length}', 'actief', const Color(0xFF2E7D32)),
+          const SizedBox(width: 8),
+          _summaryChip('${archived.length}', 'gearchiveerd', const Color(0xFF6B7280)),
+          const SizedBox(width: 8),
+          _summaryChip('$totalStock', 'op voorraad', totalStock > 0 ? const Color(0xFF2E7D32) : const Color(0xFFEF4444)),
+          const Spacer(),
+          if (totalCost > 0) Text('Inkoop ${_eur(totalCost)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF6B7280))),
+          if (totalSale > 0) ...[const SizedBox(width: 8), Text('Verkoop ${_eur(totalSale)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32)))],
+        ]),
+      ),
+      if (firstDate != null || lastDate != null) Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(
+          [
+            if (firstDate != null) 'Eerste: ${_fmtDate(firstDate)}',
+            if (lastDate != null) 'Laatste: ${_fmtDate(lastDate)}',
+          ].join('  ·  '),
+          style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+        ),
+      ),
+      const SizedBox(height: 10),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        color: _navy,
+        child: const Row(children: [
+          SizedBox(width: 140, child: Text('Product', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white))),
+          SizedBox(width: 80, child: Text('Kleur', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white))),
+          SizedBox(width: 30, child: Text('Art.', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white), textAlign: TextAlign.center)),
+          SizedBox(width: 100, child: Text('EAN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white))),
+          SizedBox(width: 40, child: Text('Vrrd', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white), textAlign: TextAlign.right)),
+          SizedBox(width: 60, child: Text('Inkoop', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white), textAlign: TextAlign.right)),
+          SizedBox(width: 60, child: Text('Vk.Incl', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white), textAlign: TextAlign.right)),
+          SizedBox(width: 50, child: Text('Marge', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white), textAlign: TextAlign.right)),
+          SizedBox(width: 70, child: Text('Bijgewerkt', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white), textAlign: TextAlign.right)),
+          SizedBox(width: 55, child: Text('Status', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white), textAlign: TextAlign.center)),
+        ]),
+      ),
+      Expanded(
+        child: Scrollbar(
+          thumbVisibility: true,
+          child: ListView.builder(
+            itemCount: items.length,
+            itemBuilder: (_, i) {
+              final it = items[i];
+              final has = it.voorraadActueel > 0;
+              final bg = it.isArchived
+                  ? const Color(0xFFF5F5F5)
+                  : has
+                      ? (i.isEven ? const Color(0xFFF1F8E9) : const Color(0xFFE8F5E9))
+                      : (i.isEven ? Colors.white : const Color(0xFFFAFAFA));
+              final tc = it.isArchived ? const Color(0xFFAAAAAA) : (has ? const Color(0xFF1A1A1A) : const Color(0xFFAAAAAA));
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: bg, border: Border(bottom: BorderSide(color: const Color(0xFFE5E7EB).withValues(alpha: 0.5)))),
+                child: Row(children: [
+                  SizedBox(width: 140, child: Text(it.variantLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: tc), overflow: TextOverflow.ellipsis)),
+                  SizedBox(width: 80, child: Text(it.kleur, style: TextStyle(fontSize: 10, color: tc), overflow: TextOverflow.ellipsis)),
+                  SizedBox(width: 30, child: Text(it.artikelnummer ?? '', textAlign: TextAlign.center, style: TextStyle(fontSize: 9, color: tc))),
+                  SizedBox(width: 100, child: Text(it.eanCode ?? '', style: TextStyle(fontSize: 9, color: tc.withValues(alpha: 0.7), fontFamily: 'monospace'))),
+                  SizedBox(width: 40, child: Text('${it.voorraadActueel}', textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: has ? const Color(0xFF2E7D32) : const Color(0xFFEF4444)))),
+                  SizedBox(width: 60, child: Text(it.inkoopPrijs != null ? _eur(it.inkoopPrijs!) : '', textAlign: TextAlign.right, style: TextStyle(fontSize: 9, color: tc))),
+                  SizedBox(width: 60, child: Text(it.verkoopprijsIncl != null ? _eur(it.verkoopprijsIncl!) : '', textAlign: TextAlign.right, style: TextStyle(fontSize: 9, color: tc))),
+                  SizedBox(width: 50, child: Text(it.marge != null ? '${(it.marge! * 100).toStringAsFixed(0)}%' : '', textAlign: TextAlign.right, style: TextStyle(fontSize: 9, color: tc))),
+                  SizedBox(width: 70, child: Text(it.laatstBijgewerkt != null ? _fmtDate(it.laatstBijgewerkt!) : '', textAlign: TextAlign.right, style: TextStyle(fontSize: 8, color: tc.withValues(alpha: 0.6)))),
+                  SizedBox(width: 55, child: Center(child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: it.isArchived ? const Color(0xFF9E9E9E).withValues(alpha: 0.15) : const Color(0xFF2E7D32).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(3)),
+                    child: Text(it.isArchived ? 'Archief' : 'Actief',
+                      style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: it.isArchived ? const Color(0xFF757575) : const Color(0xFF2E7D32))),
+                  ))),
+                ]),
+              );
+            },
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _summaryChip(String value, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: color)),
+        const SizedBox(width: 3),
+        Text(label, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.8))),
+      ]),
+    );
+  }
+
+  String _fmtDate(DateTime d) => '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
 }

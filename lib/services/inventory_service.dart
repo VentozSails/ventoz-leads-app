@@ -472,6 +472,22 @@ class InventoryService {
     }
   }
 
+  Future<List<InventoryItem>> getByLeverancierCode(String code) async {
+    try {
+      final List<dynamic> rows = await _client
+          .from('inventory_items')
+          .select()
+          .eq('leverancier_code', code)
+          .order('is_archived', ascending: true)
+          .order('variant_label', ascending: true)
+          .order('kleur', ascending: true);
+      return rows.cast<Map<String, dynamic>>().map(InventoryItem.fromJson).toList();
+    } catch (e) {
+      if (kDebugMode) debugPrint('InventoryService.getByLeverancierCode error: $e');
+      return [];
+    }
+  }
+
   Future<InventoryItem?> getById(int id) async {
     try {
       final row = await _client
