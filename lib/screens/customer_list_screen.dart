@@ -359,7 +359,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     _ColDef('land', 'Land'),
     _ColDef('telefoon', 'Telefoon'),
     _ColDef('omzet', 'Omzet'),
-    _ColDef('facturen', 'Facturen'),
+    _ColDef('facturen', 'Factuurnr'),
     _ColDef('laatste_factuur', 'Laatste factuur'),
     _ColDef('type', 'Type'),
   ];
@@ -422,7 +422,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     'land':           _Col('Land', 50, sortKey: 'land_code'),
     'telefoon':       _Col('Telefoon', 110),
     'omzet':          _Col('Omzet', 100, sortKey: 'totale_omzet'),
-    'facturen':       _Col('Facturen', 110, sortKey: 'aantal_facturen'),
+    'facturen':       _Col('Factuurnr', 120, sortKey: 'aantal_facturen'),
     'laatste_factuur': _Col('Laatste factuur', 105, sortKey: 'laatste_factuur_datum'),
     'type':           _Col('Particulier / Zakelijk', 105),
   };
@@ -502,15 +502,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     return switch (colLabel) {
       'Naam' => Text(c.displayNaam, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: _navy), overflow: TextOverflow.ellipsis),
       'Particulier / Zakelijk' => _typeBadge(c.isZakelijk),
-      'Klantnr' => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(c.snelstartKlantcode ?? c.klantnummer, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF475569)), overflow: TextOverflow.ellipsis),
-          if (c.snelstartKlantcode != null && c.klantnummer.isNotEmpty)
-            Text(c.klantnummer, style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8)), overflow: TextOverflow.ellipsis),
-        ],
-      ),
+      'Klantnr' => _klantnrCell(c),
       'E-mail' => Text(c.email.startsWith('noemail_') ? '-' : c.email, style: s11, overflow: TextOverflow.ellipsis),
       'Adres' => Text(c.adres ?? '-', style: s11, overflow: TextOverflow.ellipsis),
       'Postcode' => Text(c.postcode ?? '-', style: s11, overflow: TextOverflow.ellipsis),
@@ -518,7 +510,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
       'Land' => _landBadge(c.landCode),
       'Telefoon' => Text(c.telefoon ?? c.mobiel ?? '-', style: s11, overflow: TextOverflow.ellipsis),
       'Omzet' => Text(_fmtOmzet(c.totaleOmzet), style: GoogleFonts.dmSans(fontSize: 11, fontWeight: c.totaleOmzet > 1000 ? FontWeight.w700 : FontWeight.w400, color: c.totaleOmzet > 1000 ? _green : const Color(0xFF64748B)), textAlign: TextAlign.right, overflow: TextOverflow.ellipsis),
-      'Facturen' => _factuurCell(c),
+      'Factuurnr' => _factuurCell(c),
       'Laatste factuur' => Text(_fmtDate(c.laatsteFactuurDatum), style: s11),
       _ => null,
     };
@@ -526,20 +518,46 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
 
   Widget _factuurCell(Customer c) {
     if (c.factuurNummers.isEmpty) {
-      return Text(c.aantalFacturen > 0 ? '${c.aantalFacturen}' : '-',
-          style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF64748B)), textAlign: TextAlign.center);
+      return Text('-', style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF94A3B8)));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        ...c.factuurNummers.take(3).map((nr) => InkWell(
+        ...c.factuurNummers.take(5).map((nr) => InkWell(
           onTap: () => _openInvoice(nr, c),
-          child: Text(nr, style: GoogleFonts.dmSans(fontSize: 10, color: _accent, decoration: TextDecoration.underline, fontWeight: FontWeight.w600)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 1),
+            child: Text(nr, style: GoogleFonts.dmSans(fontSize: 10, color: _accent, decoration: TextDecoration.underline, fontWeight: FontWeight.w600)),
+          ),
         )),
-        if (c.factuurNummers.length > 3)
-          Text('+${c.factuurNummers.length - 3}', style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8))),
+        if (c.factuurNummers.length > 5)
+          Text('+${c.factuurNummers.length - 5}', style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8))),
+      ],
+    );
+  }
+
+  Widget _klantnrCell(Customer c) {
+    final codes = <String>[];
+    if (c.snelstartKlantcode != null && c.snelstartKlantcode!.isNotEmpty) {
+      codes.add(c.snelstartKlantcode!);
+    }
+    for (final alias in c.klantcodeAliases) {
+      if (alias.isNotEmpty && !codes.contains(alias)) codes.add(alias);
+    }
+    if (codes.isEmpty && c.klantnummer.isNotEmpty) {
+      codes.add(c.klantnummer);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(codes.first, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF475569)), overflow: TextOverflow.ellipsis),
+        for (final extra in codes.skip(1))
+          Text(extra, style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8)), overflow: TextOverflow.ellipsis),
       ],
     );
   }

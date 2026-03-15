@@ -47,6 +47,10 @@ class CatalogProduct {
   final Map<String, String> translatedNames;
   final Map<String, String> translatedDescriptions;
 
+  /// Translated spec values keyed by language, then spec field.
+  /// e.g. {'de': {'materiaal': 'starkes Dacron...', 'inclusief': '...'}, ...}
+  final Map<String, Map<String, String>> translatedSpecs;
+
   static const _allLangs = [
     'ar', 'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fi',
     'fr', 'ga', 'hr', 'hu', 'it', 'lt', 'lv', 'mt', 'pl', 'pt',
@@ -88,6 +92,7 @@ class CatalogProduct {
     this.afbeeldingUrlOverride,
     this.translatedNames = const {},
     this.translatedDescriptions = const {},
+    this.translatedSpecs = const {},
   });
 
   factory CatalogProduct.fromJson(Map<String, dynamic> json) {
@@ -104,6 +109,19 @@ class CatalogProduct {
       if (n != null && n.isNotEmpty) names[lang] = n;
       final d = json['beschrijving_$lang'] as String?;
       if (d != null && d.isNotEmpty) descs[lang] = d;
+    }
+
+    final specs = <String, Map<String, String>>{};
+    final rawSpecs = json['translated_specs'];
+    if (rawSpecs is Map) {
+      for (final entry in rawSpecs.entries) {
+        final lang = entry.key as String;
+        if (entry.value is Map) {
+          specs[lang] = (entry.value as Map).map(
+            (k, v) => MapEntry(k.toString(), v.toString()),
+          );
+        }
+      }
     }
 
     return CatalogProduct(
@@ -149,6 +167,7 @@ class CatalogProduct {
       afbeeldingUrlOverride: json['afbeelding_url_override'] as String?,
       translatedNames: names,
       translatedDescriptions: descs,
+      translatedSpecs: specs,
     );
   }
 
@@ -186,6 +205,9 @@ class CatalogProduct {
     for (final entry in translatedDescriptions.entries) {
       map['beschrijving_${entry.key}'] = entry.value;
     }
+    if (translatedSpecs.isNotEmpty) {
+      map['translated_specs'] = translatedSpecs;
+    }
     return map;
   }
 
@@ -222,6 +244,23 @@ class CatalogProduct {
       prijsOverride != null || afbeeldingUrlOverride != null;
 
   String naamForLang(String lang) => translatedNames[lang] ?? displayNaam;
+
+  /// Returns the spec value for the given field in the requested language,
+  /// falling back to the Dutch source value.
+  String? specForLang(String field, String lang) {
+    if (lang == 'nl') return _nlSpecValue(field);
+    final translated = translatedSpecs[lang]?[field];
+    if (translated != null && translated.isNotEmpty) return translated;
+    return _nlSpecValue(field);
+  }
+
+  String? _nlSpecValue(String field) {
+    switch (field) {
+      case 'materiaal': return materiaal;
+      case 'inclusief': return inclusief;
+      default: return null;
+    }
+  }
 
   String? beschrijvingForLang(String lang) {
     if (lang == 'nl') return displayBeschrijving;

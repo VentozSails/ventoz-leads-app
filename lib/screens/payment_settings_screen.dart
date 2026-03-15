@@ -146,9 +146,11 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
     if (error.contains('SocketException')) return 'Netwerk onbereikbaar. Controleer je internetverbinding.';
     if (error.contains('HandshakeException')) return 'SSL/TLS-fout. Mogelijk blokkeert een firewall of proxy de verbinding.';
     if (error.contains('TimeoutException') || error.contains('timed out')) return 'Verbinding verlopen. Server reageert niet.';
-    if (error.contains('ClientException')) return 'HTTP-fout. Controleer je internetverbinding.';
     if (error.contains('CERTIFICATE_VERIFY_FAILED')) return 'SSL-certificaat ongeldig. Mogelijk zit je achter een proxy.';
-    return error.length > 80 ? '${error.substring(0, 80)}...' : error;
+    if (error.contains('HTTP 401') || error.contains('HTTP 403')) return 'Authenticatie mislukt. Controleer je API-sleutels.';
+    if (error.contains('ClientException')) return 'Verbinding mislukt. Controleer je internetverbinding en API-gegevens.';
+    if (error.contains('FormatException')) return 'Ongeldig antwoord van de server. Mogelijk zijn je gegevens onjuist.';
+    return error.length > 120 ? '${error.substring(0, 120)}...' : error;
   }
 
   @override

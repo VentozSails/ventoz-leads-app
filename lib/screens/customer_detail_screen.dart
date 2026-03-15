@@ -75,7 +75,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     List<Order> orders = [];
     try {
       final allOrders = await _orderService.fetchOrders(adminView: true);
-      orders = allOrders.where((o) => o.userEmail.toLowerCase() == customer.email.toLowerCase()).toList();
+      final email = customer.email.toLowerCase();
+      final id = customer.id;
+      orders = allOrders.where((o) =>
+        o.userEmail.toLowerCase() == email ||
+        (id != null && o.klantId == id)
+      ).toList();
     } catch (_) {}
 
     if (!mounted) return;
@@ -159,6 +164,73 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _confirmDeleteCustomer() async {
+    final naam = _customer!.displayNaam;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(children: [
+          const Icon(Icons.warning_amber_rounded, size: 22, color: Color(0xFFE53935)),
+          const SizedBox(width: 8),
+          const Text('Klant wissen'),
+        ]),
+        content: SizedBox(
+          width: 400,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(
+              'Weet je zeker dat je "$naam" wilt verwijderen?',
+              style: GoogleFonts.dmSans(fontSize: 14, color: _navy),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFEBEE),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE53935).withValues(alpha: 0.3)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.info_outline, size: 16, color: Color(0xFFE53935)),
+                const SizedBox(width: 8),
+                Expanded(child: Text(
+                  'Alle klantgegevens, externe nummers en koppelingen worden permanent verwijderd. Orders blijven bewaard.',
+                  style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFFE53935)),
+                )),
+              ]),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuleren')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE53935), foregroundColor: Colors.white),
+            child: const Text('Definitief wissen'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _service.delete(_customer!.id!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"$naam" is verwijderd'), backgroundColor: const Color(0xFF2E7D32)),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fout bij verwijderen: $e'), backgroundColor: const Color(0xFFE53935)),
+        );
+      }
     }
   }
 
@@ -288,7 +360,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     _buildExternalsCard(),
                     const SizedBox(height: 16),
                     _buildOrderHistoryCard(),
-                    if (_customer!.klantcodeAliases.isNotEmpty) ...[
+                    if (_customer!.klantcodeAliases.isNotEmpty || _customer!.snelstartKlantcode != null) ...[
                       const SizedBox(height: 16),
                       _buildAliasesCard(),
                     ],
@@ -312,6 +384,22 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                           : Text(_isNew ? 'Klant aanmaken' : 'Opslaan', style: const TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ),
+                  if (!_isNew && _customer != null) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 44,
+                      child: OutlinedButton.icon(
+                        onPressed: _confirmDeleteCustomer,
+                        icon: const Icon(Icons.delete_forever_outlined, size: 18),
+                        label: const Text('Klant wissen'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFE53935),
+                          side: const BorderSide(color: Color(0xFFE53935)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -320,11 +408,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
   Widget _buildStatsRow() {
     final c = _customer!;
+    final invoiceCount = _orders.where((o) => o.factuurNummer != null && o.factuurNummer!.isNotEmpty).length;
+    final displayCount = invoiceCount > 0 ? invoiceCount : c.aantalFacturen;
     return Row(
       children: [
         _statCard(Icons.euro_rounded, _fmtOmzet(c.totaleOmzet), 'Totale omzet', _green),
         const SizedBox(width: 10),
-        _statCard(Icons.receipt_long_rounded, '${c.aantalFacturen}', 'Facturen', _accent),
+        _statCard(Icons.receipt_long_rounded, '$displayCount', 'Facturen', _accent),
         const SizedBox(width: 10),
         _statCard(Icons.calendar_today_rounded, _fmtDate(c.eersteFactuurDatum), 'Eerste', const Color(0xFF64748B)),
         const SizedBox(width: 10),
@@ -847,6 +937,14 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   }
 
   Widget _buildAliasesCard() {
+    final allCodes = <String>[];
+    if (_customer!.snelstartKlantcode != null && _customer!.snelstartKlantcode!.isNotEmpty) {
+      allCodes.add(_customer!.snelstartKlantcode!);
+    }
+    for (final alias in _customer!.klantcodeAliases) {
+      if (alias.isNotEmpty && !allCodes.contains(alias)) allCodes.add(alias);
+    }
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: _border)),
@@ -855,23 +953,35 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Samengevoegde klantnummers', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700, color: _navy)),
+            Text('Snelstart klantnummers', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700, color: _navy)),
             const SizedBox(height: 8),
             Text(
-              'Deze klant had meerdere Snelstart-klantcodes die zijn samengevoegd:',
+              'Alle Snelstart-klantcodes gekoppeld aan deze klant (primair + samengevoegd):',
               style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF64748B)),
             ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
               runSpacing: 4,
-              children: _customer!.klantcodeAliases.map((code) => Chip(
-                label: Text(code, style: GoogleFonts.dmSans(fontSize: 11)),
-                backgroundColor: const Color(0xFFFEF3C7),
-                side: BorderSide.none,
-                padding: EdgeInsets.zero,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              )).toList(),
+              children: allCodes.asMap().entries.map((entry) {
+                final isPrimary = entry.key == 0;
+                return Chip(
+                  avatar: isPrimary ? const Icon(Icons.star, size: 14, color: Color(0xFF92400E)) : null,
+                  label: Text(
+                    entry.value,
+                    style: GoogleFonts.dmSans(fontSize: 11, fontWeight: isPrimary ? FontWeight.w700 : FontWeight.w500),
+                  ),
+                  backgroundColor: isPrimary ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
+                  side: BorderSide.none,
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Deze nummers worden door Snelstart beheerd en zijn niet aanpasbaar via de app.',
+              style: GoogleFonts.dmSans(fontSize: 11, fontStyle: FontStyle.italic, color: const Color(0xFF94A3B8)),
             ),
           ],
         ),

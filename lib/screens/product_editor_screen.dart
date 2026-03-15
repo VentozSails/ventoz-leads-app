@@ -24,6 +24,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
   CatalogProduct? _selectedProduct;
   bool _loading = true;
   bool _saving = false;
+  bool _translatingSpecs = false;
   String _searchQuery = '';
 
   final _naamCtrl = TextEditingController();
@@ -164,6 +165,8 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
 
     setState(() => _saving = true);
     try {
+      final materiaalVal = _materiaalCtrl.text.trim().isEmpty ? null : _materiaalCtrl.text.trim();
+      final inclusiefVal = _inclusiefCtrl.text.trim().isEmpty ? null : _inclusiefCtrl.text.trim();
       final overrides = <String, dynamic>{
         'naam_override': _naamCtrl.text.trim().isEmpty ? null : _naamCtrl.text.trim(),
         'beschrijving_override': _beschrijvingCtrl.text.trim().isEmpty ? null : _beschrijvingCtrl.text.trim(),
@@ -172,17 +175,29 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
         'seo_title': _seoTitleCtrl.text.trim().isEmpty ? null : _seoTitleCtrl.text.trim(),
         'seo_description': _seoDescCtrl.text.trim().isEmpty ? null : _seoDescCtrl.text.trim(),
         'seo_keywords': _seoKeywordsCtrl.text.trim().isEmpty ? null : _seoKeywordsCtrl.text.trim(),
-        'materiaal': _materiaalCtrl.text.trim().isEmpty ? null : _materiaalCtrl.text.trim(),
+        'materiaal': materiaalVal,
         'luff': _luffCtrl.text.trim().isEmpty ? null : _luffCtrl.text.trim(),
         'foot': _footCtrl.text.trim().isEmpty ? null : _footCtrl.text.trim(),
         'sail_area': _sailAreaCtrl.text.trim().isEmpty ? null : _sailAreaCtrl.text.trim(),
-        'inclusief': _inclusiefCtrl.text.trim().isEmpty ? null : _inclusiefCtrl.text.trim(),
+        'inclusief': inclusiefVal,
       };
       await _scraperService.updateProductOverrides(product.id!, overrides);
 
+      final specChanged = materiaalVal != product.materiaal || inclusiefVal != product.inclusief;
+      if (specChanged && (materiaalVal != null || inclusiefVal != null)) {
+        _scraperService.translateProductSpecs(
+          product.id!,
+          materiaal: materiaalVal,
+          inclusief: inclusiefVal,
+        );
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Wijzigingen opgeslagen'), backgroundColor: Color(0xFF2E7D32)),
+          SnackBar(
+            content: Text(specChanged ? 'Opgeslagen – specificaties worden vertaald...' : 'Wijzigingen opgeslagen'),
+            backgroundColor: const Color(0xFF2E7D32),
+          ),
         );
         await _loadProducts();
         final updated = _products.firstWhere((p) => p.id == product.id, orElse: () => product);
@@ -197,6 +212,45 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _translateSpecs() async {
+    final product = _selectedProduct;
+    if (product == null || product.id == null) return;
+
+    final materiaal = _materiaalCtrl.text.trim();
+    final inclusief = _inclusiefCtrl.text.trim();
+    if (materiaal.isEmpty && inclusief.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Geen specificatieteksten om te vertalen'), backgroundColor: Color(0xFFEF4444)),
+        );
+      }
+      return;
+    }
+
+    setState(() => _translatingSpecs = true);
+    try {
+      await _scraperService.translateProductSpecs(
+        product.id!,
+        materiaal: materiaal.isEmpty ? null : materiaal,
+        inclusief: inclusief.isEmpty ? null : inclusief,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Specificaties vertaald naar alle talen'), backgroundColor: Color(0xFF2E7D32)),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('Error translating specs: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vertaling mislukt'), backgroundColor: Color(0xFFE53935)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _translatingSpecs = false);
     }
   }
 
@@ -762,10 +816,24 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
                     Text('Specificaties', style: GoogleFonts.dmSans(
                       fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF1565C0),
                     )),
+                    const Spacer(),
+                    if (_selectedProduct != null && _selectedProduct!.id != null)
+                      TextButton.icon(
+                        onPressed: _translatingSpecs ? null : _translateSpecs,
+                        icon: _translatingSpecs
+                            ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.translate, size: 14),
+                        label: Text(_translatingSpecs ? 'Vertalen...' : 'Vertaal specificaties',
+                          style: const TextStyle(fontSize: 11)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF1565C0),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('Worden getoond op de productpagina', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                Text('Worden getoond op de productpagina (teksten worden bij opslaan automatisch vertaald)', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
                 const SizedBox(height: 12),
                 _buildSpecField('Materiaal', _materiaalCtrl, hint: 'bijv. sterk dacron (3.8 oz Newport by Challenge)'),
                 const SizedBox(height: 10),

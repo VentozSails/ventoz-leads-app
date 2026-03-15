@@ -384,9 +384,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (p.luff != null && p.luff!.isNotEmpty) specs[_l.t('voorlijk')] = p.luff!;
     if (p.foot != null && p.foot!.isNotEmpty) specs[_l.t('onderlijk')] = p.foot!;
     if (p.sailArea != null && p.sailArea!.isNotEmpty) specs[_l.t('oppervlakte')] = p.sailArea!;
-    if (p.materiaal != null && p.materiaal!.isNotEmpty) specs[_l.t('materiaal')] = p.materiaal!;
+    final matVal = p.specForLang('materiaal', _lang);
+    if (matVal != null && matVal.isNotEmpty) specs[_l.t('materiaal')] = matVal;
     if (p.gewicht != null) specs[_l.t('gewicht')] = '${p.gewicht} kg';
-    if (p.inclusief != null && p.inclusief!.isNotEmpty) specs[_l.t('inclusief')] = p.inclusief!;
+    final inclVal = p.specForLang('inclusief', _lang);
+    if (inclVal != null && inclVal.isNotEmpty) specs[_l.t('inclusief')] = inclVal;
 
     if (p.specsTabel != null) {
       for (final entry in p.specsTabel!.entries) {

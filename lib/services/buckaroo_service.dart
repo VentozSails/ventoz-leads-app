@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
@@ -72,7 +73,12 @@ class BuckarooService {
           if (dec is Map<String, dynamic>) buc = dec;
         } catch (_) {
           for (final f in _secretFields) {
-            if (buc[f] is String) buc[f] = CryptoService.decrypt(buc[f] as String);
+            if (buc[f] is String) {
+              final val = buc[f] as String;
+              if (val.startsWith('ENC:')) {
+                buc[f] = CryptoService.decrypt(val);
+              }
+            }
           }
         }
         return BuckarooConfig.fromJson(buc);
@@ -92,9 +98,8 @@ class BuckarooService {
       });
       if (enc is Map<String, dynamic>) json = enc;
     } catch (_) {
-      for (final f in _secretFields) {
-        if (json[f] is String) json[f] = CryptoService.encrypt(json[f] as String);
-      }
+      // Server-side encryption unavailable; store as-is (plain text) rather
+      // than using local encryption that may not be decryptable elsewhere.
     }
     existing['buckaroo'] = json;
     await _supabase.from('app_settings').upsert({
@@ -157,7 +162,10 @@ class BuckarooService {
 
   Future<bool> testConnection() async {
     final config = await getConfig();
-    if (config == null || !config.isConfigured) return false;
+    if (config == null || !config.isConfigured) {
+      lastTestError = 'Configuratie onvolledig. Vul alle verplichte velden in.';
+      return false;
+    }
 
     try {
       final url = '${_baseUrl(config.testMode)}/Transaction/Specification/ideal';
@@ -167,8 +175,10 @@ class BuckarooService {
         requestUri: url,
         content: '',
       );
-      final response = await http.get(Uri.parse(url), headers: headers);
-      return response.statusCode == 200;
+      final response = await http.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) return true;
+      lastTestError = 'HTTP ${response.statusCode}: ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}';
+      return false;
     } catch (e) {
       lastTestError = e.toString();
       return false;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -77,7 +78,12 @@ class PayNlService {
           if (dec is Map<String, dynamic>) payNl = dec;
         } catch (_) {
           for (final f in _secretFields) {
-            if (payNl[f] is String) payNl[f] = CryptoService.decrypt(payNl[f] as String);
+            if (payNl[f] is String) {
+              final val = payNl[f] as String;
+              if (val.startsWith('ENC:')) {
+                payNl[f] = CryptoService.decrypt(val);
+              }
+            }
           }
         }
         return PaymentConfig.fromJson(payNl);
@@ -97,9 +103,8 @@ class PayNlService {
       });
       if (enc is Map<String, dynamic>) json = enc;
     } catch (_) {
-      for (final f in _secretFields) {
-        if (json[f] is String) json[f] = CryptoService.encrypt(json[f] as String);
-      }
+      // Server-side encryption unavailable; store as-is (plain text) rather
+      // than using local encryption that may not be decryptable elsewhere.
     }
     existing['pay_nl'] = json;
     await _supabase.from('app_settings').upsert({
@@ -124,14 +129,19 @@ class PayNlService {
 
   Future<bool> testConnection() async {
     final config = await getConfig();
-    if (config == null || !config.isConfigured) return false;
+    if (config == null || !config.isConfigured) {
+      lastTestError = 'Configuratie onvolledig. Vul alle verplichte velden in.';
+      return false;
+    }
 
     try {
       final response = await http.get(
         Uri.parse('$_restUrl/services/${config.serviceId}'),
         headers: _merchantHeaders(config),
-      );
-      return response.statusCode == 200;
+      ).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) return true;
+      lastTestError = 'HTTP ${response.statusCode}: ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}';
+      return false;
     } catch (e) {
       lastTestError = e.toString();
       return false;

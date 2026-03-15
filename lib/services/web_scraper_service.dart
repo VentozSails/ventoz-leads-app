@@ -848,6 +848,7 @@ class WebScraperService {
       'afbeelding_url_override', 'extra_afbeeldingen', 'gewicht', 'ean_code',
       'seo_title', 'seo_description', 'seo_keywords',
       'materiaal', 'luff', 'foot', 'sail_area', 'inclusief',
+      'translated_specs',
     };
     for (final entry in overrides.entries) {
       if (overrideKeys.contains(entry.key)) {
@@ -988,7 +989,7 @@ class WebScraperService {
     int translated = 0;
 
     final selectCols = [
-      'id', 'naam', 'beschrijving',
+      'id', 'naam', 'beschrijving', 'materiaal', 'inclusief', 'translated_specs',
       ...targets.map((l) => 'naam_$l'),
     ];
     final List<dynamic> rows = await _client
@@ -1007,13 +1008,24 @@ class WebScraperService {
       }
 
       // Check if any target language is missing a translation
+      bool missing = false;
       for (final lang in targets) {
         final val = row['naam_$lang'];
         if (val == null || (val as String).isEmpty) {
-          needsWork.add(row);
+          missing = true;
           break;
         }
       }
+      // Also check if translatable specs exist but translated_specs is empty
+      final mat = row['materiaal'] as String?;
+      final incl = row['inclusief'] as String?;
+      final existingSpecs = row['translated_specs'];
+      if (!missing && (mat != null && mat.isNotEmpty || incl != null && incl.isNotEmpty)) {
+        if (existingSpecs == null || (existingSpecs is Map && existingSpecs.isEmpty)) {
+          missing = true;
+        }
+      }
+      if (missing) needsWork.add(row);
     }
 
     for (var i = 0; i < needsWork.length; i++) {
@@ -1021,13 +1033,14 @@ class WebScraperService {
       final id = row['id'] as int;
       final naam = row['naam'] as String;
       final beschrijving = row['beschrijving'] as String?;
+      final materiaal = row['materiaal'] as String?;
+      final inclusief = row['inclusief'] as String?;
 
       onProgress?.call(i + 1, needsWork.length);
 
       final updates = <String, dynamic>{};
 
       for (final lang in targets) {
-        // Skip languages that already have a translation (unless forcing)
         if (!forceAll) {
           final existing = row['naam_$lang'];
           if (existing != null && (existing as String).isNotEmpty) continue;
@@ -1052,6 +1065,33 @@ class WebScraperService {
         }
       }
 
+      final hasTranslatableSpecs = (materiaal != null && materiaal.isNotEmpty) ||
+          (inclusief != null && inclusief.isNotEmpty);
+      if (hasTranslatableSpecs) {
+        final existingSpecs = row['translated_specs'];
+        final needsSpecTranslation = forceAll ||
+            existingSpecs == null ||
+            (existingSpecs is Map && existingSpecs.isEmpty);
+        if (needsSpecTranslation) {
+          final specFields = <String, String>{};
+          if (materiaal != null && materiaal.isNotEmpty) specFields['materiaal'] = materiaal;
+          if (inclusief != null && inclusief.isNotEmpty) specFields['inclusief'] = inclusief;
+
+          final translatedSpecs = <String, Map<String, String>>{};
+          for (final lang in targets) {
+            final langSpecs = <String, String>{};
+            for (final sf in specFields.entries) {
+              langSpecs[sf.key] = await translator.translate(sf.value, targetLang: lang);
+              await Future.delayed(const Duration(milliseconds: 60));
+            }
+            if (langSpecs.isNotEmpty) translatedSpecs[lang] = langSpecs;
+          }
+          if (translatedSpecs.isNotEmpty) {
+            updates['translated_specs'] = translatedSpecs;
+          }
+        }
+      }
+
       if (updates.isNotEmpty) {
         try {
           await _client.from('product_catalogus').update(updates).eq('id', id);
@@ -1063,7 +1103,10 @@ class WebScraperService {
   }
 
   /// Re-translates a specific product whose NL text has changed.
-  Future<void> retranslateProduct(int productId, String naam, String? beschrijving) async {
+  Future<void> retranslateProduct(int productId, String naam, String? beschrijving, {
+    String? materiaal,
+    String? inclusief,
+  }) async {
     final translator = TranslateService();
     final targets = TranslateService.translationTargets;
     final updates = <String, dynamic>{};
@@ -1080,6 +1123,28 @@ class WebScraperService {
           updates['beschrijving_$lang'] = await translator.translate(cleanDesc, targetLang: lang);
           await Future.delayed(const Duration(milliseconds: 60));
         }
+      }
+    }
+
+    final specFields = <String, String?>{
+      'materiaal': materiaal,
+      'inclusief': inclusief,
+    };
+    final hasSpecs = specFields.values.any((v) => v != null && v.isNotEmpty);
+    if (hasSpecs) {
+      final translatedSpecs = <String, Map<String, String>>{};
+      for (final lang in targets) {
+        final langSpecs = <String, String>{};
+        for (final entry in specFields.entries) {
+          if (entry.value != null && entry.value!.isNotEmpty) {
+            langSpecs[entry.key] = await translator.translate(entry.value!, targetLang: lang);
+            await Future.delayed(const Duration(milliseconds: 60));
+          }
+        }
+        if (langSpecs.isNotEmpty) translatedSpecs[lang] = langSpecs;
+      }
+      if (translatedSpecs.isNotEmpty) {
+        updates['translated_specs'] = translatedSpecs;
       }
     }
 
@@ -1104,7 +1169,7 @@ class WebScraperService {
     final cutoff = DateTime.now().toUtc().subtract(const Duration(hours: 1)).toIso8601String();
     final List<dynamic> recentRows = await _client
         .from('product_catalogus')
-        .select('id, naam, beschrijving, naam_de')
+        .select('id, naam, beschrijving, materiaal, inclusief, naam_de')
         .gte('laatst_bijgewerkt', cutoff)
         .not('naam_de', 'is', 'null')
         .order('id', ascending: true);
@@ -1115,6 +1180,8 @@ class WebScraperService {
       final id = row['id'] as int;
       final naam = (row['naam'] as String?) ?? '';
       final beschrijving = row['beschrijving'] as String?;
+      final materiaal = row['materiaal'] as String?;
+      final inclusief = row['inclusief'] as String?;
       if (naam.isEmpty) continue;
 
       onProgress?.call(i + 1, rows.length);
@@ -1134,12 +1201,64 @@ class WebScraperService {
         }
       }
 
+      final hasTranslatableSpecs = (materiaal != null && materiaal.isNotEmpty) ||
+          (inclusief != null && inclusief.isNotEmpty);
+      if (hasTranslatableSpecs) {
+        final specFields = <String, String>{};
+        if (materiaal != null && materiaal.isNotEmpty) specFields['materiaal'] = materiaal;
+        if (inclusief != null && inclusief.isNotEmpty) specFields['inclusief'] = inclusief;
+        final translatedSpecs = <String, Map<String, String>>{};
+        for (final lang in targets) {
+          final langSpecs = <String, String>{};
+          for (final sf in specFields.entries) {
+            langSpecs[sf.key] = await translator.translate(sf.value, targetLang: lang);
+            await Future.delayed(const Duration(milliseconds: 60));
+          }
+          if (langSpecs.isNotEmpty) translatedSpecs[lang] = langSpecs;
+        }
+        if (translatedSpecs.isNotEmpty) updates['translated_specs'] = translatedSpecs;
+      }
+
       try {
         await _client.from('product_catalogus').update(updates).eq('id', id);
         retranslated++;
       } on PostgrestException catch (_) {}
     }
     return retranslated;
+  }
+
+  /// Translates only the spec values (materiaal, inclusief) for a single product.
+  Future<void> translateProductSpecs(int productId, {
+    String? materiaal,
+    String? inclusief,
+    void Function(String lang)? onProgress,
+  }) async {
+    final specFields = <String, String>{};
+    if (materiaal != null && materiaal.isNotEmpty) specFields['materiaal'] = materiaal;
+    if (inclusief != null && inclusief.isNotEmpty) specFields['inclusief'] = inclusief;
+    if (specFields.isEmpty) return;
+
+    final translator = TranslateService();
+    final targets = TranslateService.translationTargets;
+    final translatedSpecs = <String, Map<String, String>>{};
+
+    for (final lang in targets) {
+      onProgress?.call(lang);
+      final langSpecs = <String, String>{};
+      for (final sf in specFields.entries) {
+        langSpecs[sf.key] = await translator.translate(sf.value, targetLang: lang);
+        await Future.delayed(const Duration(milliseconds: 60));
+      }
+      if (langSpecs.isNotEmpty) translatedSpecs[lang] = langSpecs;
+    }
+
+    if (translatedSpecs.isNotEmpty) {
+      try {
+        await _client.from('product_catalogus')
+            .update({'translated_specs': translatedSpecs})
+            .eq('id', productId);
+      } on PostgrestException catch (_) {}
+    }
   }
 
   /// Legacy compat

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/marketplace_listing.dart';
 import '../services/marketplace_service.dart';
+import '../services/inventory_service.dart';
+import '../services/web_scraper_service.dart';
 import '../services/user_service.dart';
 
 class ChannelMatrixScreen extends StatefulWidget {
@@ -168,6 +171,19 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
               ),
             ),
           if (_canBatchConvert) const SizedBox(width: 6),
+          OutlinedButton.icon(
+            onPressed: _showMatchReviewDialog,
+            icon: const Icon(Icons.link_rounded, size: 16),
+            label: const Text('Voorraadkoppeling'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF1565C0),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              side: const BorderSide(color: Color(0xFF42A5F5)),
+            ),
+          ),
+          const SizedBox(width: 6),
           OutlinedButton.icon(
             onPressed: _importCsv,
             icon: const Icon(Icons.upload_file_outlined, size: 16),
@@ -538,10 +554,20 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             maxLines: 1, overflow: TextOverflow.ellipsis,
           ),
         ),
-        // Voorraad
-        Center(child: _stockBadge(row.voorraad)),
-        // Eigen site prijs
-        _priceCell(row.product.displayPrijs, null, null),
+        // Voorraad (klikbaar: navigeert naar voorraadscherm)
+        Tooltip(
+          message: 'Bekijk voorraad',
+          child: InkWell(
+            onTap: () => context.push('/dashboard/voorraad'),
+            child: Container(
+              height: 38,
+              alignment: Alignment.center,
+              child: _stockBadge(row.voorraad),
+            ),
+          ),
+        ),
+        // Eigen site prijs (editable)
+        _priceCell(row.product.displayPrijs, null, () => _showSitePriceEdit(row)),
         // eBay channels
         ...SalesChannel.ebayChannels.map((ch) => _channelCell(row, ch)),
         // Bol channels
@@ -556,19 +582,45 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   Widget _priceCell(double? prijs, ListingStatus? status, VoidCallback? onTap) {
     if (prijs == null) {
-      return Container(height: 38, alignment: Alignment.center);
+      return onTap != null
+          ? Tooltip(
+              message: 'Klik om prijs in te stellen',
+              child: InkWell(
+                onTap: onTap,
+                child: Container(
+                  height: 38,
+                  alignment: Alignment.center,
+                  color: const Color(0xFFFFFDE7),
+                  child: const Icon(Icons.edit_outlined, size: 12, color: Color(0xFF94A3B8)),
+                ),
+              ),
+            )
+          : Container(height: 38, alignment: Alignment.center);
     }
     final bg = _statusBg(status);
     final fg = _statusFg(status);
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        height: 38,
-        alignment: Alignment.center,
-        color: bg,
-        child: Text(
-          prijs.toStringAsFixed(0),
-          style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
+    return Tooltip(
+      message: onTap != null ? 'Klik om prijs aan te passen' : '',
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          height: 38,
+          alignment: Alignment.center,
+          color: bg,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                prijs.toStringAsFixed(0),
+                style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
+              ),
+              if (onTap != null) ...[
+                const SizedBox(width: 2),
+                Icon(Icons.edit_outlined, size: 10, color: fg.withValues(alpha: 0.5)),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -658,6 +710,340 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
       child: Text(label, style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
     );
+  }
+
+  // ═══════════════════════════════════════════
+  // Site Price Edit (bidirectional sync via prijs_override)
+  // ═══════════════════════════════════════════
+
+  void _showSitePriceEdit(ChannelMatrixRow row) {
+    final currentPrijs = row.product.displayPrijs;
+    final ctrl = TextEditingController(text: currentPrijs?.toStringAsFixed(2) ?? '');
+    final scraperService = WebScraperService();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(children: [
+          const Icon(Icons.euro_rounded, size: 18, color: Color(0xFF0D1B2A)),
+          const SizedBox(width: 6),
+          Expanded(child: Text('Siteprijs aanpassen', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700))),
+        ]),
+        content: SizedBox(
+          width: 360,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(row.product.displayNaam, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: _navy)),
+                const SizedBox(height: 2),
+                if (row.product.artikelnummer != null)
+                  Text('Art: ${row.product.artikelnummer}', style: GoogleFonts.sourceCodePro(fontSize: 10, color: const Color(0xFF64748B))),
+              ]),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Verkoopprijs (EUR)',
+                border: OutlineInputBorder(),
+                isDense: true,
+                prefixText: '€ ',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.,]'))],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.3)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.sync_rounded, size: 14, color: Color(0xFF1D4ED8)),
+                const SizedBox(width: 6),
+                Expanded(child: Text(
+                  'Wijziging wordt automatisch doorgevoerd in de productcatalogus en het overzicht.',
+                  style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF1D4ED8)),
+                )),
+              ]),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuleren')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final newPrijs = double.tryParse(ctrl.text.replaceAll(',', '.'));
+              if (newPrijs == null || newPrijs < 0) return;
+              if (row.product.id == null) return;
+              try {
+                await scraperService.updateProductOverrides(row.product.id!, {'prijs_override': newPrijs});
+                _load();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Siteprijs van "${row.product.displayNaam}" bijgewerkt naar €${newPrijs.toStringAsFixed(2)}'),
+                    backgroundColor: const Color(0xFF2E7D32),
+                  ));
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Fout bij opslaan: $e'),
+                    backgroundColor: const Color(0xFFE53935),
+                  ));
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _navy, foregroundColor: Colors.white),
+            child: const Text('Opslaan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════
+  // Match-review Dialog (inventory ↔ product linking)
+  // ═══════════════════════════════════════════
+
+  Future<void> _showMatchReviewDialog() async {
+    final invService = InventoryService();
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    List<InventoryMatchSuggestion> suggestions;
+    List<Map<String, dynamic>> allProducts;
+    try {
+      final scraperService = WebScraperService();
+      final results = await Future.wait([
+        invService.autoMatchInventoryToProducts(),
+        scraperService.fetchCatalog(),
+      ]);
+      suggestions = results[0] as List<InventoryMatchSuggestion>;
+      final catalogProducts = results[1] as List;
+      allProducts = catalogProducts.map((p) => {'id': p.id, 'naam': p.displayNaam}).toList().cast<Map<String, dynamic>>();
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Fout bij laden suggesties: $e'),
+          backgroundColor: const Color(0xFFE53935),
+        ));
+      }
+      return;
+    }
+
+    if (mounted) Navigator.pop(context);
+
+    if (suggestions.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Alle voorraadartikelen zijn al gekoppeld aan producten.'),
+          backgroundColor: Color(0xFF2E7D32),
+        ));
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(children: [
+            const Icon(Icons.link_rounded, size: 18, color: Color(0xFF1565C0)),
+            const SizedBox(width: 6),
+            Expanded(child: Text('Voorraadkoppeling beoordelen', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700))),
+          ]),
+          content: SizedBox(
+            width: 640,
+            height: 420,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    '${suggestions.length} niet-gekoppeld(e) voorraadartikelen met een match-suggestie. '
+                    'Controleer de koppelingen en bevestig of pas aan.',
+                    style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF1D4ED8)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Header
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  color: const Color(0xFFF1F5F9),
+                  child: Row(children: [
+                    SizedBox(width: 30, child: Text('', style: _headerStyle)),
+                    Expanded(flex: 3, child: Text('Voorraaditem', style: _headerStyle)),
+                    const SizedBox(width: 6),
+                    Expanded(flex: 3, child: Text('Voorgesteld product', style: _headerStyle)),
+                    SizedBox(width: 60, child: Text('Match', style: _headerStyle, textAlign: TextAlign.center)),
+                    SizedBox(width: 50, child: Text('Score', style: _headerStyle, textAlign: TextAlign.center)),
+                  ]),
+                ),
+                // List
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: suggestions.length,
+                    itemBuilder: (_, i) {
+                      final s = suggestions[i];
+                      final item = s.inventoryItem;
+                      final scoreColor = s.matchScore >= 90
+                          ? const Color(0xFF2E7D32)
+                          : s.matchScore >= 70
+                              ? const Color(0xFFE65100)
+                              : const Color(0xFFE53935);
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: s.approved ? const Color(0xFFE8F5E9) : Colors.white,
+                          border: Border.all(color: s.approved ? const Color(0xFF66BB6A) : const Color(0xFFE2E8F0)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(children: [
+                          SizedBox(
+                            width: 30,
+                            child: Checkbox(
+                              value: s.approved,
+                              onChanged: (v) => setDlg(() => s.approved = v ?? false),
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(item.variantLabel, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: _navy), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                Text(
+                                  [if (item.artikelnummer != null) 'Art: ${item.artikelnummer}', if (item.eanCode != null) 'EAN: ${item.eanCode}', 'Voorraad: ${item.voorraadActueel}'].join(' · '),
+                                  style: GoogleFonts.dmSans(fontSize: 9, color: const Color(0xFF94A3B8)),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            flex: 3,
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<int>(
+                                value: s.effectiveProductId,
+                                isDense: true,
+                                isExpanded: true,
+                                style: GoogleFonts.dmSans(fontSize: 11, color: _navy),
+                                items: allProducts.map((p) => DropdownMenuItem<int>(
+                                  value: p['id'] as int,
+                                  child: Text(
+                                    (p['naam'] as String?) ?? 'Product ${p['id']}',
+                                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.dmSans(fontSize: 11),
+                                  ),
+                                )).toList(),
+                                onChanged: (v) {
+                                  if (v != null) setDlg(() { s.overrideProductId = v; s.approved = true; });
+                                },
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 60, child: Text(s.matchMethod, style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF64748B)), textAlign: TextAlign.center)),
+                          SizedBox(
+                            width: 50,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: scoreColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text('${s.matchScore}%', style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w700, color: scoreColor)),
+                            ),
+                          ),
+                        ]),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(children: [
+                  TextButton(
+                    onPressed: () => setDlg(() { for (final s in suggestions) s.approved = true; }),
+                    child: const Text('Alles selecteren', style: TextStyle(fontSize: 12)),
+                  ),
+                  const SizedBox(width: 6),
+                  TextButton(
+                    onPressed: () => setDlg(() { for (final s in suggestions) s.approved = false; }),
+                    child: const Text('Niets selecteren', style: TextStyle(fontSize: 12)),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${suggestions.where((s) => s.approved).length} / ${suggestions.length} geselecteerd',
+                    style: GoogleFonts.dmSans(fontSize: 11, color: const Color(0xFF64748B)),
+                  ),
+                ]),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuleren')),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.check_circle_outline, size: 16),
+              label: const Text('Bevestigen'),
+              style: ElevatedButton.styleFrom(backgroundColor: _navy, foregroundColor: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final toLink = suggestions.where((s) => s.approved).toList();
+    if (toLink.isEmpty) return;
+
+    int linked = 0;
+    for (final s in toLink) {
+      try {
+        await invService.linkInventoryToProduct(s.inventoryItem.id!, s.effectiveProductId);
+        linked++;
+      } catch (_) {}
+    }
+
+    _load();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('$linked voorraadartikelen gekoppeld aan producten'),
+        backgroundColor: const Color(0xFF2E7D32),
+      ));
+    }
   }
 
   // ═══════════════════════════════════════════

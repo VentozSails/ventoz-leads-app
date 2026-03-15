@@ -318,11 +318,12 @@ class CustomerService {
   }
 
   Future<List<Customer>> _enrichWithInvoiceNumbers(List<Customer> customers) async {
-    final ids = customers.where((c) => c.id != null && c.aantalFacturen > 0).map((c) => c.id!).toList();
+    final ids = customers.where((c) => c.id != null).map((c) => c.id!).toList();
     if (ids.isEmpty) return customers;
 
     try {
-      final List<dynamic> rows = await _client
+      // Fetch invoice numbers by klant_id
+      final List<dynamic> byIdRows = await _client
           .from('orders')
           .select('klant_id, factuur_nummer')
           .inFilter('klant_id', ids)
@@ -330,11 +331,39 @@ class CustomerService {
           .order('factuur_nummer', ascending: false);
 
       final byKlant = <String, List<String>>{};
-      for (final row in rows.cast<Map<String, dynamic>>()) {
+      for (final row in byIdRows.cast<Map<String, dynamic>>()) {
         final klantId = row['klant_id'] as String?;
         final nr = row['factuur_nummer'] as String?;
         if (klantId != null && nr != null && nr.isNotEmpty) {
           byKlant.putIfAbsent(klantId, () => []).add(nr);
+        }
+      }
+
+      // For customers without results, also try matching by email
+      final noResults = customers.where((c) => c.id != null && !byKlant.containsKey(c.id) && c.email.isNotEmpty).toList();
+      if (noResults.isNotEmpty) {
+        final emails = noResults.map((c) => c.email.toLowerCase()).toList();
+        final List<dynamic> byEmailRows = await _client
+            .from('orders')
+            .select('user_email, factuur_nummer')
+            .inFilter('user_email', emails)
+            .not('factuur_nummer', 'is', null)
+            .order('factuur_nummer', ascending: false);
+
+        final byEmail = <String, List<String>>{};
+        for (final row in byEmailRows.cast<Map<String, dynamic>>()) {
+          final email = (row['user_email'] as String?)?.toLowerCase();
+          final nr = row['factuur_nummer'] as String?;
+          if (email != null && nr != null && nr.isNotEmpty) {
+            byEmail.putIfAbsent(email, () => []).add(nr);
+          }
+        }
+
+        for (final c in noResults) {
+          final nrs = byEmail[c.email.toLowerCase()];
+          if (nrs != null && nrs.isNotEmpty) {
+            byKlant[c.id!] = nrs;
+          }
         }
       }
 
@@ -351,7 +380,8 @@ class CustomerService {
           snelstartId: c.snelstartId, snelstartKlantcode: c.snelstartKlantcode,
           klantcodeAliases: c.klantcodeAliases, isZakelijk: c.isZakelijk,
           totaleOmzet: c.totaleOmzet, eersteFactuurDatum: c.eersteFactuurDatum,
-          laatsteFactuurDatum: c.laatsteFactuurDatum, aantalFacturen: c.aantalFacturen,
+          laatsteFactuurDatum: c.laatsteFactuurDatum,
+          aantalFacturen: nrs.isNotEmpty ? nrs.length : c.aantalFacturen,
           factuurNummers: nrs, bronProspectId: c.bronProspectId,
           bronProspectLand: c.bronProspectLand, createdAt: c.createdAt, updatedAt: c.updatedAt,
         );

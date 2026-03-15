@@ -741,7 +741,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       if (p.marktplaatsKoppelingen || p.verkoopkanalenBeheren)
         _section('Prijzen & Kanalen', Icons.attach_money_rounded, [
           if (p.marktplaatsKoppelingen)
-            _tile('Kanaaloverzicht', 'Prijzen en plaatsingen per product per kanaal', Icons.grid_view_rounded, const Color(0xFF0070E0),
+            _tile('Advertentieoverzicht', 'Prijzen en plaatsingen per product per kanaal', Icons.grid_view_rounded, const Color(0xFF0070E0),
                 onTap: () => context.push('/dashboard/kanaaloverzicht')),
           if (p.marktplaatsKoppelingen)
             _tile('Marktplaatsen', 'Listings, eBay matching, orders, feed', Icons.shopping_bag_rounded, const Color(0xFF0070E0),

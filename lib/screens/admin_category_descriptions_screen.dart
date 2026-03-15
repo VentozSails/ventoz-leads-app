@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/catalog_product.dart';
 import '../services/category_description_service.dart';
 import '../services/user_service.dart';
+import '../services/web_scraper_service.dart';
 
 class AdminCategoryDescriptionsScreen extends StatefulWidget {
   const AdminCategoryDescriptionsScreen({super.key});
@@ -57,17 +58,10 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
         .where((e) => e.value.beschrijvingNl.isNotEmpty)
         .toList();
 
-    if (withText.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Geen categorieteksten om te vertalen'), backgroundColor: Color(0xFFEF4444)),
-        );
-      }
-      return;
-    }
-
-    final selected = <String>{};
-    var selectAll = true;
+    final selectedCats = <String>{};
+    var catSelectAll = true;
+    var translateCategoryTexts = true;
+    var translateProductSpecs = false;
 
     showDialog(
       context: context,
@@ -76,9 +70,9 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: const Text('Vertalen naar alle talen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           content: SizedBox(
-            width: 450,
+            width: 500,
             child: SingleChildScrollView(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -95,39 +89,66 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
                     )),
                   ]),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+                Text('Wat wilt u vertalen?', style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w700, color: _navy)),
+                const SizedBox(height: 8),
                 CheckboxListTile(
-                  value: selectAll,
-                  onChanged: (v) => setDialogState(() {
-                    selectAll = v ?? true;
-                    if (selectAll) selected.clear();
-                  }),
-                  title: Text('Alle categorieën (${withText.length})',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                  subtitle: Text(
-                    selectAll ? 'Alle teksten worden (opnieuw) vertaald' : 'Selecteer hieronder specifieke categorieën',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                  ),
+                  value: translateCategoryTexts,
+                  onChanged: (v) => setDialogState(() => translateCategoryTexts = v ?? true),
+                  title: const Text('Categorieteksten', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: Text('${withText.length} categorieën met tekst',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                   controlAffinity: ListTileControlAffinity.leading,
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                 ),
-                if (!selectAll) ...[
-                  const Divider(height: 8),
-                  ...withText.map((e) {
-                    final count = e.value.beschrijvingen.length;
-                    return CheckboxListTile(
-                      value: selected.contains(e.key),
-                      onChanged: (v) => setDialogState(() {
-                        if (v == true) { selected.add(e.key); } else { selected.remove(e.key); }
-                      }),
-                      title: Text(_label(e.key), style: const TextStyle(fontSize: 13)),
-                      subtitle: Text('$count/27 talen', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                    );
-                  }),
+                CheckboxListTile(
+                  value: translateProductSpecs,
+                  onChanged: (v) => setDialogState(() => translateProductSpecs = v ?? false),
+                  title: const Text('Productspecificaties', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Materiaal, inclusief en andere specificatieteksten',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                if (translateCategoryTexts && withText.isNotEmpty) ...[
+                  const Divider(height: 16),
+                  Text('Categorieselectie', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: _navy)),
+                  const SizedBox(height: 4),
+                  CheckboxListTile(
+                    value: catSelectAll,
+                    onChanged: (v) => setDialogState(() {
+                      catSelectAll = v ?? true;
+                      if (catSelectAll) selectedCats.clear();
+                    }),
+                    title: Text('Alle categorieën (${withText.length})',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    subtitle: Text(
+                      catSelectAll ? 'Alle categorieteksten worden vertaald' : 'Selecteer specifieke categorieën',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  if (!catSelectAll) ...[
+                    const SizedBox(height: 4),
+                    ...withText.map((e) {
+                      final count = e.value.beschrijvingen.length;
+                      return CheckboxListTile(
+                        value: selectedCats.contains(e.key),
+                        onChanged: (v) => setDialogState(() {
+                          if (v == true) { selectedCats.add(e.key); } else { selectedCats.remove(e.key); }
+                        }),
+                        title: Text(_label(e.key), style: const TextStyle(fontSize: 13)),
+                        subtitle: Text('$count/27 talen', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        dense: true,
+                        contentPadding: const EdgeInsets.only(left: 16),
+                      );
+                    }),
+                  ],
                 ],
               ]),
             ),
@@ -138,17 +159,19 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
               child: const Text('Annuleren'),
             ),
             FilledButton.icon(
-              onPressed: () {
+              onPressed: (!translateCategoryTexts && !translateProductSpecs) ? null : () {
                 Navigator.pop(ctx);
-                final items = selectAll
-                    ? withText
-                    : withText.where((e) => selected.contains(e.key)).toList();
-                if (items.isNotEmpty) _runTranslation(items);
+                if (translateCategoryTexts && withText.isNotEmpty) {
+                  final items = catSelectAll
+                      ? withText
+                      : withText.where((e) => selectedCats.contains(e.key)).toList();
+                  if (items.isNotEmpty) _runTranslation(items, alsoTranslateSpecs: translateProductSpecs);
+                } else if (translateProductSpecs) {
+                  _runSpecTranslation();
+                }
               },
               icon: const Icon(Icons.translate, size: 16),
-              label: Text(selectAll
-                  ? 'Alles vertalen (${withText.length})'
-                  : 'Vertalen (${selected.length})'),
+              label: Text(_translateButtonLabel(translateCategoryTexts, translateProductSpecs, catSelectAll, withText.length, selectedCats.length)),
             ),
           ],
         ),
@@ -156,10 +179,19 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
     );
   }
 
-  Future<void> _runTranslation(List<MapEntry<String, CategoryDescription>> items) async {
+  String _translateButtonLabel(bool cats, bool specs, bool allCats, int totalCats, int selectedCount) {
+    final parts = <String>[];
+    if (cats) parts.add(allCats ? '$totalCats categorieën' : '$selectedCount categorieën');
+    if (specs) parts.add('specificaties');
+    if (parts.isEmpty) return 'Selecteer teksten';
+    return 'Vertalen: ${parts.join(' + ')}';
+  }
+
+  Future<void> _runTranslation(List<MapEntry<String, CategoryDescription>> items, {bool alsoTranslateSpecs = false}) async {
     String? currentCat;
     String? currentLang;
     var completed = 0;
+    final totalSteps = items.length + (alsoTranslateSpecs ? 1 : 0);
 
     showDialog(
       context: context,
@@ -183,12 +215,28 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
               completed++;
               if (ctx.mounted) setDialogState(() {});
             }
+
+            if (alsoTranslateSpecs) {
+              if (ctx.mounted) setDialogState(() { currentCat = 'Productspecificaties'; currentLang = null; });
+              try {
+                await _translateAllProductSpecs(onProgress: (lang) {
+                  if (ctx.mounted) setDialogState(() => currentLang = lang);
+                });
+              } catch (e) {
+                if (kDebugMode) debugPrint('Translate specs failed: $e');
+              }
+              completed++;
+              if (ctx.mounted) setDialogState(() {});
+            }
+
             if (ctx.mounted) Navigator.pop(ctx);
             await _load();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('$completed categorieteksten vertaald naar alle talen'),
+                  content: Text(alsoTranslateSpecs
+                      ? '${items.length} categorieteksten + specificaties vertaald'
+                      : '$completed categorieteksten vertaald naar alle talen'),
                   backgroundColor: const Color(0xFF2E7D32),
                 ),
               );
@@ -201,10 +249,10 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             title: const Text('Vertalen...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             content: Column(mainAxisSize: MainAxisSize.min, children: [
-              LinearProgressIndicator(value: items.isEmpty ? 1 : completed / items.length),
+              LinearProgressIndicator(value: totalSteps == 0 ? 1 : completed / totalSteps),
               const SizedBox(height: 12),
               if (currentCat != null)
-                Text('$currentCat ($completed/${items.length})', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text('$currentCat ($completed/$totalSteps)', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               if (currentLang != null)
                 Text('Vertalen: $currentLang...', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
             ]),
@@ -212,6 +260,69 @@ class _AdminCategoryDescriptionsScreenState extends State<AdminCategoryDescripti
         },
       ),
     );
+  }
+
+  Future<void> _runSpecTranslation() async {
+    String? currentLang;
+    var completed = 0;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          Future<void> run() async {
+            try {
+              await _translateAllProductSpecs(onProgress: (lang) {
+                if (ctx.mounted) setDialogState(() => currentLang = lang);
+              });
+            } catch (e) {
+              if (kDebugMode) debugPrint('Translate specs failed: $e');
+            }
+            completed = 1;
+            if (ctx.mounted) { setDialogState(() {}); Navigator.pop(ctx); }
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Productspecificaties vertaald naar alle talen'),
+                  backgroundColor: Color(0xFF2E7D32),
+                ),
+              );
+            }
+          }
+
+          if (completed == 0) Future.microtask(run);
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: const Text('Specificaties vertalen...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              const LinearProgressIndicator(),
+              const SizedBox(height: 12),
+              if (currentLang != null)
+                Text('Vertalen: $currentLang...', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            ]),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _translateAllProductSpecs({void Function(String lang)? onProgress}) async {
+    final scraper = WebScraperService();
+    final products = await scraper.fetchCatalog();
+    for (final p in products) {
+      if (p.id == null) continue;
+      final mat = p.materiaal;
+      final incl = p.inclusief;
+      if ((mat == null || mat.isEmpty) && (incl == null || incl.isEmpty)) continue;
+      await scraper.translateProductSpecs(
+        p.id!,
+        materiaal: mat,
+        inclusief: incl,
+        onProgress: onProgress,
+      );
+    }
   }
 
   void _showEditDialog(String slug) {

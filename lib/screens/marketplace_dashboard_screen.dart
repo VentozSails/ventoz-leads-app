@@ -98,7 +98,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
           isScrollable: true,
           tabs: const [
             Tab(text: 'Overzicht'),
-            Tab(text: 'Kanaaloverzicht'),
+            Tab(text: 'Advertentieoverzicht'),
             Tab(text: 'Listings'),
             Tab(text: 'eBay Matching'),
             Tab(text: 'Orders'),

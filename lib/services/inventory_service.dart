@@ -1249,6 +1249,112 @@ class InventoryService {
     }).toList();
   }
 
+  // ── Auto-match unlinked inventory items to product_catalogus ──
+
+  Future<List<InventoryMatchSuggestion>> autoMatchInventoryToProducts() async {
+    final List<dynamic> unlinkedRows = await _client
+        .from('inventory_items')
+        .select()
+        .isFilter('product_id', null)
+        .eq('is_archived', false);
+    final unlinked = unlinkedRows.cast<Map<String, dynamic>>().map(InventoryItem.fromJson).toList();
+    if (unlinked.isEmpty) return [];
+
+    final List<dynamic> catalogRows = await _client
+        .from('product_catalogus')
+        .select('id,naam,artikelnummer,ean_code');
+    final catalog = catalogRows.cast<Map<String, dynamic>>();
+
+    final suggestions = <InventoryMatchSuggestion>[];
+
+    for (final item in unlinked) {
+      InventoryMatchSuggestion? best;
+
+      // Priority 1: exact EAN match
+      if (item.eanCode != null && item.eanCode!.isNotEmpty) {
+        for (final p in catalog) {
+          final pEan = ((p['ean_code'] as String?) ?? '').trim();
+          if (pEan.isNotEmpty && pEan == item.eanCode!.trim()) {
+            best = InventoryMatchSuggestion(
+              inventoryItem: item,
+              productId: p['id'] as int,
+              productNaam: (p['naam'] as String?) ?? '',
+              matchMethod: 'EAN',
+              matchScore: 100,
+            );
+            break;
+          }
+        }
+      }
+
+      // Priority 2: exact artikelnummer match
+      if (best == null && item.artikelnummer != null && item.artikelnummer!.isNotEmpty) {
+        final artClean = item.artikelnummer!.trim();
+        final artNumeric = artClean.replaceAll(RegExp(r'[^0-9]'), '');
+        for (final p in catalog) {
+          final pArt = ((p['artikelnummer'] as String?) ?? '').trim();
+          if (pArt.isNotEmpty && (pArt == artClean || (artNumeric.isNotEmpty && pArt.replaceAll(RegExp(r'[^0-9]'), '') == artNumeric))) {
+            best = InventoryMatchSuggestion(
+              inventoryItem: item,
+              productId: p['id'] as int,
+              productNaam: (p['naam'] as String?) ?? '',
+              matchMethod: 'Artikelnummer',
+              matchScore: 95,
+            );
+            break;
+          }
+        }
+      }
+
+      // Priority 3: fuzzy name match
+      if (best == null && item.variantLabel.isNotEmpty) {
+        final needle = item.variantLabel.toLowerCase().trim();
+        int bestScore = 0;
+        for (final p in catalog) {
+          final pName = ((p['naam'] as String?) ?? '').toLowerCase().trim();
+          if (pName.isEmpty) continue;
+          final score = _fuzzyScore(needle, pName);
+          if (score > bestScore && score >= 70) {
+            bestScore = score;
+            best = InventoryMatchSuggestion(
+              inventoryItem: item,
+              productId: p['id'] as int,
+              productNaam: (p['naam'] as String?) ?? '',
+              matchMethod: 'Naam',
+              matchScore: score,
+            );
+          }
+        }
+      }
+
+      if (best != null) {
+        suggestions.add(best);
+      }
+    }
+
+    return suggestions;
+  }
+
+  static int _fuzzyScore(String a, String b) {
+    if (a == b) return 100;
+    if (a.contains(b) || b.contains(a)) return 85;
+
+    final wordsA = a.split(RegExp(r'\s+')).where((w) => w.length > 2).toSet();
+    final wordsB = b.split(RegExp(r'\s+')).where((w) => w.length > 2).toSet();
+    if (wordsA.isEmpty || wordsB.isEmpty) return 0;
+
+    final overlap = wordsA.intersection(wordsB).length;
+    final total = wordsA.union(wordsB).length;
+    return ((overlap / total) * 100).round();
+  }
+
+  Future<void> linkInventoryToProduct(int inventoryItemId, int productId) async {
+    await _client.from('inventory_items').update({
+      'product_id': productId,
+      'laatst_bijgewerkt': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', inventoryItemId);
+  }
+
   // ── Aggregated inventory summary ──
 
   Future<Map<int, int>> getStockSummaryByProduct() async {
@@ -1269,6 +1375,29 @@ class _ProductTotals {
   double totalCost = 0;
   int rowCount = 0;
   _ProductTotals(this.name);
+}
+
+class InventoryMatchSuggestion {
+  final InventoryItem inventoryItem;
+  final int productId;
+  final String productNaam;
+  final String matchMethod; // 'EAN', 'Artikelnummer', 'Naam'
+  final int matchScore; // 0-100
+
+  bool approved;
+  int? overrideProductId;
+
+  InventoryMatchSuggestion({
+    required this.inventoryItem,
+    required this.productId,
+    required this.productNaam,
+    required this.matchMethod,
+    required this.matchScore,
+    this.approved = false,
+    this.overrideProductId,
+  });
+
+  int get effectiveProductId => overrideProductId ?? productId;
 }
 
 class ImportMismatch {
