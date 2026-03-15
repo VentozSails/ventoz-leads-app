@@ -842,7 +842,7 @@ class MarketplaceService {
               await _client.from(_listingsTable).upsert({
                 'product_id': productId,
                 'platform': 'ebay',
-                'taal': 'en',
+                'taal': 'uk',
                 'prijs': gbpPrijs,
                 'status': 'actief',
                 'voorraad_sync': true,

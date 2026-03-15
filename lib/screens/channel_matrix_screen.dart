@@ -25,6 +25,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   List<ChannelMatrixRow> _filteredRows = [];
   bool _loading = true;
   String? _loadError;
+  int _totalListings = 0;
 
   final _searchCtrl = TextEditingController();
   String _stockFilter = 'all';
@@ -37,6 +38,19 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
   double _channelColWidth = 68;
   double _productColWidth = 220;
   double _artNrColWidth = 90;
+  bool _hideInactiveChannels = false;
+  final Set<String> _manuallyHiddenChannels = {};
+
+  List<SalesChannel> get _visibleEbayChannels => SalesChannel.ebayChannels.where(_isChannelVisible).toList();
+  List<SalesChannel> get _visibleBolChannels => SalesChannel.bolChannels.where(_isChannelVisible).toList();
+  List<SalesChannel> get _visibleAmazonChannels => SalesChannel.amazonChannels.where(_isChannelVisible).toList();
+  bool get _isAdmarkVisible => _isChannelVisible(SalesChannel.admarkNl);
+
+  bool _isChannelVisible(SalesChannel ch) {
+    if (_manuallyHiddenChannels.contains(ch.code)) return false;
+    if (_hideInactiveChannels && !_isChannelActive(ch)) return false;
+    return true;
+  }
 
   @override
   void initState() {
@@ -73,11 +87,19 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
         }
       }
 
+      int totalListings = 0;
+      for (final r in rows) {
+        for (final entry in r.listings.entries) {
+          totalListings += entry.value.length;
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _allRows = rows;
         _canBatchConvert = isOwner || isAdmin;
         _activeChannelCodes = active;
+        _totalListings = totalListings;
         _loading = false;
         _applyFilters();
       });
@@ -166,7 +188,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
         // Row 1: actions
         Row(children: [
           Text(
-            '${_filteredRows.length} / ${_allRows.length} producten',
+            '${_filteredRows.length} / ${_allRows.length} producten · $_totalListings listings',
             style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF475569)),
           ),
           const Spacer(),
@@ -260,11 +282,69 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
           const SizedBox(width: 3),
           _sortChip('Kanalen', 'platforms'),
           const SizedBox(width: 16),
-          const Icon(Icons.view_column_outlined, size: 14, color: Color(0xFF94A3B8)),
+          const SizedBox(width: 8),
+          Tooltip(
+            message: _hideInactiveChannels ? 'Inactieve kanalen tonen' : 'Inactieve kanalen verbergen',
+            child: InkWell(
+              onTap: () => setState(() => _hideInactiveChannels = !_hideInactiveChannels),
+              borderRadius: BorderRadius.circular(5),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _hideInactiveChannels ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(5),
+                  border: Border.all(color: _hideInactiveChannels ? const Color(0xFF3B82F6) : const Color(0xFFE2E8F0)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(
+                    _hideInactiveChannels ? Icons.visibility_off : Icons.visibility,
+                    size: 12,
+                    color: _hideInactiveChannels ? const Color(0xFF1D4ED8) : const Color(0xFF94A3B8),
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    'Inactief',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: _hideInactiveChannels ? FontWeight.w700 : FontWeight.w500,
+                      color: _hideInactiveChannels ? const Color(0xFF1D4ED8) : const Color(0xFF64748B),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          PopupMenuButton<String>(
+            tooltip: 'Kolommen tonen/verbergen',
+            icon: const Icon(Icons.view_column_outlined, size: 16, color: Color(0xFF64748B)),
+            itemBuilder: (_) => SalesChannel.allChannels.map((ch) {
+              final hidden = _manuallyHiddenChannels.contains(ch.code);
+              return PopupMenuItem<String>(
+                value: ch.code,
+                child: Row(children: [
+                  Icon(hidden ? Icons.check_box_outline_blank : Icons.check_box, size: 18, color: hidden ? const Color(0xFF94A3B8) : const Color(0xFF1565C0)),
+                  const SizedBox(width: 8),
+                  Text(ch.label, style: TextStyle(fontSize: 12, color: hidden ? const Color(0xFF94A3B8) : const Color(0xFF1E293B))),
+                  if (!_isChannelActive(ch)) ...[
+                    const SizedBox(width: 4),
+                    const Icon(Icons.link_off, size: 10, color: Color(0xFFAAAAAA)),
+                  ],
+                ]),
+              );
+            }).toList(),
+            onSelected: (code) => setState(() {
+              if (_manuallyHiddenChannels.contains(code)) {
+                _manuallyHiddenChannels.remove(code);
+              } else {
+                _manuallyHiddenChannels.add(code);
+              }
+            }),
+          ),
           const SizedBox(width: 2),
-          Text('Breedte', style: GoogleFonts.dmSans(fontSize: 10, color: const Color(0xFF94A3B8))),
+          const Icon(Icons.width_normal_outlined, size: 14, color: Color(0xFF94A3B8)),
           SizedBox(
-            width: 80,
+            width: 70,
             child: Slider(
               value: _channelColWidth,
               min: 48,
@@ -421,21 +501,28 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
         scrollDirection: Axis.horizontal,
         child: SizedBox(
           width: _calcTableWidth(),
-          child: _buildStickyHeaderTable(),
+          child: _buildStickyHeaderTable(hScrollCtrl),
         ),
       ),
     );
   }
 
-  Widget _buildStickyHeaderTable() {
+  Widget _buildStickyHeaderTable(ScrollController hScrollCtrl) {
     const borderColor = Color(0xFFE2E8F0);
+    final vScrollCtrl = ScrollController();
     return Column(children: [
       _buildHeaderRows(),
       const Divider(height: 1, color: borderColor),
       Expanded(
-        child: ListView.builder(
-          itemCount: _filteredRows.length,
-          itemBuilder: (_, i) => _buildDataRowWidget(_filteredRows[i]),
+        child: Scrollbar(
+          controller: vScrollCtrl,
+          thumbVisibility: true,
+          trackVisibility: true,
+          child: ListView.builder(
+            controller: vScrollCtrl,
+            itemCount: _filteredRows.length,
+            itemBuilder: (_, i) => _buildDataRowWidget(_filteredRows[i]),
+          ),
         ),
       ),
     ]);
@@ -443,10 +530,10 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   double _calcTableWidth() {
     const fixedCols = 28.0 + 48.0; // checkbox + voorraad
-    final channelCount = SalesChannel.ebayChannels.length
-        + SalesChannel.bolChannels.length
-        + SalesChannel.amazonChannels.length
-        + 1 // admark
+    final channelCount = _visibleEbayChannels.length
+        + _visibleBolChannels.length
+        + _visibleAmazonChannels.length
+        + (_isAdmarkVisible ? 1 : 0)
         + 1; // eigen site prijs
     return fixedCols + _productColWidth + _artNrColWidth + (channelCount * _channelColWidth) + 2;
   }
@@ -465,6 +552,11 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
       return base;
     }
 
+    final visibleEbay = _visibleEbayChannels;
+    final visibleBol = _visibleBolChannels;
+    final visibleAmazon = _visibleAmazonChannels;
+    final showAdmark = _isAdmarkVisible;
+
     return Table(
       border: TableBorder.all(color: const Color(0xFFE2E8F0), width: 0.5),
       defaultColumnWidth: FixedColumnWidth(_channelColWidth),
@@ -478,23 +570,23 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
       children: [
         TableRow(children: [
           _groupCell('', null),
-          _groupCell('', null),
-          _groupCell('', null),
+          _resizableGroupCell('', null, (d) => setState(() => _productColWidth = (_productColWidth + d).clamp(120, 400))),
+          _resizableGroupCell('', null, (d) => setState(() => _artNrColWidth = (_artNrColWidth + d).clamp(60, 180))),
           _groupCell('', null),
           _groupCell('Site', _navy),
-          ...SalesChannel.ebayChannels.map((ch) => _groupCell(
-            ch == SalesChannel.ebayUk ? 'eBay' : '',
+          ...visibleEbay.map((ch) => _groupCell(
+            ch == visibleEbay.first ? 'eBay' : '',
             groupBg(ch, ebayColor),
           )),
-          ...SalesChannel.bolChannels.map((ch) => _groupCell(
-            ch == SalesChannel.bolNl ? 'Bol' : '',
+          ...visibleBol.map((ch) => _groupCell(
+            ch == visibleBol.first ? 'Bol' : '',
             groupBg(ch, bolColor),
           )),
-          ...SalesChannel.amazonChannels.map((ch) => _groupCell(
-            ch == SalesChannel.amazonDe ? 'Amazon' : '',
+          ...visibleAmazon.map((ch) => _groupCell(
+            ch == visibleAmazon.first ? 'Amazon' : '',
             groupBg(ch, amazonColor),
           )),
-          _groupCell('Adm', groupBg(SalesChannel.admarkNl, admarkColor)),
+          if (showAdmark) _groupCell('Adm', groupBg(SalesChannel.admarkNl, admarkColor)),
         ]),
         TableRow(
           decoration: const BoxDecoration(color: headerBg),
@@ -504,13 +596,31 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             Padding(padding: cellPad, child: Text('Art.nr', style: _headerStyle)),
             Padding(padding: cellPad, child: Text('Vrrd', style: _headerStyle, textAlign: TextAlign.center)),
             Padding(padding: cellPad, child: Text('€', style: _headerStyle, textAlign: TextAlign.center)),
-            ...SalesChannel.ebayChannels.map((ch) => _channelSubHeader(ch)),
-            ...SalesChannel.bolChannels.map((ch) => _channelSubHeader(ch)),
-            ...SalesChannel.amazonChannels.map((ch) => _channelSubHeader(ch)),
-            _channelSubHeader(SalesChannel.admarkNl),
+            ...visibleEbay.map((ch) => _channelSubHeader(ch)),
+            ...visibleBol.map((ch) => _channelSubHeader(ch)),
+            ...visibleAmazon.map((ch) => _channelSubHeader(ch)),
+            if (showAdmark) _channelSubHeader(SalesChannel.admarkNl),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _resizableGroupCell(String text, Color? bg, void Function(double dx) onDrag) {
+    return GestureDetector(
+      onHorizontalDragUpdate: (d) => onDrag(d.delta.dx),
+      child: Stack(
+        children: [
+          _groupCell(text, bg),
+          Positioned(
+            right: 0, top: 0, bottom: 0,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.resizeColumn,
+              child: Container(width: 4, color: Colors.transparent),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -532,6 +642,11 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
 
   Widget _buildDataRowWidget(ChannelMatrixRow row) {
     const borderColor = Color(0xFFE2E8F0);
+    final visibleEbay = _visibleEbayChannels;
+    final visibleBol = _visibleBolChannels;
+    final visibleAmazon = _visibleAmazonChannels;
+    final showAdmark = _isAdmarkVisible;
+
     return Table(
       border: TableBorder.all(color: borderColor, width: 0.5),
       defaultColumnWidth: FixedColumnWidth(_channelColWidth),
@@ -542,7 +657,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
         3: const FixedColumnWidth(48),
         4: FixedColumnWidth(_channelColWidth),
       },
-      children: [_buildDataRow(row)],
+      children: [_buildDataRow(row, visibleEbay, visibleBol, visibleAmazon, showAdmark)],
     );
   }
 
@@ -568,7 +683,7 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
     );
   }
 
-  TableRow _buildDataRow(ChannelMatrixRow row) {
+  TableRow _buildDataRow(ChannelMatrixRow row, List<SalesChannel> visibleEbay, List<SalesChannel> visibleBol, List<SalesChannel> visibleAmazon, bool showAdmark) {
     final pid = row.product.id!;
     final isSelected = _selected.contains(pid);
     final isUitverkocht = row.voorraad <= 0;
@@ -581,7 +696,6 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
     return TableRow(
       decoration: BoxDecoration(color: rowColor),
       children: [
-        // Checkbox
         SizedBox(
           height: 38,
           child: Center(child: SizedBox(
@@ -594,7 +708,6 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             ),
           )),
         ),
-        // Product name + category + EAN
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           child: Column(
@@ -612,7 +725,6 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             ],
           ),
         ),
-        // Artikelnummer
         Container(
           height: 38,
           alignment: Alignment.centerLeft,
@@ -623,7 +735,6 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             maxLines: 1, overflow: TextOverflow.ellipsis,
           ),
         ),
-        // Voorraad (klikbaar: navigeert naar voorraadscherm)
         Tooltip(
           message: 'Bekijk voorraad',
           child: InkWell(
@@ -635,16 +746,11 @@ class _ChannelMatrixScreenState extends State<ChannelMatrixScreen> {
             ),
           ),
         ),
-        // Eigen site prijs (editable)
         _priceCell(row.product.displayPrijs, null, () => _showSitePriceEdit(row)),
-        // eBay channels
-        ...SalesChannel.ebayChannels.map((ch) => _channelCell(row, ch)),
-        // Bol channels
-        ...SalesChannel.bolChannels.map((ch) => _channelCell(row, ch)),
-        // Amazon channels
-        ...SalesChannel.amazonChannels.map((ch) => _channelCell(row, ch)),
-        // Admark
-        _channelCell(row, SalesChannel.admarkNl),
+        ...visibleEbay.map((ch) => _channelCell(row, ch)),
+        ...visibleBol.map((ch) => _channelCell(row, ch)),
+        ...visibleAmazon.map((ch) => _channelCell(row, ch)),
+        if (showAdmark) _channelCell(row, SalesChannel.admarkNl),
       ],
     );
   }
