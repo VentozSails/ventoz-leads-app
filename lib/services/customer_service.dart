@@ -610,8 +610,8 @@ class CustomerService {
 
   Future<int> getCustomerCount() async {
     try {
-      final List<dynamic> rows = await _client.from(_table).select('id');
-      return rows.length;
+      final counts = await getCounts();
+      return counts.total;
     } catch (_) {
       return 0;
     }

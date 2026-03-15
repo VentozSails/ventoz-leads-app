@@ -466,21 +466,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(28, 14, 28, 2),
       child: Row(children: [
-        _stat('Producten', _statsLoaded ? '$_productCount' : '—', Icons.inventory_2_rounded, const Color(0xFF1B4965)),
+        _stat('Producten', _statsLoaded ? '$_productCount' : '—', Icons.inventory_2_rounded, const Color(0xFF1B4965),
+            onTap: () => context.push('/dashboard/beheer')),
         const SizedBox(width: 10),
         _stat('Klanten', _statsLoaded && _customerCount > 0 ? '$_customerCount' : '—', Icons.people_rounded, const Color(0xFF00838F),
-            onTap: _permissions.klantenBeheren ? () => context.push('/dashboard/klanten') : null),
+            onTap: () => context.push('/dashboard/klanten')),
         const SizedBox(width: 10),
         _stat('Openstaand', _statsLoaded ? '$_pendingOrderCount' : '—', Icons.pending_actions_rounded, const Color(0xFFE65100),
-            badge: _pendingOrderCount > 0),
+            badge: _pendingOrderCount > 0,
+            onTap: _permissions.alleBestellingenBeheren ? () => _navigate(const OrdersScreen(adminView: true)) : null),
         const SizedBox(width: 10),
         _stat('Te verzenden', _statsLoaded ? '$_shippingReadyCount' : '—', Icons.local_shipping_outlined, const Color(0xFF00897B),
             badge: _shippingReadyCount > 0,
-            onTap: _permissions.bestellingenVerzenden && _shippingReadyCount > 0 ? () => _navigate(const AdminShippingScreen()) : null),
+            onTap: _permissions.bestellingenVerzenden ? () => _navigate(const AdminShippingScreen()) : null),
         const SizedBox(width: 10),
         _stat('Geblokkeerd', _statsLoaded ? '$_lockedCount' : '—', Icons.lock_outline_rounded, const Color(0xFFC62828),
             badge: _lockedCount > 0,
-            onTap: _permissions.geblokkeerdeAccountsBeheren && _lockedCount > 0 ? () => _navigate(const AdminLockedAccountsScreen()) : null),
+            onTap: _permissions.geblokkeerdeAccountsBeheren ? () => _navigate(const AdminLockedAccountsScreen()) : null),
       ]),
     );
   }
@@ -527,53 +529,37 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   // ────────────────────────────────────────────────────
 
   Widget _buildQuickAccessBar() {
-    final cards = <Widget>[];
-
-    cards.add(_quickAccessCard(
-      icon: Icons.inventory_2_outlined,
-      label: 'Productcatalogus',
-      color: const Color(0xFF1565C0),
-      onTap: () => context.push('/dashboard/beheer'),
-    ));
-
-    if (_permissions.voorraadBeheren || _permissions.alleBestellingenBeheren) {
-      cards.add(_quickAccessCard(
-        icon: Icons.warehouse_outlined,
-        label: 'Voorraad',
-        color: const Color(0xFF2E7D32),
-        onTap: () => context.push('/dashboard/voorraad'),
-      ));
-    }
-
-    if (_permissions.verkoopkanalenBeheren || _permissions.marktplaatsKoppelingen || _permissions.alleBestellingenBeheren) {
-      cards.add(_quickAccessCard(
-        icon: Icons.grid_view_rounded,
-        label: 'Advertenties',
-        color: const Color(0xFFE53238),
-        onTap: () => context.push('/dashboard/kanaaloverzicht'),
-      ));
-    }
-
-    if (_permissions.klantenBeheren || _permissions.alleBestellingenBeheren) {
-      cards.add(_quickAccessCard(
-        icon: Icons.people_outline_rounded,
-        label: 'Klanten',
-        color: const Color(0xFF6366F1),
-        onTap: () => context.push('/dashboard/klanten'),
-      ));
-    }
-
-    if (cards.length <= 1) return const SizedBox.shrink();
-
-    final spaced = <Widget>[];
-    for (var i = 0; i < cards.length; i++) {
-      if (i > 0) spaced.add(const SizedBox(width: 10));
-      spaced.add(cards[i]);
-    }
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(28, 12, 28, 4),
-      child: Row(children: spaced),
+      child: Row(children: [
+        _quickAccessCard(
+          icon: Icons.inventory_2_outlined,
+          label: 'Productcatalogus',
+          color: const Color(0xFF1565C0),
+          onTap: () => context.push('/dashboard/beheer'),
+        ),
+        const SizedBox(width: 10),
+        _quickAccessCard(
+          icon: Icons.warehouse_outlined,
+          label: 'Voorraad',
+          color: const Color(0xFF2E7D32),
+          onTap: () => context.push('/dashboard/voorraad'),
+        ),
+        const SizedBox(width: 10),
+        _quickAccessCard(
+          icon: Icons.grid_view_rounded,
+          label: 'Advertenties',
+          color: const Color(0xFFE53238),
+          onTap: () => context.push('/dashboard/kanaaloverzicht'),
+        ),
+        const SizedBox(width: 10),
+        _quickAccessCard(
+          icon: Icons.people_outline_rounded,
+          label: 'Klanten',
+          color: const Color(0xFF6366F1),
+          onTap: () => context.push('/dashboard/klanten'),
+        ),
+      ]),
     );
   }
 
