@@ -110,7 +110,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _loadingMethods = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) debugPrint('Payment methods loading error: $e');
       if (mounted) setState(() => _loadingMethods = false);
     }
   }
@@ -608,12 +609,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             method: _selectedMethod!,
             returnUrl: returnUrl,
           );
+
           if (order.id != null) {
-            await _orderService.updatePaymentReference(order.id!, result.transactionId);
+            try {
+              await _orderService.updatePaymentReference(order.id!, result.transactionId);
+            } catch (e) {
+              if (kDebugMode) debugPrint('updatePaymentReference error (non-blocking): $e');
+            }
           }
 
-          if (result.paymentUrl.isNotEmpty) {
+          if (result.paymentUrl.isEmpty) {
+            if (mounted) {
+              setState(() { _error = '${_l.t('betaling_mislukt')}: Geen betaal-URL ontvangen van ${_selectedMethod!.name}. Probeer een andere betaalmethode.'; });
+            }
+            return;
+          }
+
+          try {
             await launchUrl(Uri.parse(result.paymentUrl), mode: LaunchMode.externalApplication);
+          } catch (e) {
+            if (mounted) {
+              setState(() { _error = 'Kan de betaalpagina niet openen. Kopieer deze URL handmatig:\n${result.paymentUrl}'; });
+            }
+            return;
           }
 
           if (!mounted) return;
@@ -621,13 +639,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             order,
             result.transactionId,
             _selectedMethod!.gateway,
-            browserOpened: result.paymentUrl.isNotEmpty,
+            browserOpened: true,
           );
           return;
         } catch (e) {
-          if (order.id != null) await _orderService.updateStatus(order.id!, 'concept');
+          if (order.id != null) {
+            try { await _orderService.updateStatus(order.id!, 'concept'); } catch (_) {}
+          }
           if (mounted) {
-            setState(() { _error = '${_l.t('betaling_mislukt')}: $e\n\n${_l.t('bestelling_concept')}'; });
+            final errMsg = e.toString().replaceFirst('Exception: ', '');
+            setState(() { _error = '${_l.t('betaling_mislukt')}: $errMsg\n\n${_l.t('bestelling_concept')}'; });
           }
           return;
         }
@@ -636,7 +657,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (kDebugMode) debugPrint('Error placing order: $e');
-      if (mounted) setState(() { _error = '${_l.t('bestelling_mislukt')}: $e'; });
+      if (mounted) {
+        final errMsg = e.toString().replaceFirst('Exception: ', '');
+        final isRls = errMsg.contains('row-level security') || errMsg.contains('policy') || errMsg.contains('violates');
+        final displayMsg = isRls
+            ? 'De bestelling kon niet worden opgeslagen. Probeer opnieuw of neem contact op met Ventoz.'
+            : '${_l.t('bestelling_mislukt')}: $errMsg';
+        setState(() { _error = displayMsg; });
+      }
     } finally {
       if (mounted) setState(() { _placing = false; });
     }

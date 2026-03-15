@@ -382,8 +382,8 @@ serve(async (req: Request) => {
     }
 
     const registerUrl = app_url.endsWith("/")
-      ? `${app_url}inloggen`
-      : `${app_url}/inloggen`;
+      ? `${app_url}inloggen?invite=true`
+      : `${app_url}/inloggen?invite=true`;
 
     const detectedLang = detectLang(lang);
     const s = i18n[detectedLang];

@@ -138,8 +138,10 @@ final appRouter = GoRouter(
                 && !rawRedirect.startsWith('//')
                 && !rawRedirect.contains('://'))
                 ? rawRedirect : null;
+            final isInvite = state.uri.queryParameters['invite'] == 'true';
             return NoTransitionPage(
               child: LoginScreen(
+                startWithInvite: isInvite,
                 onLoginSuccess: () {
                   navigatorKey.currentContext?.go(safeRedirect ?? '/dashboard');
                 },

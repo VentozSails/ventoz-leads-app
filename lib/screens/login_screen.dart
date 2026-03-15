@@ -9,8 +9,9 @@ import 'mfa_verify_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLoginSuccess;
+  final bool startWithInvite;
 
-  const LoginScreen({super.key, required this.onLoginSuccess});
+  const LoginScreen({super.key, required this.onLoginSuccess, this.startWithInvite = false});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -26,9 +27,15 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   bool _obscurePassword = true;
   String? _error;
-  _ScreenMode _mode = _ScreenMode.login;
+  late _ScreenMode _mode;
 
   SupabaseClient get _supabase => Supabase.instance.client;
+
+  @override
+  void initState() {
+    super.initState();
+    _mode = widget.startWithInvite ? _ScreenMode.invitedRegister : _ScreenMode.login;
+  }
 
   @override
   void dispose() {
