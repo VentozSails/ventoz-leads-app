@@ -311,22 +311,25 @@ serve(async (req: Request) => {
   }
 
   try {
-    // ── Auth: require authenticated user ──
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Not authorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? SERVICE_ROLE_KEY;
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user: caller }, error: authErr } = await createClient(SUPABASE_URL, anonKey).auth.getUser(token);
-    if (authErr || !caller) {
-      return new Response(JSON.stringify({ error: "Invalid session" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    const token = authHeader.replace("Bearer ", "");
+    const isServiceRole = token === SERVICE_ROLE_KEY;
+
+    if (!isServiceRole) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? SERVICE_ROLE_KEY;
+      const { data: { user: caller }, error: authErr } = await createClient(SUPABASE_URL, anonKey).auth.getUser(token);
+      if (authErr || !caller) {
+        return new Response(JSON.stringify({ error: "Invalid session" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
 
     const body = await req.json();
     const { order_id } = body as { order_id: string };
