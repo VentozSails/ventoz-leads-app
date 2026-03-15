@@ -1166,6 +1166,28 @@ class MarketplaceService {
     });
   }
 
+  // ── Amazon SP-API ──
+
+  Future<Map<String, dynamic>> testAmazonConnection() async {
+    return _callEdgeFunction('marketplace', {
+      'action': 'amazon_test_connection',
+    });
+  }
+
+  Future<Map<String, dynamic>> importAmazonListings({String channel = 'amazon_de'}) async {
+    return _callEdgeFunction('marketplace', {
+      'action': 'amazon_import_listings',
+      'account_label': channel,
+    });
+  }
+
+  Future<Map<String, dynamic>> fetchAmazonOrders() async {
+    return _callEdgeFunction('marketplace', {
+      'action': 'fetch_orders',
+      'platform': 'amazon',
+    });
+  }
+
   Future<Map<String, dynamic>> _callEdgeFunction(
     String functionName,
     Map<String, dynamic> body,

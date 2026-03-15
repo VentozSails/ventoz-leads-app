@@ -205,6 +205,32 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
               ),
             ),
             const SizedBox(width: 12),
+            if (cred.isConfigured && platform == MarketplacePlatform.amazon) ...[
+              OutlinedButton.icon(
+                onPressed: () => _testAmazonConnection(),
+                icon: const Icon(Icons.sync_rounded, size: 16),
+                label: const Text('Testen'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: color,
+                  side: BorderSide(color: color.withValues(alpha: 0.4)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  textStyle: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () => _importAmazonListings(),
+                icon: const Icon(Icons.download_rounded, size: 16),
+                label: const Text('Importeren'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: color,
+                  side: BorderSide(color: color.withValues(alpha: 0.4)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  textStyle: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             OutlinedButton.icon(
               onPressed: () => _showCredentialsDialog(platform),
               icon: Icon(cred.isConfigured ? Icons.edit_outlined : Icons.vpn_key_outlined, size: 16),
@@ -220,6 +246,56 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _testAmazonConnection() async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Amazon verbinding testen...'), duration: Duration(seconds: 2)),
+    );
+    try {
+      final result = await _service.testAmazonConnection();
+      if (!mounted) return;
+      final success = result['success'] == true;
+      final msg = result['message'] as String? ?? (success ? 'Verbinding gelukt!' : 'Verbinding mislukt');
+      final marketplaces = result['marketplaces'] as List?;
+      final details = marketplaces != null
+          ? '\n${marketplaces.map((m) => '${m['country']} (${m['name']})').join(', ')}'
+          : '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$msg$details'),
+          backgroundColor: success ? const Color(0xFF2E7D32) : const Color(0xFFE53935),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Amazon test mislukt: $e'), backgroundColor: const Color(0xFFE53935)),
+      );
+    }
+  }
+
+  Future<void> _importAmazonListings() async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Amazon listings importeren...'), duration: Duration(seconds: 3)),
+    );
+    try {
+      final result = await _service.importAmazonListings();
+      if (!mounted) return;
+      final msg = result['message'] as String? ?? 'Import voltooid';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: const Color(0xFF2E7D32), duration: const Duration(seconds: 5)),
+      );
+      _loadAll();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Amazon import mislukt: $e'), backgroundColor: const Color(0xFFE53935)),
+      );
+    }
   }
 
   Widget _statusChip(bool configured, bool active) {
@@ -1976,7 +2052,7 @@ class _MarketplaceDashboardScreenState extends State<MarketplaceDashboardScreen>
   String _platformHelpText(MarketplacePlatform platform) => switch (platform) {
     MarketplacePlatform.bolCom => 'Credentials aanvragen via het Bol.com Partner Platform → Instellingen → API-instellingen.',
     MarketplacePlatform.ebay => 'Registreer een app op developer.ebay.com en maak OAuth tokens aan.',
-    MarketplacePlatform.amazon => 'Registreer via Seller Central → Apps → Develop Apps. Jaarabonnement \$1.400 vereist.',
+    MarketplacePlatform.amazon => 'Registreer via Seller Central → Apps and Services → Develop Apps. Kies "Private Developer" en autoriseer je app.',
     MarketplacePlatform.marktplaats => 'Neem contact op met Marktplaats om API-credentials aan te vragen.',
     MarketplacePlatform.admark => 'Neem contact op met Admark om API-credentials aan te vragen.',
   };

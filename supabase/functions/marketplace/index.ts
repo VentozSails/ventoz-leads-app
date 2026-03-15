@@ -96,6 +96,10 @@ serve(async (req: Request) => {
         return await handleImportEbayListings(supabase, body);
       case "get_ebay_accounts":
         return await handleGetEbayAccounts(supabase);
+      case "amazon_test_connection":
+        return await handleAmazonTestConnection(supabase);
+      case "amazon_import_listings":
+        return await handleAmazonImportListings(supabase, body);
       case "debug_ebay_creds": {
         const { data: allCreds } = await supabase
           .from("marketplace_credentials")
@@ -224,6 +228,102 @@ async function bolComApiCall(
 }
 
 // ═══════════════════════════════════════════
+// Amazon SP-API Client
+// ═══════════════════════════════════════════
+
+const AMAZON_MARKETPLACE_IDS: Record<string, string> = {
+  amazon_de: "A1PA6795UKMFR9",
+  amazon_fr: "A13V1IB3VIYZZH",
+  amazon_it: "APJ6JRA9NG5V4",
+  amazon_es: "A1RKKUPIHCS9HS",
+  amazon_nl: "A1805IZSGTT6HS",
+  amazon_uk: "A1F83G8C2ARO7P",
+  amazon_se: "A2NODRKZP88ZB9",
+};
+
+const AMAZON_ENDPOINTS: Record<string, string> = {
+  eu: "https://sellingpartnerapi-eu.amazon.com",
+};
+
+let _amazonTokenCache: { token: string; expiresAt: number } | null = null;
+
+async function getAmazonToken(supabase: any): Promise<string | null> {
+  if (_amazonTokenCache && Date.now() < _amazonTokenCache.expiresAt) {
+    return _amazonTokenCache.token;
+  }
+
+  const creds = await getCredentials(supabase, "amazon");
+  if (!creds.client_id || !creds.client_secret || !creds.refresh_token) return null;
+
+  const response = await fetch("https://api.amazon.com/auth/o2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: creds.refresh_token,
+      client_id: creds.client_id,
+      client_secret: creds.client_secret,
+    }).toString(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Amazon LWA auth failed (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  _amazonTokenCache = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+  };
+  return data.access_token;
+}
+
+async function amazonApiCall(
+  token: string,
+  method: string,
+  path: string,
+  body?: any,
+  queryParams?: Record<string, string>
+): Promise<any> {
+  const base = AMAZON_ENDPOINTS.eu;
+  let url = `${base}${path}`;
+  if (queryParams) {
+    const qs = new URLSearchParams(queryParams).toString();
+    url += `?${qs}`;
+  }
+
+  const headers: Record<string, string> = {
+    "x-amz-access-token": token,
+    "Content-Type": "application/json",
+  };
+
+  const response = await fetch(url, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (response.status === 429) {
+    const retryAfter = response.headers.get("Retry-After") || "2";
+    await new Promise((r) => setTimeout(r, parseInt(retryAfter) * 1000));
+    return amazonApiCall(token, method, path, body, queryParams);
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Amazon SP-API error ${response.status}: ${errorText.substring(0, 500)}`);
+  }
+
+  const text = await response.text();
+  return text ? JSON.parse(text) : {};
+}
+
+function getAmazonSellerId(creds: Record<string, string>): string {
+  return creds.seller_id || "";
+}
+
+// ═══════════════════════════════════════════
 // eBay API Client (prepared)
 // ═══════════════════════════════════════════
 
@@ -325,7 +425,7 @@ async function handlePublishListing(
         result = await publishToEbay(supabase, listing);
         break;
       case "amazon":
-        result = { success: false, message: "Amazon SP-API integratie wordt binnenkort toegevoegd. Registreer eerst een SP-API app op Seller Central." };
+        result = await publishToAmazon(supabase, listing);
         break;
       case "marktplaats":
         result = { success: false, message: "Marktplaats API integratie wordt binnenkort toegevoegd. Neem contact op met Marktplaats voor API-credentials." };
@@ -532,6 +632,14 @@ async function handleUnpublishListing(
           await ebayApiCall(token, "DELETE", `/sell/inventory/v1/inventory_item/${listing.platform_data.sku}`);
         }
       }
+    } else if (listing.platform === "amazon" && listing.platform_data?.sku) {
+      const token = await getAmazonToken(supabase);
+      if (token) {
+        const amzCreds = await getCredentials(supabase, "amazon");
+        const sellerId = getAmazonSellerId(amzCreds);
+        const mpId = listing.platform_data?.marketplace_id || AMAZON_MARKETPLACE_IDS.amazon_de;
+        await amazonApiCall(token, "DELETE", `/listings/2021-08-01/items/${sellerId}/${encodeURIComponent(listing.platform_data.sku)}`, undefined, { marketplaceIds: mpId });
+      }
     }
   } catch (error: unknown) {
     console.error("Unpublish platform error:", error);
@@ -577,6 +685,17 @@ async function handleSyncStock(
           availability: { shipToLocationAvailability: { quantity: stock } },
         });
       }
+    } else if (listing.platform === "amazon" && listing.platform_data?.sku) {
+      const token = await getAmazonToken(supabase);
+      if (!token) return jsonResponse({ success: false, message: "Amazon credentials niet geconfigureerd" });
+      const amzCreds = await getCredentials(supabase, "amazon");
+      const sellerId = getAmazonSellerId(amzCreds);
+      const sku = listing.platform_data.sku;
+      const marketplaceIds = Object.values(AMAZON_MARKETPLACE_IDS);
+      await amazonApiCall(token, "PATCH", `/listings/2021-08-01/items/${sellerId}/${encodeURIComponent(sku)}`, {
+        productType: listing.platform_data?.product_type || "PRODUCT",
+        patches: [{ op: "replace", path: "/attributes/fulfillment_availability", value: [{ fulfillment_channel_code: "DEFAULT", quantity: stock }] }],
+      }, { marketplaceIds: marketplaceIds[0] });
     } else {
       return jsonResponse({
         success: false,
@@ -633,6 +752,19 @@ async function handleSyncPrice(
           pricingSummary: { price: { value: String(price), currency: "EUR" } },
         });
       }
+    } else if (listing.platform === "amazon" && listing.platform_data?.sku) {
+      const token = await getAmazonToken(supabase);
+      if (!token) return jsonResponse({ success: false, message: "Amazon credentials niet geconfigureerd" });
+      const amzCreds = await getCredentials(supabase, "amazon");
+      const sellerId = getAmazonSellerId(amzCreds);
+      const sku = listing.platform_data.sku;
+      const channel = listing.platform_data?.channel || "amazon_de";
+      const mpId = AMAZON_MARKETPLACE_IDS[channel] || AMAZON_MARKETPLACE_IDS.amazon_de;
+      const currency = channel === "amazon_uk" ? "GBP" : (channel === "amazon_se" ? "SEK" : "EUR");
+      await amazonApiCall(token, "PATCH", `/listings/2021-08-01/items/${sellerId}/${encodeURIComponent(sku)}`, {
+        productType: listing.platform_data?.product_type || "PRODUCT",
+        patches: [{ op: "replace", path: "/attributes/purchasable_offer", value: [{ our_price: [{ schedule: [{ value_with_tax: price }], currency }], marketplace_id: mpId }] }],
+      }, { marketplaceIds: mpId });
     } else {
       return jsonResponse({
         success: false,
@@ -728,6 +860,8 @@ async function handleFetchOrders(
         return await fetchBolComOrders(supabase);
       case "ebay":
         return await fetchEbayOrders(supabase, body.account_label);
+      case "amazon":
+        return await fetchAmazonOrders(supabase);
       default:
         return jsonResponse({
           success: false,
@@ -1090,6 +1224,221 @@ async function fetchEbayOrders(supabase: any, accountLabel?: string | null): Pro
 }
 
 // ═══════════════════════════════════════════
+// Amazon SP-API Operations
+// ═══════════════════════════════════════════
+
+async function publishToAmazon(supabase: any, listing: any): Promise<any> {
+  const token = await getAmazonToken(supabase);
+  if (!token) {
+    return { success: false, message: "Amazon SP-API credentials niet geconfigureerd. Voer Client ID, Client Secret, Refresh Token en Seller ID in via Marktplaatsen → Amazon." };
+  }
+
+  const amzCreds = await getCredentials(supabase, "amazon");
+  const sellerId = getAmazonSellerId(amzCreds);
+  if (!sellerId) return { success: false, message: "Seller ID ontbreekt in Amazon credentials" };
+
+  const product = listing.product_catalogus;
+  const sku = product?.artikelnummer || `VTZ-${listing.product_id}`;
+  const channel = listing.kanaal || "amazon_de";
+  const mpId = AMAZON_MARKETPLACE_IDS[channel] || AMAZON_MARKETPLACE_IDS.amazon_de;
+  const currency = channel === "amazon_uk" ? "GBP" : (channel === "amazon_se" ? "SEK" : "EUR");
+
+  const listingBody: Record<string, any> = {
+    productType: "PRODUCT",
+    requirements: "LISTING",
+    attributes: {
+      condition_type: [{ value: "new_new", marketplace_id: mpId }],
+      merchant_suggested_asin: product?.ean_code ? [{ value: product.ean_code, marketplace_id: mpId }] : undefined,
+      item_name: [{ value: product?.naam || listing.extern_title || sku, language_tag: channel === "amazon_uk" ? "en_GB" : (channel === "amazon_fr" ? "fr_FR" : (channel === "amazon_it" ? "it_IT" : (channel === "amazon_es" ? "es_ES" : "de_DE"))), marketplace_id: mpId }],
+      purchasable_offer: [{ our_price: [{ schedule: [{ value_with_tax: listing.prijs || product?.prijs || 0 }], currency }], marketplace_id: mpId }],
+      fulfillment_availability: [{ fulfillment_channel_code: "DEFAULT", quantity: 0, marketplace_id: mpId }],
+    },
+  };
+
+  // Remove undefined attributes
+  Object.keys(listingBody.attributes).forEach((k) => {
+    if (listingBody.attributes[k] === undefined) delete listingBody.attributes[k];
+  });
+
+  const result = await amazonApiCall(
+    token, "PUT",
+    `/listings/2021-08-01/items/${sellerId}/${encodeURIComponent(sku)}`,
+    listingBody,
+    { marketplaceIds: mpId }
+  );
+
+  const status = result.status === "ACCEPTED" ? "actief" : "concept";
+
+  await supabase.from("marketplace_listings").update({
+    extern_id: sku,
+    status,
+    laatste_sync: new Date().toISOString(),
+    sync_fout: result.status === "ACCEPTED" ? null : JSON.stringify(result.issues || []),
+    platform_data: {
+      ...listing.platform_data,
+      sku,
+      seller_id: sellerId,
+      marketplace_id: mpId,
+      channel,
+      product_type: "PRODUCT",
+      submission_id: result.submissionId,
+      submission_status: result.status,
+      issues: result.issues || [],
+    },
+  }).eq("id", listing.id);
+
+  const issueCount = (result.issues || []).length;
+  return {
+    success: result.status === "ACCEPTED",
+    message: result.status === "ACCEPTED"
+      ? `Amazon listing aangemaakt (SKU: ${sku})`
+      : `Amazon listing ingediend maar ${issueCount} probleem(en) gemeld. Controleer Seller Central.`,
+    sku,
+    status: result.status,
+    issues: result.issues,
+  };
+}
+
+async function fetchAmazonOrders(supabase: any): Promise<Response> {
+  const token = await getAmazonToken(supabase);
+  if (!token) {
+    return jsonResponse({ success: false, message: "Amazon SP-API credentials niet geconfigureerd" });
+  }
+
+  const allMarketplaceIds = Object.values(AMAZON_MARKETPLACE_IDS);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  let imported = 0;
+  let totalFound = 0;
+  const errors: string[] = [];
+  let nextToken: string | null = null;
+
+  // Fetch orders across all EU marketplaces
+  let hasMore = true;
+  while (hasMore) {
+    try {
+      const params: Record<string, string> = nextToken
+        ? { NextToken: nextToken }
+        : {
+            MarketplaceIds: allMarketplaceIds.join(","),
+            CreatedAfter: thirtyDaysAgo,
+            OrderStatuses: "Unshipped,PartiallyShipped,Shipped",
+          };
+
+      const resp = await amazonApiCall(token, "GET", "/orders/v0/getOrders", undefined, params);
+      const orders = resp.payload?.Orders || [];
+      nextToken = resp.payload?.NextToken || null;
+      hasMore = !!nextToken;
+      totalFound += orders.length;
+
+      for (const order of orders) {
+        try {
+          const orderId = order.AmazonOrderId;
+
+          const { data: existing } = await supabase
+            .from("marketplace_orders")
+            .select("id, verzend_straat")
+            .eq("platform", "amazon")
+            .eq("extern_order_id", orderId)
+            .maybeSingle();
+
+          if (existing && existing.verzend_straat) continue;
+
+          // Fetch order items
+          let orderItems: any[] = [];
+          try {
+            // Throttle: Amazon requires 200ms between getOrderItems calls
+            await new Promise((r) => setTimeout(r, 250));
+            const itemsResp = await amazonApiCall(token, "GET", `/orders/v0/getOrders/${orderId}/orderItems`);
+            orderItems = itemsResp.payload?.OrderItems || [];
+          } catch (itemErr: unknown) {
+            errors.push(`Order items ${orderId}: ${getErrorMessage(itemErr)}`);
+          }
+
+          const sa = order.ShippingAddress || {};
+          const firstItem = orderItems[0] || {};
+          const totalAmount = parseFloat(order.OrderTotal?.Amount || "0");
+          const totalQuantity = orderItems.reduce((sum: number, i: any) => sum + (i.QuantityOrdered || 1), 0);
+
+          let internalStatus = "nieuw";
+          if (order.OrderStatus === "Shipped") internalStatus = "verzonden";
+          else if (order.OrderStatus === "Canceled") internalStatus = "geannuleerd";
+
+          const mpId = order.MarketplaceId || "";
+          const channelEntry = Object.entries(AMAZON_MARKETPLACE_IDS).find(([, id]) => id === mpId);
+          const channelCode = channelEntry ? channelEntry[0] : "amazon";
+
+          const record: Record<string, any> = {
+            platform: "amazon",
+            extern_order_id: orderId,
+            status: internalStatus,
+            klant_naam: (sa.Name || "").trim(),
+            klant_email: order.BuyerInfo?.BuyerEmail || null,
+
+            verzend_straat: sa.AddressLine1 || null,
+            verzend_huisnummer: sa.AddressLine2 || null,
+            verzend_postcode: sa.PostalCode || null,
+            verzend_stad: sa.City || null,
+            verzend_land: sa.CountryCode || null,
+
+            besteld_op: order.PurchaseDate || null,
+            uiterste_leverdatum: order.LatestDeliveryDate || order.LatestShipDate || null,
+            fulfillment_methode: order.FulfillmentChannel || null,
+
+            totaal: totalAmount,
+            aantal_items: orderItems.length,
+            product_titel: firstItem.Title || null,
+            product_hoeveelheid: totalQuantity,
+            stukprijs: firstItem.ItemPrice ? parseFloat(firstItem.ItemPrice.Amount || "0") / (firstItem.QuantityOrdered || 1) : null,
+            product_ean: firstItem.SellerSKU || null,
+
+            order_items: orderItems.map((item: any) => ({
+              asin: item.ASIN,
+              sku: item.SellerSKU,
+              title: item.Title,
+              quantity: item.QuantityOrdered,
+              quantityShipped: item.QuantityShipped,
+              unitPrice: item.ItemPrice ? parseFloat(item.ItemPrice.Amount || "0") / (item.QuantityOrdered || 1) : 0,
+              totalPrice: item.ItemPrice ? parseFloat(item.ItemPrice.Amount || "0") : 0,
+            })),
+            order_data: { ...order, channel: channelCode, marketplace_id: mpId },
+          };
+
+          if (existing) {
+            await supabase.from("marketplace_orders").update(record).eq("id", existing.id);
+          } else {
+            await supabase.from("marketplace_orders").insert(record);
+          }
+          imported++;
+        } catch (orderErr: unknown) {
+          errors.push(`Order ${order.AmazonOrderId}: ${getErrorMessage(orderErr)}`);
+        }
+      }
+
+      // Throttle between pages
+      if (hasMore) await new Promise((r) => setTimeout(r, 500));
+    } catch (pageErr: unknown) {
+      errors.push(`Orders page: ${getErrorMessage(pageErr)}`);
+      hasMore = false;
+    }
+  }
+
+  await logSync(supabase, "amazon", "order_import", null, {
+    success: true,
+    total_from_api: totalFound,
+    new_imported: imported,
+    errors: errors.length > 0 ? errors : undefined,
+  });
+
+  return jsonResponse({
+    success: true,
+    message: `${imported} nieuwe/bijgewerkte order(s) van ${totalFound} totaal`,
+    imported,
+    total: totalFound,
+    errors: errors.length > 0 ? errors : undefined,
+  });
+}
+
+// ═══════════════════════════════════════════
 // eBay Controlled Write Operations (Fase 2)
 // ═══════════════════════════════════════════
 
@@ -1385,6 +1734,201 @@ async function handlePublishToEbay(
     });
     return jsonResponse({ success: false, message: msg }, 500);
   }
+}
+
+// ═══════════════════════════════════════════
+// Amazon Test & Import
+// ═══════════════════════════════════════════
+
+async function handleAmazonTestConnection(supabase: any): Promise<Response> {
+  try {
+    const token = await getAmazonToken(supabase);
+    if (!token) {
+      return jsonResponse({ success: false, message: "Amazon credentials ontbreken of zijn ongeldig. Controleer Client ID, Client Secret en Refresh Token." });
+    }
+
+    const amzCreds = await getCredentials(supabase, "amazon");
+    const sellerId = getAmazonSellerId(amzCreds);
+    if (!sellerId) {
+      return jsonResponse({ success: false, message: "Seller ID ontbreekt in Amazon credentials" });
+    }
+
+    // Test by fetching marketplace participations
+    const participations = await amazonApiCall(token, "GET", "/sellers/v1/marketplaceParticipations");
+    const mpList = (participations.payload || []).map((p: any) => ({
+      id: p.marketplace?.id,
+      name: p.marketplace?.name,
+      country: p.marketplace?.countryCode,
+      participating: p.participation?.isParticipating,
+    }));
+
+    return jsonResponse({
+      success: true,
+      message: `Verbinding gelukt! ${mpList.length} marktplaats(en) gevonden.`,
+      seller_id: sellerId,
+      marketplaces: mpList,
+    });
+  } catch (error: unknown) {
+    return jsonResponse({ success: false, message: getErrorMessage(error) }, 500);
+  }
+}
+
+async function handleAmazonImportListings(supabase: any, body: RequestBody): Promise<Response> {
+  const token = await getAmazonToken(supabase);
+  if (!token) return jsonResponse({ success: false, message: "Amazon credentials niet geconfigureerd" });
+
+  const amzCreds = await getCredentials(supabase, "amazon");
+  const sellerId = getAmazonSellerId(amzCreds);
+  if (!sellerId) return jsonResponse({ success: false, message: "Seller ID ontbreekt" });
+
+  const targetChannel = body.account_label || "amazon_de";
+  const mpId = AMAZON_MARKETPLACE_IDS[targetChannel] || AMAZON_MARKETPLACE_IDS.amazon_de;
+
+  let imported = 0;
+  let updated = 0;
+  let totalFound = 0;
+  const errors: string[] = [];
+
+  // Use Catalog Items API to search seller's listings via Reports API
+  // Fallback: use Listings API with known SKUs, or Reports API
+  // Best approach: create GET_MERCHANT_LISTINGS_DATA report
+  try {
+    const reportBody = {
+      reportType: "GET_MERCHANT_LISTINGS_DATA",
+      marketplaceIds: [mpId],
+    };
+
+    const reportResp = await amazonApiCall(token, "POST", "/reports/2021-06-30/reports", reportBody);
+    const reportId = reportResp.reportId;
+
+    if (!reportId) {
+      return jsonResponse({ success: false, message: "Kon geen rapport aanmaken" });
+    }
+
+    // Poll for report completion (max ~60s)
+    let reportDocId: string | null = null;
+    for (let i = 0; i < 15; i++) {
+      await new Promise((r) => setTimeout(r, 4000));
+      const statusResp = await amazonApiCall(token, "GET", `/reports/2021-06-30/reports/${reportId}`);
+
+      if (statusResp.processingStatus === "DONE") {
+        reportDocId = statusResp.reportDocumentId;
+        break;
+      }
+      if (statusResp.processingStatus === "CANCELLED" || statusResp.processingStatus === "FATAL") {
+        return jsonResponse({ success: false, message: `Amazon rapport mislukt: ${statusResp.processingStatus}` });
+      }
+    }
+
+    if (!reportDocId) {
+      return jsonResponse({ success: false, message: "Amazon rapport niet binnen 60 seconden klaar. Probeer later opnieuw." });
+    }
+
+    // Download report document
+    const docResp = await amazonApiCall(token, "GET", `/reports/2021-06-30/documents/${reportDocId}`);
+    const downloadUrl = docResp.url;
+    if (!downloadUrl) {
+      return jsonResponse({ success: false, message: "Kon rapport niet downloaden" });
+    }
+
+    const reportFetch = await fetch(downloadUrl);
+    const reportText = await reportFetch.text();
+    const lines = reportText.split("\n").filter((l) => l.trim());
+
+    if (lines.length <= 1) {
+      return jsonResponse({ success: true, message: "Geen actieve listings gevonden op deze marktplaats", imported: 0, total: 0 });
+    }
+
+    const headerLine = lines[0].split("\t");
+    const headerMap: Record<string, number> = {};
+    headerLine.forEach((col, idx) => { headerMap[col.trim().toLowerCase().replace(/-/g, "_")] = idx; });
+
+    const getCol = (row: string[], key: string): string => {
+      const idx = headerMap[key];
+      return idx !== undefined ? (row[idx] || "").trim() : "";
+    };
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split("\t");
+      if (cols.length < 3) continue;
+      totalFound++;
+
+      try {
+        const sku = getCol(cols, "seller_sku");
+        const asin = getCol(cols, "asin1") || getCol(cols, "asin");
+        const title = getCol(cols, "item_name") || getCol(cols, "item_description");
+        const price = parseFloat(getCol(cols, "price") || "0");
+        const quantity = parseInt(getCol(cols, "quantity") || "0", 10);
+        const status = getCol(cols, "status") || getCol(cols, "listing_id") ? "actief" : "concept";
+        const openDate = getCol(cols, "open_date");
+
+        if (!sku) continue;
+
+        const { data: existing } = await supabase
+          .from("marketplace_listings")
+          .select("id")
+          .eq("platform", "amazon")
+          .eq("ebay_sku", sku)
+          .maybeSingle();
+
+        const record: Record<string, any> = {
+          platform: "amazon",
+          ebay_sku: sku,
+          extern_id: asin || sku,
+          extern_url: asin ? `https://www.amazon.de/dp/${asin}` : null,
+          extern_title: title,
+          extern_quantity: quantity,
+          status,
+          prijs: price || null,
+          taal: targetChannel.replace("amazon_", ""),
+          account_label: targetChannel,
+          laatste_sync: new Date().toISOString(),
+          sync_fout: null,
+          platform_data: {
+            sku,
+            asin,
+            seller_id: sellerId,
+            marketplace_id: mpId,
+            channel: targetChannel,
+            product_type: "PRODUCT",
+            open_date: openDate,
+          },
+        };
+
+        if (existing) {
+          await supabase.from("marketplace_listings").update(record).eq("id", existing.id);
+          updated++;
+        } else {
+          record.product_id = null;
+          record.match_status = "unmatched";
+          await supabase.from("marketplace_listings").insert(record);
+          imported++;
+        }
+      } catch (rowErr: unknown) {
+        errors.push(`Rij ${i}: ${getErrorMessage(rowErr)}`);
+      }
+    }
+  } catch (reportErr: unknown) {
+    errors.push(getErrorMessage(reportErr));
+  }
+
+  await logSync(supabase, "amazon", "import_listings", null, {
+    success: true,
+    channel: targetChannel,
+    total: totalFound,
+    imported,
+    updated,
+    errors: errors.length > 0 ? errors : undefined,
+  });
+
+  return jsonResponse({
+    success: true,
+    message: `${imported} nieuwe listing(s) geïmporteerd, ${updated} bijgewerkt van ${totalFound} totaal`,
+    imported,
+    updated,
+    total: totalFound,
+    errors: errors.length > 0 ? errors : undefined,
+  });
 }
 
 // ═══════════════════════════════════════════
