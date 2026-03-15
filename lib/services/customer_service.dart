@@ -322,41 +322,50 @@ class CustomerService {
     if (ids.isEmpty) return customers;
 
     try {
-      // Fetch invoice numbers by klant_id (raise limit for large customer sets)
-      final List<dynamic> byIdRows = await _client
-          .from('orders')
-          .select('klant_id, factuur_nummer')
-          .inFilter('klant_id', ids)
-          .not('factuur_nummer', 'is', null)
-          .order('factuur_nummer', ascending: false)
-          .limit(5000);
-
       final byKlant = <String, List<String>>{};
-      for (final row in byIdRows.cast<Map<String, dynamic>>()) {
-        final klantId = row['klant_id'] as String?;
-        final nr = row['factuur_nummer'] as String?;
-        if (klantId != null && nr != null && nr.isNotEmpty) {
-          byKlant.putIfAbsent(klantId, () => []).add(nr);
+
+      // Batch the inFilter to avoid URL length limits (max ~100 UUIDs per batch)
+      for (int i = 0; i < ids.length; i += 100) {
+        final batch = ids.sublist(i, i + 100 > ids.length ? ids.length : i + 100);
+        final List<dynamic> byIdRows = await _client
+            .from('orders')
+            .select('klant_id, factuur_nummer')
+            .inFilter('klant_id', batch)
+            .not('factuur_nummer', 'is', null)
+            .order('factuur_nummer', ascending: false)
+            .limit(5000);
+
+        for (final row in byIdRows.cast<Map<String, dynamic>>()) {
+          final klantId = row['klant_id'] as String?;
+          final nr = row['factuur_nummer'] as String?;
+          if (klantId != null && nr != null && nr.isNotEmpty) {
+            byKlant.putIfAbsent(klantId, () => []).add(nr);
+          }
         }
       }
 
-      // For customers without results, also try matching by email
+      // For customers without results, also try matching by email (batched)
       final noResults = customers.where((c) => c.id != null && !byKlant.containsKey(c.id) && c.email.isNotEmpty).toList();
       if (noResults.isNotEmpty) {
-        final emails = noResults.map((c) => c.email.toLowerCase()).toList();
-        final List<dynamic> byEmailRows = await _client
-            .from('orders')
-            .select('user_email, factuur_nummer')
-            .inFilter('user_email', emails)
-            .not('factuur_nummer', 'is', null)
-            .order('factuur_nummer', ascending: false);
-
         final byEmail = <String, List<String>>{};
-        for (final row in byEmailRows.cast<Map<String, dynamic>>()) {
-          final email = (row['user_email'] as String?)?.toLowerCase();
-          final nr = row['factuur_nummer'] as String?;
-          if (email != null && nr != null && nr.isNotEmpty) {
-            byEmail.putIfAbsent(email, () => []).add(nr);
+        final emails = noResults.map((c) => c.email.toLowerCase()).toList();
+
+        for (int i = 0; i < emails.length; i += 100) {
+          final batch = emails.sublist(i, i + 100 > emails.length ? emails.length : i + 100);
+          final List<dynamic> byEmailRows = await _client
+              .from('orders')
+              .select('user_email, factuur_nummer')
+              .inFilter('user_email', batch)
+              .not('factuur_nummer', 'is', null)
+              .order('factuur_nummer', ascending: false)
+              .limit(5000);
+
+          for (final row in byEmailRows.cast<Map<String, dynamic>>()) {
+            final email = (row['user_email'] as String?)?.toLowerCase();
+            final nr = row['factuur_nummer'] as String?;
+            if (email != null && nr != null && nr.isNotEmpty) {
+              byEmail.putIfAbsent(email, () => []).add(nr);
+            }
           }
         }
 

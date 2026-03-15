@@ -74,13 +74,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     final externals = await _service.getExternalNumbers(customer.id!);
     List<Order> orders = [];
     try {
-      final allOrders = await _orderService.fetchOrders(adminView: true);
-      final email = customer.email.toLowerCase();
-      final id = customer.id;
-      orders = allOrders.where((o) =>
-        o.userEmail.toLowerCase() == email ||
-        (id != null && o.klantId == id)
-      ).toList();
+      orders = await _orderService.fetchOrdersForCustomer(
+        klantId: customer.id,
+        email: customer.email,
+      );
     } catch (_) {}
 
     if (!mounted) return;

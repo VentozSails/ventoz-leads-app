@@ -421,6 +421,25 @@ class OrderService {
     return orders;
   }
 
+  Future<List<Order>> fetchOrdersForCustomer({required String? klantId, required String? email}) async {
+    if (klantId == null && (email == null || email.isEmpty)) return [];
+    try {
+      final filters = <String>[];
+      if (klantId != null) filters.add('klant_id.eq.$klantId');
+      if (email != null && email.isNotEmpty) filters.add('user_email.ilike.${email.toLowerCase()}');
+
+      final List<dynamic> rows = await _client.from(_ordersTable)
+          .select()
+          .or(filters.join(','))
+          .order('created_at', ascending: false);
+
+      return rows.map((r) => Order.fromJson(r as Map<String, dynamic>)).toList();
+    } catch (e) {
+      if (kDebugMode) debugPrint('fetchOrdersForCustomer error: $e');
+      return [];
+    }
+  }
+
   Future<Order?> fetchOrder(String orderId) async {
     try {
       final row = await _client.from(_ordersTable)
